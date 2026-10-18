@@ -18,7 +18,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-        - name: Extract Android project
+      - name: Extract Android project
         run: |
           unzip -o APEX-Android-GitHub-Upload.zip -d .
 
