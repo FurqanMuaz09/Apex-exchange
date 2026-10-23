@@ -261,15 +261,16 @@ document.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("#loginBtn")) {
-    notify("Authentication is not connected yet.");
+    window.dispatchEvent(new Event("apex-login-request"));
     return;
   }
 
   if (event.target.closest("#placeOrder")) {
-    notify("Order placement is disabled until secure Testnet order integration is configured.");
-  }
+  notify("Order submission is not enabled yet. Backend authentication and server-side validation are required before trading.");
+  return;
+}
 
-  if (event.target.closest("#hideBalance")) {
+if (event.target.closest("#hideBalance")) {
     const balance = $("balance");
     if (balance) {
       balance.dataset.hidden = balance.dataset.hidden !== "true";
