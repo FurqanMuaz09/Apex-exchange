@@ -1,8 +1,11 @@
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-initializeApp({ credential: cert(require("./secrets/serviceAccountKey.json")) });
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+  : require("./secrets/serviceAccountKey.json");
+initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
 const express = require("express");
 const cors = require("cors");
