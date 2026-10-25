@@ -9,6 +9,66 @@ let currentPair = "BTCUSDT";
 let currentSide = "BUY";
 let refreshTimer;
 
+const APEX_BACKEND = "https://apex-exchange-backend.hostless.app";
+
+async function submitApexOrder() {
+  try {
+    const user = window.apexUser;
+    if (!user || !window.apexGetIdToken) {
+      notify("Pehle login karo.");
+      window.dispatchEvent(new Event("apex-login-request"));
+      return;
+    }
+
+    const amount = Number($("orderAmount")?.value || 0);
+    const price = Number($("orderPrice")?.value || 0);
+    const orderType = String($("orderType")?.value || "Market").toUpperCase();
+    const marketPrice = Number($("tradePrice")?.textContent?.replace(/[^0-9.]/g, "") || 0);
+    const effectivePrice = orderType === "LIMIT" ? price : marketPrice;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      notify("Valid order amount enter karo.");
+      return;
+    }
+
+    if (orderType === "STOP-LIMIT") { notify("Stop-limit abhi supported nahi; Market ya Limit chuno."); return; }
+
+    if (orderType === "LIMIT" && (!Number.isFinite(price) || price <= 0)) {
+      notify("Limit price enter karo.");
+      return;
+    }
+
+    if (!Number.isFinite(effectivePrice) || effectivePrice <= 0) {
+      notify("Price abhi available nahi; dobara try karo.");
+      return;
+    }
+
+    const quantity = amount.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
+    const token = await window.apexGetIdToken();
+    const response = await fetch(`${APEX_BACKEND}/api/order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        symbol: currentPair,
+        side: currentSide,
+        type: orderType,
+        quantity,
+        ...(orderType === "LIMIT" ? { price: String(price) } : {})
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Order failed");
+    notify(`Testnet order status: ${result.order?.status || "submitted"}`);
+  } catch (error) {
+    console.error("APEX order failed:", error);
+    notify(error.message || "Order submit nahi hua.");
+  }
+}
+
 function notify(message) {
   const toast = $("toast");
   if (!toast) {
@@ -266,9 +326,9 @@ document.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("#placeOrder")) {
-  notify("Order submission is not enabled yet. Backend authentication and server-side validation are required before trading.");
-  return;
-}
+    submitApexOrder();
+    return;
+  }
 
 if (event.target.closest("#hideBalance")) {
     const balance = $("balance");
