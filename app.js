@@ -159,8 +159,9 @@ const name = document.createElement("span");
 name.style.cssText = "display:flex;align-items:center;gap:8px";
 if (coin.logo) {
  const img = document.createElement("img");
- img.src = coin.logo; img.alt = coin.symbol; img.width = 30; img.height = 30;
- img.onerror = () => img.remove(); name.appendChild(img);
+ img.alt = coin.symbol; img.width = 30; img.height = 30;
+ let ix=0; img.onerror=()=>{ix++;if(ix<coin.logos.length)img.src=coin.logos[ix];else img.remove();};
+ img.src=coin.logos[0]; name.appendChild(img);
 }
 const labels = document.createElement("span");
 labels.style.cssText = "display:flex;flex-direction:column";
@@ -241,10 +242,14 @@ const APEX_COINS = {
 function apexCoinInfo(asset) {
  const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
  const info = APEX_COINS[symbol];
+ const slug = info ? info[1] : symbol.toLowerCase();
  return {
    symbol,
    name: info ? info[0] : symbol,
-   logo: "https://assets.coincap.io/assets/icons/" + symbol.toLowerCase() + "@2x.png"
+   logos: [
+     "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/" + slug + ".png",
+     "https://assets.coincap.io/assets/icons/" + symbol.toLowerCase() + "@2x.png"
+   ]
  };
 }
 
@@ -255,7 +260,7 @@ function makeMarketRow(item) {
  const coin=apexCoinInfo(item.symbol);
  const asset=document.createElement("span");
  asset.style.cssText="display:flex;align-items:center;gap:8px";
- if(coin.logo){const img=document.createElement("img");img.src=coin.logo;img.alt=coin.symbol;img.width=30;img.height=30;img.onerror=()=>img.remove();asset.appendChild(img);}
+ if(coin.logo){const img=document.createElement("img");img.alt=coin.symbol;img.width=30;img.height=30;let ix=0;img.onerror=()=>{ix++;if(ix<coin.logos.length)img.src=coin.logos[ix];else img.remove();};img.src=coin.logos[0];asset.appendChild(img);}
  const labels=document.createElement("span");labels.style.cssText="display:flex;flex-direction:column";
  const ticker=document.createElement("strong");ticker.textContent=coin.symbol;
  const fullname=document.createElement("small");fullname.textContent=coin.name;fullname.style.color="#929aa5";
