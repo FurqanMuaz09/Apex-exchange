@@ -109,6 +109,101 @@ function setColor(el, value) {
   el.style.color = Number(value) >= 0 ? "#0ecb81" : "#f6465d";
 }
 
+
+async function apexPrivateGet(path) {
+  if (!window.apexUser || !window.apexGetIdToken) {
+    throw new Error("Please log in first.");
+  }
+  const token = await window.apexGetIdToken();
+  const response = await fetch(`${APEX_BACKEND}${path}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Backend request failed.");
+  return data;
+}
+
+async function loadApexAccount() {
+  const balanceEl = $("balance");
+  const assetSection = $("assets");
+  if (!window.apexUser) {
+    if (balanceEl) balanceEl.innerHTML = 'Log in to view <small>USDT</small>';
+    const total = assetSection?.querySelector("[data-wallet-total]");
+    if (total) total.textContent = "Log in to view";
+    const list = $("walletAssetList");
+    if (list) list.textContent = "Log in to view Testnet balances.";
+    return;
+  }
+  try {
+    const data = await apexPrivateGet("/api/account");
+    const balances = (data.balances || []).filter(x =>
+      Number(x.free) > 0 || Number(x.locked) > 0
+    );
+    const total = balances.reduce((sum, x) => {
+      const ticker = marketData.find(m => m.symbol === `${x.asset}USDT`);
+      return sum + (ticker ? (Number(x.free) + Number(x.locked)) * Number(ticker.lastPrice) : 0);
+    }, 0);
+    if (balanceEl) balanceEl.innerHTML = `${money(total)} <small>USDT*</small>`;
+    const totalEl = assetSection?.querySelector("[data-wallet-total]");
+    if (totalEl) totalEl.textContent = `${money(total)} USDT*`;
+    const list = $("walletAssetList");
+    if (list) {
+      list.replaceChildren();
+      if (!balances.length) list.textContent = "No funded Testnet assets yet.";
+      balances.forEach(x => {
+        const row = document.createElement("div");
+        row.className = "market-row";
+        row.style.cssText = "display:flex;justify-content:space-between;padding:12px 8px;border-bottom:1px solid #292d35";
+        const name = document.createElement("strong");
+        name.textContent = x.asset;
+        const qty = document.createElement("span");
+        qty.textContent = `${Number(x.free)} available · ${Number(x.locked)} locked`;
+        row.append(name, qty);
+        list.appendChild(row);
+      });
+    }
+  } catch (e) {
+    console.error(e);
+    if (balanceEl) balanceEl.innerHTML = 'Balance unavailable <small>USDT</small>';
+    const list = $("walletAssetList");
+    if (list) list.textContent = e.message;
+  }
+}
+
+$("refreshHistory")?.addEventListener("click", loadApexOrderHistory);
+
+async function loadApexOrderHistory() {
+  const box = $("orderHistoryList");
+  if (!box) return;
+  setText("historyPair", currentPair);
+  if (!window.apexUser) {
+    box.textContent = "Log in to view Testnet order history.";
+    return;
+  }
+  try {
+    const data = await apexPrivateGet(`/api/orders?symbol=${encodeURIComponent(currentPair)}`);
+    box.replaceChildren();
+    const orders = (data.orders || []).slice().reverse();
+    if (!orders.length) {
+      box.textContent = `No ${currentPair} orders found on Testnet.`;
+      return;
+    }
+    orders.forEach(o => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;justify-content:space-between;gap:8px;padding:12px 4px;border-bottom:1px solid #292d35";
+      const left = document.createElement("span");
+      left.textContent = `${o.side} ${o.type} · ${o.symbol}`;
+      const right = document.createElement("span");
+      right.textContent = `${o.status} · ${o.origQty}`;
+      row.append(left, right);
+      box.appendChild(row);
+    });
+  } catch (e) {
+    console.error(e);
+    box.textContent = e.message;
+  }
+}
+
 function showPage(name) {
   const pages = document.querySelectorAll(".page");
   pages.forEach((page) => page.classList.toggle("active", page.id === name));
@@ -117,7 +212,8 @@ function showPage(name) {
     button.classList.toggle("active", button.dataset.tab === name);
   });
 
-  if (name === "trade") refreshTrade();
+  if (name === "trade") { refreshTrade(); loadApexOrderHistory(); }
+  if (name === "assets" || name === "home") loadApexAccount();
 }
 
 function makeMarketRow(item) {
@@ -285,6 +381,26 @@ function updateTotal() {
     : "Market price loading…";
 }
 
+function updatePriceVisibility() {
+  const isLimit = String($("orderType")?.value || "").toUpperCase() === "LIMIT";
+  const label = $("priceLabel");
+  if (label) label.style.display = isLimit ? "" : "none";
+}
+
+$("placeBuyOrder")?.addEventListener("click", () => {
+  currentSide = "BUY";
+  submitApexOrder();
+});
+$("placeSellOrder")?.addEventListener("click", () => {
+  currentSide = "SELL";
+  submitApexOrder();
+});
+$("orderType")?.addEventListener("change", () => {
+  updatePriceVisibility();
+  updateTotal();
+});
+updatePriceVisibility();
+
 document.addEventListener("click", (event) => {
   const tab = event.target.closest("[data-tab]");
   if (tab) {
@@ -347,12 +463,6 @@ if (event.target.closest("#hideBalance")) {
 $("marketSearch")?.addEventListener("input", renderMarkets);
 $("orderAmount")?.addEventListener("input", updateTotal);
 $("orderPrice")?.addEventListener("input", updateTotal);
-$("orderType")?.addEventListener("change", () => {
-  const label = $("priceLabel");
-  if (label) label.style.display = $("orderType").value === "Market" ? "none" : "";
-  updateTotal();
-});
-
 document.querySelectorAll("[data-interval]").forEach((button) => {
   button.addEventListener("click", async () => {
     document.querySelectorAll("[data-interval]").forEach((b) =>
@@ -398,3 +508,5 @@ refreshTimer = setInterval(() => {
   refreshMarkets();
   if ($("trade")?.classList.contains("active")) refreshTrade();
 }, 15000);
+
+window.addEventListener("apex-auth-changed", () => { loadApexAccount(); loadApexOrderHistory(); });

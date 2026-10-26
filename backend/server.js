@@ -78,7 +78,7 @@ async function signedRequest(method, path, params = {}) {
   return data;
 }
 
-app.get("/api/account", async (_req, res) => {
+app.get("/api/account", requireFirebaseAuth, async (_req, res) => {
   try {
     const account = await signedRequest("GET", "/api/v3/account");
 
@@ -141,6 +141,22 @@ app.put("/api/profile", requireFirebaseAuth, async (req, res) => {
   } catch (error) {
     console.error("Profile save failed:", error.message);
     res.status(500).json({ error: "Could not save profile" });
+  }
+});
+
+app.get("/api/orders", requireFirebaseAuth, async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || "BTCUSDT").toUpperCase();
+    if (!/^[A-Z0-9]{5,20}$/.test(symbol)) {
+      return res.status(400).json({ error: "Invalid symbol." });
+    }
+    const orders = await signedRequest("GET", "/api/v3/allOrders", {
+      symbol,
+      limit: 50
+    });
+    res.json({ mode: "TESTNET ONLY", symbol, orders });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Could not load order history." });
   }
 });
 

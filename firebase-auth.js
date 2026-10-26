@@ -72,6 +72,7 @@ document.getElementById("logoutBtn").onclick = async () => {
 onAuthStateChanged(auth, async (user) => {
   window.apexUser = user;
   window.apexGetIdToken = user ? () => user.getIdToken() : null;
+  window.dispatchEvent(new Event("apex-auth-changed"));
 
   const heading = document.querySelector("#profile .profile-head h2");
   const detail = document.querySelector("#profile .profile-head p");
