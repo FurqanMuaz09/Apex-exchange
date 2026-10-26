@@ -230,47 +230,79 @@ function showPage(name) {
 
 
 const APEX_COINS = {
- BTC:["Bitcoin","btc"], ETH:["Ethereum","eth"], BNB:["BNB","bnb"],
- SOL:["Solana","sol"], XRP:["XRP","xrp"], ADA:["Cardano","ada"],
- DOGE:["Dogecoin","doge"], TRX:["TRON","trx"], TON:["Toncoin","ton"],
- LTC:["Litecoin","ltc"], DOT:["Polkadot","dot"], LINK:["Chainlink","link"],
- BCH:["Bitcoin Cash","bch"], AVAX:["Avalanche","avax"], SHIB:["Shiba Inu","shib"],
- UNI:["Uniswap","uni"], XLM:["Stellar","xlm"], ATOM:["Cosmos","atom"],
- NEAR:["NEAR Protocol","near"], APT:["Aptos","apt"], SUI:["Sui","sui"],
- FIL:["Filecoin","fil"], ETC:["Ethereum Classic","etc"]
+BTC:["Bitcoin","btc"], ETH:["Ethereum","eth"], BNB:["BNB","bnb"],
+SOL:["Solana","sol"], XRP:["XRP","xrp"], ADA:["Cardano","ada"],
+DOGE:["Dogecoin","doge"], TRX:["TRON","trx"], TON:["Toncoin","ton"],
+LTC:["Litecoin","ltc"], DOT:["Polkadot","dot"], LINK:["Chainlink","link"],
+BCH:["Bitcoin Cash","bch"], AVAX:["Avalanche","avax"], SHIB:["Shiba Inu","shib"],
+UNI:["Uniswap","uni"], XLM:["Stellar","xlm"], ATOM:["Cosmos","atom"],
+NEAR:["NEAR Protocol","near"], APT:["Aptos","apt"], SUI:["Sui","sui"],
+FIL:["Filecoin","fil"], ETC:["Ethereum Classic","etc"],
+USDT:["Tether","usdt"]
 };
+
 function apexCoinInfo(asset) {
- const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
- const info = APEX_COINS[symbol];
- const slug = info ? info[1] : symbol.toLowerCase();
- return {
-   symbol,
-   name: info ? info[0] : symbol,
-   logos: [
-     "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/" + slug + ".png",
-     "https://assets.coincap.io/assets/icons/" + symbol.toLowerCase() + "@2x.png"
-   ]
- };
+  const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
+  const info = APEX_COINS[symbol] || [symbol, symbol.toLowerCase()];
+  const slug = info[1];
+  return {
+    symbol,
+    name: info[0],
+    logos: [
+      "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/" + slug + ".png",
+      "https://assets.coincap.io/assets/icons/" + symbol.toLowerCase() + "@2x.png",
+      "https://cryptoicons.org/api/icon/" + slug + "/200"
+    ]
+  };
 }
 
 function makeMarketRow(item) {
- const row=document.createElement("button");
- row.type="button"; row.className="market-row";
- row.style.cssText="display:grid;grid-template-columns:1.5fr 1fr .7fr;align-items:center;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
- const coin=apexCoinInfo(item.symbol);
- const asset=document.createElement("span");
- asset.style.cssText="display:flex;align-items:center;gap:8px";
- if(coin.logo){const img=document.createElement("img");img.alt=coin.symbol;img.width=30;img.height=30;let ix=0;img.onerror=()=>{ix++;if(ix<coin.logos.length)img.src=coin.logos[ix];else img.remove();};img.src=coin.logos[0];asset.appendChild(img);}
- const labels=document.createElement("span");labels.style.cssText="display:flex;flex-direction:column";
- const ticker=document.createElement("strong");ticker.textContent=coin.symbol;
- const fullname=document.createElement("small");fullname.textContent=coin.name;fullname.style.color="#929aa5";
- labels.append(ticker,fullname);asset.appendChild(labels);
- const price=document.createElement("span");price.textContent=money(item.lastPrice);
- const change=document.createElement("span");change.textContent=changeText(item.priceChangePercent);change.style.textAlign="right";setColor(change,item.priceChangePercent);
- row.append(asset,price,change);
- row.addEventListener("click",()=>{currentPair=item.symbol;setText("pairName",coin.symbol+"/USDT");setText("tradePrice",money(item.lastPrice));showPage("trade");refreshTrade();});
- return row;
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "market-row";
+  row.style.cssText = "display:grid;grid-template-columns:1.5fr 1fr 1fr;align-items:center;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
+  const coin = apexCoinInfo(item.symbol);
+  const asset = document.createElement("span");
+  asset.style.cssText = "display:flex;align-items:center;gap:8px;min-width:0";
+  const img = document.createElement("img");
+  img.alt = coin.symbol;
+  img.width = 30;
+  img.height = 30;
+  img.style.cssText = "width:30px;height:30px;object-fit:contain;flex-shrink:0";
+  let ix = 0;
+  img.onerror = () => {
+    ix++;
+    if (ix < coin.logos.length) img.src = coin.logos[ix];
+    else img.remove();
+  };
+  img.src = coin.logos[0];
+  asset.appendChild(img);
+  const labels = document.createElement("span");
+  labels.style.cssText = "display:flex;flex-direction:column;min-width:0";
+  const ticker = document.createElement("strong");
+  ticker.textContent = coin.symbol;
+  const fullname = document.createElement("small");
+  fullname.textContent = coin.name;
+  fullname.style.color = "#929aa5";
+  labels.append(ticker, fullname);
+  asset.appendChild(labels);
+  const price = document.createElement("span");
+  price.textContent = money(item.lastPrice);
+  const change = document.createElement("span");
+  change.textContent = changeText(item.priceChangePercent);
+  change.style.textAlign = "right";
+  setColor(change, item.priceChangePercent);
+  row.append(asset, price, change);
+  row.addEventListener("click", () => {
+    currentPair = item.symbol;
+    setText("pairName", coin.symbol + "/USDT");
+    setText("tradePrice", money(item.lastPrice));
+    showPage("trade");
+    refreshTrade();
+  });
+  return row;
 }
+
 function renderMarkets() {
   let items = marketData.filter((item) => item.symbol.endsWith("USDT"));
 
