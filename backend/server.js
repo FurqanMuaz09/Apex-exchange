@@ -146,7 +146,7 @@ app.put("/api/profile", requireFirebaseAuth, async (req, res) => {
 
 app.get("/api/orders", requireFirebaseAuth, async (req, res) => {
   try {
-    const symbol = String(req.query.symbol || "BTCUSDT").toUpperCase();
+    const symbol = String(req.query.symbol || "BTCUSDT").toUpperCase().replace("/", "");
     if (!/^[A-Z0-9]{5,20}$/.test(symbol)) {
       return res.status(400).json({ error: "Invalid symbol." });
     }
