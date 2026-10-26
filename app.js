@@ -154,8 +154,19 @@ async function loadApexAccount() {
         const row = document.createElement("div");
         row.className = "market-row";
         row.style.cssText = "display:flex;justify-content:space-between;padding:12px 8px;border-bottom:1px solid #292d35";
-        const name = document.createElement("strong");
-        name.textContent = x.asset;
+        const coin = apexCoinInfo(x.asset);
+const name = document.createElement("span");
+name.style.cssText = "display:flex;align-items:center;gap:8px";
+if (coin.logo) {
+ const img = document.createElement("img");
+ img.src = coin.logo; img.alt = coin.symbol; img.width = 30; img.height = 30;
+ img.onerror = () => img.remove(); name.appendChild(img);
+}
+const labels = document.createElement("span");
+labels.style.cssText = "display:flex;flex-direction:column";
+const ticker = document.createElement("strong"); ticker.textContent = coin.symbol;
+const fullname = document.createElement("small"); fullname.textContent = coin.name;
+fullname.style.color = "#929aa5"; labels.append(ticker, fullname); name.appendChild(labels);
         const qty = document.createElement("span");
         qty.textContent = `${Number(x.free)} available · ${Number(x.locked)} locked`;
         row.append(name, qty);
@@ -216,40 +227,41 @@ function showPage(name) {
   if (name === "assets" || name === "home") loadApexAccount();
 }
 
-function makeMarketRow(item) {
-  const row = document.createElement("button");
-  row.type = "button";
-  row.className = "market-row";
-  row.style.cssText =
-    "display:grid;grid-template-columns:1.2fr 1fr .7fr;align-items:center;" +
-    "width:100%;padding:13px 8px;border:0;border-bottom:1px solid #292d35;" +
-    "background:transparent;color:inherit;text-align:left;cursor:pointer;";
 
-  const asset = document.createElement("span");
-  asset.innerHTML = `<strong>${item.symbol.replace("USDT", "")}</strong>`;
-  const pair = document.createElement("small");
-  pair.textContent = ` / USDT`;
-  asset.appendChild(pair);
-
-  const price = document.createElement("span");
-  price.textContent = money(item.lastPrice);
-
-  const change = document.createElement("span");
-  change.textContent = changeText(item.priceChangePercent);
-  setColor(change, item.priceChangePercent);
-
-  row.append(asset, price, change);
-  row.addEventListener("click", () => {
-    currentPair = item.symbol;
-    setText("pairName", `${item.symbol.replace("USDT", "")}/USDT`);
-    setText("tradePrice", money(item.lastPrice));
-    showPage("trade");
-    refreshTrade();
-  });
-
-  return row;
+const APEX_COINS = {
+ BTC:["Bitcoin","btc"], ETH:["Ethereum","eth"], BNB:["BNB","bnb"],
+ SOL:["Solana","sol"], XRP:["XRP","xrp"], ADA:["Cardano","ada"],
+ DOGE:["Dogecoin","doge"], TRX:["TRON","trx"], TON:["Toncoin","ton"],
+ LTC:["Litecoin","ltc"], DOT:["Polkadot","dot"], LINK:["Chainlink","link"],
+ BCH:["Bitcoin Cash","bch"], AVAX:["Avalanche","avax"], SHIB:["Shiba Inu","shib"],
+ UNI:["Uniswap","uni"], XLM:["Stellar","xlm"], ATOM:["Cosmos","atom"],
+ NEAR:["NEAR Protocol","near"], APT:["Aptos","apt"], SUI:["Sui","sui"],
+ FIL:["Filecoin","fil"], ETC:["Ethereum Classic","etc"]
+};
+function apexCoinInfo(asset) {
+ const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
+ const info = APEX_COINS[symbol];
+ return {symbol, name:info ? info[0] : symbol, logo:info ? "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/"+info[1]+".png" : ""};
 }
 
+function makeMarketRow(item) {
+ const row=document.createElement("button");
+ row.type="button"; row.className="market-row";
+ row.style.cssText="display:grid;grid-template-columns:1.5fr 1fr .7fr;align-items:center;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
+ const coin=apexCoinInfo(item.symbol);
+ const asset=document.createElement("span");
+ asset.style.cssText="display:flex;align-items:center;gap:8px";
+ if(coin.logo){const img=document.createElement("img");img.src=coin.logo;img.alt=coin.symbol;img.width=30;img.height=30;img.onerror=()=>img.remove();asset.appendChild(img);}
+ const labels=document.createElement("span");labels.style.cssText="display:flex;flex-direction:column";
+ const ticker=document.createElement("strong");ticker.textContent=coin.symbol;
+ const fullname=document.createElement("small");fullname.textContent=coin.name;fullname.style.color="#929aa5";
+ labels.append(ticker,fullname);asset.appendChild(labels);
+ const price=document.createElement("span");price.textContent=money(item.lastPrice);
+ const change=document.createElement("span");change.textContent=changeText(item.priceChangePercent);change.style.textAlign="right";setColor(change,item.priceChangePercent);
+ row.append(asset,price,change);
+ row.addEventListener("click",()=>{currentPair=item.symbol;setText("pairName",coin.symbol+"/USDT");setText("tradePrice",money(item.lastPrice));showPage("trade");refreshTrade();});
+ return row;
+}
 function renderMarkets() {
   let items = marketData.filter((item) => item.symbol.endsWith("USDT"));
 
@@ -257,12 +269,19 @@ function renderMarkets() {
   const query = search ? search.value.trim().toUpperCase() : "";
   if (query) items = items.filter((item) => item.symbol.includes(query));
 
-  if (currentFilter === "Gainers") {
+  if (currentFilter === "Gainers" || currentFilter === "Gainer") {
     items = items.filter((item) => Number(item.priceChangePercent) > 0)
       .sort((a, b) => Number(b.priceChangePercent) - Number(a.priceChangePercent));
-  } else if (currentFilter === "Losers") {
+  } else if (currentFilter === "Losers" || currentFilter === "Loser") {
     items = items.filter((item) => Number(item.priceChangePercent) < 0)
       .sort((a, b) => Number(a.priceChangePercent) - Number(b.priceChangePercent));
+  } else if (currentFilter === "Hot") {
+    items.sort((a, b) => Number(b.quoteVolume) - Number(a.quoteVolume));
+  } else if (currentFilter === "New") {
+    items = items.slice(-30).reverse();
+  } else if (currentFilter === "Favorite") {
+    const favorites = JSON.parse(localStorage.getItem("apexFavorites") || "[]");
+    items = items.filter((item) => favorites.includes(item.symbol));
   } else {
     items.sort((a, b) => Number(b.quoteVolume) - Number(a.quoteVolume));
   }
