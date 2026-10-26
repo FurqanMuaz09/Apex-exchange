@@ -240,17 +240,17 @@ const APEX_COINS = {
  FIL:["Filecoin","fil"], ETC:["Ethereum Classic","etc"]
 };
 function apexCoinInfo(asset) {
- const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
- const info = APEX_COINS[symbol];
- const slug = info ? info[1] : symbol.toLowerCase();
- return {
-   symbol,
-   name: info ? info[0] : symbol,
-   logos: [
-     "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/" + slug + ".png",
-     "https://assets.coincap.io/assets/icons/" + symbol.toLowerCase() + "@2x.png"
-   ]
- };
+  const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
+  const info = APEX_COINS[symbol];
+  const slug = info ? info[1] : symbol.toLowerCase();
+  return {
+    symbol,
+    name: info ? info[0] : symbol,
+    logos: [
+      "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/" + slug + ".png",
+      "https://assets.coincap.io/assets/icons/" + symbol.toLowerCase() + "@2x.png"
+    ]
+  };
 }
 
 function makeMarketRow(item) {
