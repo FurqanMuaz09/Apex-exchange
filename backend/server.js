@@ -188,11 +188,39 @@ app.post("/api/order", orderLimiter, requireFirebaseAuth, async (req, res) => {
       return res.status(400).json({ error: "Invalid quantity" });
     }
 
+    const infoResponse = await fetch(
+      `${BASE}/api/v3/exchangeInfo?symbol=${encodeURIComponent(s)}`
+    );
+    const infoData = await infoResponse.json();
+    if (!infoResponse.ok || !infoData.symbols?.length) {
+      return res.status(400).json({ error: "Invalid or unavailable trading pair" });
+    }
+
+    const filters = infoData.symbols[0].filters || [];
+    const lot = filters.find(f =>
+      f.filterType === (t === "MARKET" ? "MARKET_LOT_SIZE" : "LOT_SIZE")
+      && Number(f.stepSize) > 0
+    ) || filters.find(f => f.filterType === "LOT_SIZE");
+
+    if (!lot) {
+      return res.status(400).json({ error: "Binance quantity filter unavailable" });
+    }
+
+    const step = Number(lot.stepSize);
+    const decimals = (String(lot.stepSize).split(".")[1] || "").replace(/0+$/, "").length;
+    const validQty = Number((Math.floor((Number(quantity) + step * 1e-8) / step) * step).toFixed(decimals));
+
+    if (validQty < Number(lot.minQty)) {
+      return res.status(400).json({
+        error: `Quantity too small. Minimum for ${s} is ${lot.minQty}`
+      });
+    }
+
     const params = {
       symbol: s,
       side: sd,
       type: t,
-      quantity: String(quantity)
+      quantity: String(validQty)
     };
 
     if (t === "LIMIT") {
