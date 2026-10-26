@@ -241,7 +241,11 @@ const APEX_COINS = {
 function apexCoinInfo(asset) {
  const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
  const info = APEX_COINS[symbol];
- return {symbol, name:info ? info[0] : symbol, logo:info ? "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/"+info[1]+".png" : ""};
+ return {
+   symbol,
+   name: info ? info[0] : symbol,
+   logo: "https://assets.coincap.io/assets/icons/" + symbol.toLowerCase() + "@2x.png"
+ };
 }
 
 function makeMarketRow(item) {
