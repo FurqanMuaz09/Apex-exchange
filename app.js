@@ -271,13 +271,16 @@ function makeMarketRow(item) {
   img.height = 30;
   img.style.cssText = "width:30px;height:30px;object-fit:contain;flex-shrink:0";
   let ix = 0;
-  img.onerror = () => {
-    ix++;
-    if (ix < coin.logos.length) img.src = coin.logos[ix];
-    else img.remove();
-  };
-  img.src = coin.logos[0];
-  asset.appendChild(img);
+img.onerror = () => {
+  ix++;
+  if (ix < coin.logos.length) {
+    img.src = coin.logos[ix];
+  } else {
+    img.style.display = "none";
+  }
+};
+img.src = coin.logos[0];
+asset.appendChild(img);
   const labels = document.createElement("span");
   labels.style.cssText = "display:flex;flex-direction:column;min-width:0";
   const ticker = document.createElement("strong");
