@@ -43,7 +43,7 @@ async function submitApexOrder() {
       return;
     }
 
-    const quantity = amount.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
+    const quantity = (amount / effectivePrice).toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
     const token = await window.apexGetIdToken();
     const response = await fetch(`${APEX_BACKEND}/api/order`, {
       method: "POST",
@@ -274,12 +274,15 @@ function updateTotal() {
   const amount = Number($("orderAmount")?.value || 0);
   const priceInput = Number($("orderPrice")?.value || 0);
   const ticker = marketData.find((item) => item.symbol === currentPair);
-  const price = $("orderType")?.value === "Limit"
-    ? priceInput
-    : Number(ticker?.lastPrice || 0);
+  const isLimit = String($("orderType")?.value || "").toUpperCase() === "LIMIT";
+  const price = isLimit ? priceInput : Number(ticker?.lastPrice || 0);
+  const coinQty = price > 0 ? amount / price : 0;
 
-  setText("orderTotal", `${money(amount * price)} USDT`);
-  setText("order Total", `${money(amount * price)} USDT`);
+  setText("orderTotal", `${money(amount)} USDT`);
+  const hint = $("orderAmountHint");
+  if (hint) hint.textContent = price > 0
+    ? `Approx. ${coinQty.toFixed(8)} ${currentPair.replace("USDT", "")}`
+    : "Market price loading…";
 }
 
 document.addEventListener("click", (event) => {
