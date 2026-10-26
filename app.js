@@ -157,7 +157,7 @@ async function loadApexAccount() {
         const coin = apexCoinInfo(x.asset);
 const name = document.createElement("span");
 name.style.cssText = "display:flex;align-items:center;gap:8px";
-if (coin.logo) {
+{
  const img = document.createElement("img");
  img.alt = coin.symbol; img.width = 30; img.height = 30;
  let ix=0; img.onerror=()=>{ix++;if(ix<coin.logos.length)img.src=coin.logos[ix];else img.remove();};
@@ -242,7 +242,8 @@ USDT:["Tether","usdt"]
 };
 
 function apexCoinInfo(asset) {
-  const symbol = String(asset || "").replace(/USDT$/, "").toUpperCase();
+  const raw = String(asset || "").toUpperCase();
+  const symbol = raw.endsWith("USDT") && raw !== "USDT" ? raw.slice(0, -4) : raw;
   const info = APEX_COINS[symbol] || [symbol, symbol.toLowerCase()];
   const slug = info[1];
   return {
