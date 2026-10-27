@@ -262,25 +262,25 @@ function makeMarketRow(item) {
   row.type = "button";
   row.className = "market-row";
   row.style.cssText = "display:grid;grid-template-columns:1.5fr 1fr 1fr;align-items:center;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
+
   const coin = apexCoinInfo(item.symbol);
   const asset = document.createElement("span");
   asset.style.cssText = "display:flex;align-items:center;gap:8px;min-width:0";
+
   const img = document.createElement("img");
   img.alt = coin.symbol;
   img.width = 30;
   img.height = 30;
   img.style.cssText = "width:30px;height:30px;object-fit:contain;flex-shrink:0";
   let ix = 0;
-img.onerror = () => {
-  ix++;
-  if (ix < coin.logos.length) {
-    img.src = coin.logos[ix];
-  } else {
-    img.style.display = "none";
-  }
-};
-img.src = coin.logos[0];
-asset.appendChild(img);
+  img.onerror = () => {
+    ix++;
+    if (ix < coin.logos.length) img.src = coin.logos[ix];
+    else img.style.display = "none";
+  };
+  img.src = coin.logos[0];
+  asset.appendChild(img);
+
   const labels = document.createElement("span");
   labels.style.cssText = "display:flex;flex-direction:column;min-width:0";
   const ticker = document.createElement("strong");
@@ -290,12 +290,45 @@ asset.appendChild(img);
   fullname.style.color = "#929aa5";
   labels.append(ticker, fullname);
   asset.appendChild(labels);
+
+  const favorites = JSON.parse(localStorage.getItem("apexFavorites") || "[]");
+  const isFavorite = favorites.includes(item.symbol);
+
+  const star = document.createElement("span");
+  star.textContent = isFavorite ? "★" : "☆";
+  star.title = isFavorite ? "Remove favorite" : "Add favorite";
+  star.setAttribute("role", "button");
+  star.setAttribute("tabindex", "0");
+  star.setAttribute("aria-label", star.title);
+  star.style.cssText = "font-size:22px;color:#f0b90b;padding:0 7px;cursor:pointer;flex-shrink:0";
+
+  const toggleFavorite = (event) => {
+    event.stopPropagation();
+    const saved = JSON.parse(localStorage.getItem("apexFavorites") || "[]");
+    const updated = saved.includes(item.symbol)
+      ? saved.filter((symbol) => symbol !== item.symbol)
+      : [...saved, item.symbol];
+    localStorage.setItem("apexFavorites", JSON.stringify(updated));
+    renderMarkets();
+  };
+
+  star.addEventListener("click", toggleFavorite);
+  star.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleFavorite(event);
+    }
+  });
+  asset.appendChild(star);
+
   const price = document.createElement("span");
   price.textContent = money(item.lastPrice);
+
   const change = document.createElement("span");
   change.textContent = changeText(item.priceChangePercent);
   change.style.textAlign = "right";
   setColor(change, item.priceChangePercent);
+
   row.append(asset, price, change);
   row.addEventListener("click", () => {
     currentPair = item.symbol;
@@ -304,6 +337,7 @@ asset.appendChild(img);
     showPage("trade");
     refreshTrade();
   });
+
   return row;
 }
 
