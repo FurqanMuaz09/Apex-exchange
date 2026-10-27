@@ -19,6 +19,9 @@ jobs:
       - name: Extract Android project
         run: unzip -o APEX-Android-GitHub-Upload.zip -d .
 
+      - name: Restore fixed Android Gradle config
+        run: git checkout -- apex-android/app/build.gradle.kts
+
       - name: Sync latest website files
         run: |
           mkdir -p apex-android/app/src/main/assets/apex
