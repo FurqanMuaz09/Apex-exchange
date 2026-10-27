@@ -40,6 +40,7 @@ jobs:
               s = re.sub(r'(compileOptions\s*\{.*?\n\s*\})', r'\1\n    kotlinOptions {\n        jvmTarget = "17"\n    }', s, count=1, flags=re.S)
           p.write_text(s)
           print("Java/Kotlin targets set to 17")
+          PY
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
