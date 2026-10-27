@@ -693,3 +693,26 @@ refreshTimer = setInterval(() => {
 }, 15000);
 
 window.addEventListener("apex-auth-changed", () => { loadApexAccount(); loadApexOrderHistory(); });
+
+
+/* APEX_ORDER_PANEL_TABS */
+document.addEventListener("click", event => {
+  const button = event.target.closest("[data-order-panel]");
+  if (!button) return;
+
+  const showHistory = button.dataset.orderPanel === "history";
+  const openPanel = document.getElementById("openOrdersPanel");
+  const historyPanel = document.getElementById("orderHistoryPanel");
+  if (!openPanel || !historyPanel) return;
+
+  openPanel.hidden = showHistory;
+  historyPanel.hidden = !showHistory;
+
+  document.querySelectorAll("[data-order-panel]").forEach(tab => {
+    const active = tab === button;
+    tab.setAttribute("aria-selected", String(active));
+    tab.style.background = active ? "#17372f" : "#161a1e";
+    tab.style.color = active ? "#ffffff" : "#b7bdc6";
+    tab.style.borderColor = active ? "#0ecb81" : "#292d35";
+  });
+});
