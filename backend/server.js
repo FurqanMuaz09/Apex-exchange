@@ -18,9 +18,16 @@ const KEY = (process.env.BINANCE_TESTNET_API_KEY || '').trim();
 const SECRET = (process.env.BINANCE_TESTNET_API_SECRET || '').trim();
 const BASE = 'https://testnet.binance.vision';
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
-  : require('./secrets/serviceAccountKey.json');
+const serviceAccount = (() => {
+  const value = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!value) return require('./secrets/serviceAccountKey.json');
+
+  const raw = value.trim().startsWith('{')
+    ? value.trim()
+    : Buffer.from(value.trim(), 'base64').toString('utf8');
+
+  return JSON.parse(raw);
+})();
 
 if (!getApps().length) {
   initializeApp({ credential: cert(serviceAccount) });
