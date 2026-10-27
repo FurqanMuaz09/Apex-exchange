@@ -261,7 +261,7 @@ function makeMarketRow(item) {
   const row = document.createElement("button");
   row.type = "button";
   row.className = "market-row";
-  row.style.cssText = "display:grid;grid-template-columns:1.5fr 1fr 1fr;align-items:center;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
+  row.style.cssText = "display:grid;grid-template-columns:minmax(0,1.4fr) minmax(70px,1fr) auto;align-items:center;gap:8px;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
 
   const coin = apexCoinInfo(item.symbol);
   const asset = document.createElement("span");
@@ -319,17 +319,19 @@ function makeMarketRow(item) {
       toggleFavorite(event);
     }
   });
-  asset.appendChild(star);
-
   const price = document.createElement("span");
   price.textContent = money(item.lastPrice);
 
   const change = document.createElement("span");
   change.textContent = changeText(item.priceChangePercent);
-  change.style.textAlign = "right";
-  setColor(change, item.priceChangePercent);
+  const positive = Number(item.priceChangePercent) >= 0;
+  change.style.cssText = "text-align:center;min-width:72px;padding:6px 8px;border-radius:5px;font-size:12px;font-weight:700;color:#fff;background:" + (positive ? "#0ecb81" : "#f6465d");
 
-  row.append(asset, price, change);
+  const changeGroup = document.createElement("span");
+  changeGroup.style.cssText = "display:flex;align-items:center;justify-content:flex-end;gap:4px";
+  changeGroup.append(star, change);
+
+  row.append(asset, price, changeGroup);
   row.addEventListener("click", () => {
     currentPair = item.symbol;
     setText("pairName", coin.symbol + "/USDT");
