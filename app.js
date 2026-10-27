@@ -137,6 +137,7 @@ async function loadApexAccount() {
   }
   try {
     const data = await apexPrivateGet("/api/account");
+    window.apexAccountData = data;
     const balances = (data.balances || []).filter(x =>
       Number(x.free) > 0 || Number(x.locked) > 0
     );
@@ -145,6 +146,7 @@ async function loadApexAccount() {
       return sum + (ticker ? (Number(x.free) + Number(x.locked)) * Number(ticker.lastPrice) : 0);
     }, 0);
     if (balanceEl) balanceEl.innerHTML = `${money(total)} <small>USDT*</small>`;
+    if (typeof updateOrderAction === "function") updateOrderAction();
     const totalEl = assetSection?.querySelector("[data-wallet-total]");
     if (totalEl) totalEl.textContent = `${money(total)} USDT*`;
     const list = $("walletAssetList");
@@ -419,6 +421,11 @@ function makeMarketRow(item) {
     currentPair = item.symbol;
     setText("pairName", coin.symbol + "/USDT");
     setText("tradePrice", money(item.lastPrice));
+    const priceInput = $("orderPrice");
+    if (priceInput) priceInput.value = item.lastPrice;
+    if ($("amountSlider")) $("amountSlider").value = 0;
+    updateOrderAction();
+    updateTotal();
     showPage("trade");
     refreshTrade();
   });
@@ -570,18 +577,56 @@ function updatePriceVisibility() {
   if (label) label.style.display = isLimit ? "" : "none";
 }
 
-$("placeBuyOrder")?.addEventListener("click", () => {
-  currentSide = "BUY";
-  submitApexOrder();
+function updateOrderAction() {
+  const button = $("placeOrder");
+  if (!button) return;
+  const coin = currentPair.replace(/USDT$/, "");
+  const isBuy = currentSide === "BUY";
+  button.textContent = `${isBuy ? "Buy" : "Sell"} ${coin}`;
+  button.style.background = isBuy ? "#0ecb81" : "#f6465d";
+  button.style.color = isBuy ? "#07130e" : "#ffffff";
+  const balance = $("availableBalance");
+  const account = window.apexAccountData || window.apexAccount || {};
+  const assets = account.balances || account.account?.balances || [];
+  const asset = assets.find(item => item.asset === (isBuy ? "USDT" : coin));
+  if (balance) balance.textContent = `Available balance: ${asset ? `${asset.free ?? asset.available ?? "0"} ${isBuy ? "USDT" : coin}` : "Login to view"}`;
+}
+
+$("placeOrder")?.addEventListener("click", submitApexOrder);
+document.querySelectorAll("[data-order]").forEach(button => {
+  button.addEventListener("click", () => {
+    currentSide = String(button.dataset.order).toUpperCase();
+    document.querySelectorAll("[data-order]").forEach(tab => tab.classList.toggle("selected", tab === button));
+    updateOrderAction();
+  });
 });
-$("placeSellOrder")?.addEventListener("click", () => {
-  currentSide = "SELL";
-  submitApexOrder();
-});
-$("orderType")?.addEventListener("change", () => {
-  updatePriceVisibility();
+$("amountSlider")?.addEventListener("input", event => {
+  const percent = Number(event.target.value) / 100;
+  const account = window.apexAccountData || window.apexAccount || {};
+  const assets = account.balances || account.account?.balances || [];
+  const coin = currentPair.replace(/USDT$/, "");
+  const asset = assets.find(item => item.asset === (currentSide === "BUY" ? "USDT" : coin));
+  const free = Number(asset?.free ?? asset?.available ?? 0);
+  const price = Number($("orderType")?.value.toUpperCase() === "LIMIT" ? $("orderPrice")?.value : marketData.find(item => item.symbol === currentPair)?.lastPrice);
+  const usdtAmount = currentSide === "BUY" ? free * percent : (price > 0 ? free * percent * price : 0);
+  $("orderAmount").value = usdtAmount > 0 ? usdtAmount.toFixed(2) : "";
   updateTotal();
 });
+$("orderAmount")?.addEventListener("input", () => {
+  const slider = $("amountSlider");
+  if (slider) slider.value = 0;
+  updateTotal();
+});
+
+$("orderType")?.addEventListener("change", () => {
+  updatePriceVisibility();
+  if (String($("orderType")?.value || "").toUpperCase() === "LIMIT") {
+    const ticker = marketData.find(item => item.symbol === currentPair);
+    if (ticker && $("orderPrice")) $("orderPrice").value = ticker.lastPrice;
+  }
+  updateTotal();
+});
+updateOrderAction();
 updatePriceVisibility();
 
 document.addEventListener("click", (event) => {
@@ -624,11 +669,6 @@ document.addEventListener("click", (event) => {
 
   if (event.target.closest("#loginBtn")) {
     window.dispatchEvent(new Event("apex-login-request"));
-    return;
-  }
-
-  if (event.target.closest("#placeOrder")) {
-    submitApexOrder();
     return;
   }
 
