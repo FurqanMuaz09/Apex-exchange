@@ -130,7 +130,7 @@ app.post('/api/order', requireFirebaseAuth, orderLimiter, async (req, res) => {
     const symbol = String(req.body.symbol || '').toUpperCase();
     const side = String(req.body.side || '').toUpperCase();
     const type = String(req.body.type || '').toUpperCase();
-    const quantity = Number(req.body.quantity);
+    let quantity = Number(req.body.quantity);
     const price = Number(req.body.price);
 
     if (!/^[A-Z0-9]{5,20}$/.test(symbol) || !symbol.endsWith('USDT')) {
@@ -147,6 +147,30 @@ app.post('/api/order', requireFirebaseAuth, orderLimiter, async (req, res) => {
     }
     if (type === 'LIMIT' && (!Number.isFinite(price) || price <= 0)) {
       return res.status(400).json({ error: 'A valid limit price is required.' });
+    }
+
+    // Match quantity to Binance Testnet LOT_SIZE rules.
+    const infoResponse = await fetch(
+      `${BASE}/api/v3/exchangeInfo?symbol=${encodeURIComponent(symbol)}`
+    );
+    const info = await infoResponse.json();
+    if (!infoResponse.ok || !info.symbols?.length) {
+      return res.status(400).json({ error: 'Trading pair is unavailable on Testnet.' });
+    }
+
+    const lot = info.symbols[0].filters.find(f => f.filterType === 'LOT_SIZE');
+    if (!lot) {
+      return res.status(400).json({ error: 'LOT_SIZE rules unavailable for this pair.' });
+    }
+
+    const step = Number(lot.stepSize);
+    const precision = (lot.stepSize.split('.')[1] || '').replace(/0+$/, '').length;
+    quantity = Number((Math.floor(quantity / step + 1e-9) * step).toFixed(precision));
+
+    if (!Number.isFinite(quantity) || quantity < Number(lot.minQty)) {
+      return res.status(400).json({
+        error: `Quantity is below this pair's minimum (${lot.minQty}). Increase USDT amount and try again.`
+      });
     }
 
     const params = { symbol, side, type, quantity };
