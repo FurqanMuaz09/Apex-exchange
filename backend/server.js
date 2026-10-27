@@ -1,271 +1,238 @@
-require("dotenv").config({ path: require("path").join(__dirname, ".env") });
-const { initializeApp, cert } = require("firebase-admin/app");
-const { getAuth } = require("firebase-admin/auth");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-  ? JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_JSON.trim(), "base64url").toString("utf8"))
-  : require("./secrets/serviceAccountKey.json");
+require('dotenv').config();
 
-initializeApp({ credential: cert(serviceAccount) });
-
-const db = getFirestore();
-const express = require("express");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const crypto = require("crypto");
+const express = require('express');
+const cors = require('cors');
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 const app = express();
+app.disable('x-powered-by');
 app.use(cors());
+app.use(express.json({ limit: '8kb' }));
 
-app.use(express.json({ limit: "16kb" }));
+const PORT = process.env.PORT || 3000;
+const KEY = (process.env.BINANCE_TESTNET_API_KEY || '').trim();
+const SECRET = (process.env.BINANCE_TESTNET_API_SECRET || '').trim();
+const BASE = 'https://testnet.binance.vision';
+
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+  : require('./secrets/serviceAccountKey.json');
+
+if (!getApps().length) {
+  initializeApp({ credential: cert(serviceAccount) });
+}
+
+const auth = getAuth();
+const db = getFirestore();
 
 const orderLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 10,
-  standardHeaders: "draft-7",
+  standardHeaders: true,
   legacyHeaders: false
 });
 
-
-const PORT = process.env.PORT || 3000;
-const KEY = process.env.BINANCE_TESTNET_API_KEY;
-const SECRET = process.env.BINANCE_TESTNET_API_SECRET;
-const BASE = "https://testnet.binance.vision";
-
-app.get("/", (_req, res) => {
-  res.json({
-    service: "APEX Binance Testnet Backend",
-    mode: "TESTNET ONLY",
-    configured: Boolean(KEY && SECRET)
-  });
-});
-
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
-});
-
-async function signedRequest(method, path, params = {}) {
-  if (!KEY || !SECRET) {
-    throw new Error("Binance Testnet API keys are not configured.");
+async function requireFirebaseAuth(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    if (!token) return res.status(401).json({ error: 'Login required.' });
+    const decoded = await auth.verifyIdToken(token);
+    req.user = { uid: decoded.uid };
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired login token.' });
   }
+}
 
-  const values = {
-    ...params,
-    timestamp: Date.now(),
-    recvWindow: 5000
-  };
+function userOrders(uid) {
+  return db.collection('users').doc(uid).collection('orders');
+}
 
-  const query = new URLSearchParams(values).toString();
-  const signature = crypto
-    .createHmac("sha256", SECRET)
-    .update(query)
-    .digest("hex");
+async function binanceRequest(method, path, params = {}) {
+  if (!KEY || !SECRET) throw new Error('Binance Testnet API keys are not configured.');
 
-  const response = await fetch(
-    `${BASE}${path}?${query}&signature=${signature}`,
-    {
-      method,
-      headers: { "X-MBX-APIKEY": KEY }
+  const queryParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      queryParams.set(key, String(value));
     }
-  );
+  }
+  queryParams.set('recvWindow', '5000');
+  queryParams.set('timestamp', String(Date.now()));
 
-  const data = await response.json();
+  const query = queryParams.toString();
+  const signature = crypto.createHmac('sha256', SECRET).update(query).digest('hex');
+  const url = `${BASE}${path}?${query}&signature=${signature}`;
+
+  const response = await fetch(url, {
+    method,
+    headers: { 'X-MBX-APIKEY': KEY }
+  });
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.msg || "Binance Testnet request failed.");
+    const error = new Error(data.msg || 'Binance Testnet request failed.');
+    error.status = response.status;
+    error.binanceCode = data.code;
+    throw error;
   }
-
   return data;
 }
 
-app.get("/api/account", requireFirebaseAuth, async (_req, res) => {
-  try {
-    const account = await signedRequest("GET", "/api/v3/account");
+function sendError(res, error) {
+  console.error('APEX backend error:', error.message);
+  res.status(error.status && error.status >= 400 && error.status < 600 ? error.status : 400)
+    .json({ error: error.message, binanceCode: error.binanceCode ?? null });
+}
 
+function orderDocumentId(symbol, orderId) {
+  return `${symbol}_${orderId}`;
+}
+
+app.get('/', (_req, res) => res.json({
+  service: 'APEX Binance Testnet Backend',
+  mode: 'TESTNET ONLY',
+  configured: Boolean(KEY && SECRET),
+  orderPlacement: 'AUTHENTICATED'
+}));
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+
+app.get('/api/account', requireFirebaseAuth, async (_req, res) => {
+  try {
+    const account = await binanceRequest('GET', '/api/v3/account');
     res.json({
-      mode: "TESTNET ONLY",
+      mode: 'TESTNET ONLY',
       canTrade: account.canTrade,
-      balances: account.balances.filter(
-        x => Number(x.free) > 0 || Number(x.locked) > 0
+      balances: (account.balances || []).filter(
+        item => Number(item.free) > 0 || Number(item.locked) > 0
       )
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
-
-async function requireFirebaseAuth(req, res, next) {
-  if (!require("firebase-admin/app").getApps().length) {
-    return res.status(503).json({ error: "Firebase Admin is not configured" });
-  }
-  const header = req.headers.authorization || "";
-  if (!header.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Login required" });
-  }
+app.post('/api/order', requireFirebaseAuth, orderLimiter, async (req, res) => {
   try {
-    req.user = await getAuth().verifyIdToken(header.slice(7));
-    next();
-  } catch {
-    return res.status(401).json({ error: "Invalid or expired login token" });
-  }
-}
+    const symbol = String(req.body.symbol || '').toUpperCase();
+    const side = String(req.body.side || '').toUpperCase();
+    const type = String(req.body.type || '').toUpperCase();
+    const quantity = Number(req.body.quantity);
+    const price = Number(req.body.price);
 
-
-app.get("/api/profile", requireFirebaseAuth, async (req, res) => {
-  try {
-    const ref = db.collection("users").doc(req.user.uid);
-    const snap = await ref.get();
-    res.json({ profile: snap.exists ? snap.data() : null });
-  } catch (error) {
-    console.error("Profile read failed:", error.message);
-    res.status(500).json({ error: "Could not load profile" });
-  }
-});
-
-app.put("/api/profile", requireFirebaseAuth, async (req, res) => {
-  try {
-    const body = req.body || {};
-    const profile = {};
-
-    for (const key of ["displayName", "phone", "country"]) {
-      if (typeof body[key] === "string") {
-        profile[key] = body[key].trim().slice(0, 120);
-      }
+    if (!/^[A-Z0-9]{5,20}$/.test(symbol) || !symbol.endsWith('USDT')) {
+      return res.status(400).json({ error: 'Invalid USDT trading pair.' });
+    }
+    if (!['BUY', 'SELL'].includes(side)) {
+      return res.status(400).json({ error: 'Side must be BUY or SELL.' });
+    }
+    if (!['MARKET', 'LIMIT'].includes(type)) {
+      return res.status(400).json({ error: 'Only MARKET and LIMIT orders are supported.' });
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ error: 'Quantity must be greater than zero.' });
+    }
+    if (type === 'LIMIT' && (!Number.isFinite(price) || price <= 0)) {
+      return res.status(400).json({ error: 'A valid limit price is required.' });
     }
 
-    profile.updatedAt = FieldValue.serverTimestamp();
-
-    await db.collection("users").doc(req.user.uid).set(profile, { merge: true });
-    res.json({ ok: true, message: "Profile saved" });
-  } catch (error) {
-    console.error("Profile save failed:", error.message);
-    res.status(500).json({ error: "Could not save profile" });
-  }
-});
-
-app.get("/api/orders", requireFirebaseAuth, async (req, res) => {
-  try {
-    const symbol = String(req.query.symbol || "BTCUSDT").toUpperCase().replace("/", "");
-    if (!/^[A-Z0-9]{5,20}$/.test(symbol)) {
-      return res.status(400).json({ error: "Invalid symbol." });
+    const params = { symbol, side, type, quantity };
+    if (type === 'LIMIT') {
+      params.price = price;
+      params.timeInForce = 'GTC';
     }
-    const orders = await signedRequest("GET", "/api/v3/allOrders", {
+
+    const result = await binanceRequest('POST', '/api/v3/order', params);
+    const docId = orderDocumentId(symbol, result.orderId);
+
+    await userOrders(req.user.uid).doc(docId).set({
+      uid: req.user.uid,
       symbol,
-      limit: 50
+      side,
+      type,
+      orderId: result.orderId,
+      clientOrderId: result.clientOrderId || '',
+      status: result.status || 'NEW',
+      origQty: result.origQty || String(quantity),
+      executedQty: result.executedQty || '0',
+      price: result.price || String(type === 'LIMIT' ? price : 0),
+      cummulativeQuoteQty: result.cummulativeQuoteQty || '0',
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
     });
-    res.json({ mode: "TESTNET ONLY", symbol, orders });
+
+    res.status(201).json({ mode: 'TESTNET ONLY', order: result });
   } catch (error) {
-    res.status(500).json({ error: error.message || "Could not load order history." });
+    sendError(res, error);
   }
 });
 
-app.post("/api/order", orderLimiter, requireFirebaseAuth, async (req, res) => {
+app.get('/api/orders', requireFirebaseAuth, async (req, res) => {
   try {
-    const { symbol, side, type, quantity, price } = req.body || {};
+    const snapshot = await userOrders(req.user.uid)
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
 
-    const s = String(symbol || "").toUpperCase();
-    const sd = String(side || "").toUpperCase();
-    const t = String(type || "").toUpperCase();
+    const orders = snapshot.docs.map(doc => ({
+      ...doc.data(),
+      historyId: doc.id,
+      createdAt: doc.data().createdAt?.toDate?.().toISOString() || null,
+      updatedAt: doc.data().updatedAt?.toDate?.().toISOString() || null
+    }));
 
-    if (!/^[A-Z0-9]{3,20}$/.test(s)) {
-      return res.status(400).json({ error: "Invalid symbol" });
-    }
-
-    if (!["BUY", "SELL"].includes(sd)) {
-      return res.status(400).json({ error: "Invalid side" });
-    }
-
-    if (!["MARKET", "LIMIT"].includes(t)) {
-      return res.status(400).json({ error: "Invalid order type" });
-    }
-
-    if (
-      !/^\d+(\.\d+)?$/.test(String(quantity ?? "")) ||
-      !Number.isFinite(Number(quantity)) ||
-      Number(quantity) <= 0
-    ) {
-      return res.status(400).json({ error: "Invalid quantity" });
-    }
-
-    const infoResponse = await fetch(
-      `${BASE}/api/v3/exchangeInfo?symbol=${encodeURIComponent(s)}`
-    );
-    const infoData = await infoResponse.json();
-    if (!infoResponse.ok || !infoData.symbols?.length) {
-      return res.status(400).json({ error: "Invalid or unavailable trading pair" });
-    }
-
-    const filters = infoData.symbols[0].filters || [];
-    const lot = filters.find(f =>
-      f.filterType === (t === "MARKET" ? "MARKET_LOT_SIZE" : "LOT_SIZE")
-      && Number(f.stepSize) > 0
-    ) || filters.find(f => f.filterType === "LOT_SIZE");
-
-    if (!lot) {
-      return res.status(400).json({ error: "Binance quantity filter unavailable" });
-    }
-
-    const step = Number(lot.stepSize);
-    const decimals = (String(lot.stepSize).split(".")[1] || "").replace(/0+$/, "").length;
-    const validQty = Number((Math.floor((Number(quantity) + step * 1e-8) / step) * step).toFixed(decimals));
-
-    if (validQty < Number(lot.minQty)) {
-      return res.status(400).json({
-        error: `Quantity too small. Minimum for ${s} is ${lot.minQty}`
-      });
-    }
-
-    const params = {
-      symbol: s,
-      side: sd,
-      type: t,
-      quantity: String(validQty)
-    };
-
-    if (t === "LIMIT") {
-      if (
-        !/^\d+(\.\d+)?$/.test(String(price ?? "")) ||
-        !Number.isFinite(Number(price)) ||
-        Number(price) <= 0
-      ) {
-        return res.status(400).json({
-          error: "Limit order needs a valid price"
-        });
-      }
-
-      params.price = String(price);
-      params.timeInForce = "GTC";
-    }
-
-    const result = await signedRequest("POST", "/api/v3/order", params);
-
-    let fee = null;
-    if (t === "MARKET" && result.status === "FILLED") {
-      const executedValue = Number(result.cummulativeQuoteQty || 0);
-      if (executedValue > 0) {
-        fee = Number((executedValue * 0.005).toFixed(8));
-        await db.collection("apex_fees").add({
-          uid: req.user.uid,
-          symbol: s,
-          side: sd,
-          orderId: String(result.orderId),
-          executedValue,
-          feeRate: 0.005,
-          feeAmount: fee,
-          asset: s.endsWith("USDT") ? "USDT" : "QUOTE_ASSET",
-          mode: "TESTNET ONLY",
-          createdAt: FieldValue.serverTimestamp()
-        });
-      }
-    }
-
-    res.json({ mode: "TESTNET ONLY", order: result, fee });
+    res.json({ mode: 'TESTNET ONLY', orders });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    sendError(res, error);
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`APEX Testnet backend listening on ${PORT}`);
+app.delete('/api/order/:symbol/:orderId', requireFirebaseAuth, orderLimiter, async (req, res) => {
+  try {
+    const symbol = String(req.params.symbol || '').toUpperCase();
+    const orderId = String(req.params.orderId || '');
+
+    if (!/^[A-Z0-9]{5,20}$/.test(symbol) || !symbol.endsWith('USDT') ||
+        !/^\d+$/.test(orderId)) {
+      return res.status(400).json({ error: 'Invalid pair or order ID.' });
+    }
+
+    const ref = userOrders(req.user.uid).doc(orderDocumentId(symbol, orderId));
+    const saved = await ref.get();
+
+    if (!saved.exists) {
+      return res.status(404).json({ error: 'Order not found in your account history.' });
+    }
+
+    const current = saved.data();
+    if (!['NEW', 'PARTIALLY_FILLED'].includes(current.status)) {
+      return res.status(409).json({ error: `Order cannot be cancelled: ${current.status}` });
+    }
+
+    const result = await binanceRequest('DELETE', '/api/v3/order', {
+      symbol,
+      orderId
+    });
+
+    await ref.update({
+      status: result.status || 'CANCELED',
+      executedQty: result.executedQty || current.executedQty || '0',
+      cummulativeQuoteQty: result.cummulativeQuoteQty || current.cummulativeQuoteQty || '0',
+      updatedAt: FieldValue.serverTimestamp()
+    });
+
+    res.json({ mode: 'TESTNET ONLY', order: result });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`APEX Testnet backend listening on port ${PORT}`);
 });

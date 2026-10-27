@@ -63,6 +63,7 @@ async function submitApexOrder() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Order failed");
     notify(`Testnet order status: ${result.order?.status || "submitted"}`);
+    await loadApexOrderHistory();
   } catch (error) {
     console.error("APEX order failed:", error);
     notify(error.message || "Order submit nahi hua.");
@@ -187,32 +188,77 @@ $("refreshHistory")?.addEventListener("click", loadApexOrderHistory);
 async function loadApexOrderHistory() {
   const box = $("orderHistoryList");
   if (!box) return;
-  setText("historyPair", currentPair);
+  setText("historyPair", "All pairs");
+
   if (!window.apexUser) {
     box.textContent = "Log in to view Testnet order history.";
     return;
   }
+
+  box.textContent = "Loading order history...";
   try {
-    const data = await apexPrivateGet(`/api/orders?symbol=${encodeURIComponent(currentPair)}`);
+    const data = await apexPrivateGet("/api/orders");
     box.replaceChildren();
-    const orders = (data.orders || []).slice().reverse();
+    const orders = data.orders || [];
+
     if (!orders.length) {
-      box.textContent = `No ${currentPair} orders found on Testnet.`;
+      box.textContent = "No Testnet orders found.";
       return;
     }
+
     orders.forEach(o => {
       const row = document.createElement("div");
-      row.style.cssText = "display:flex;justify-content:space-between;gap:8px;padding:12px 4px;border-bottom:1px solid #292d35";
-      const left = document.createElement("span");
-      left.textContent = `${o.side} ${o.type} · ${o.symbol}`;
-      const right = document.createElement("span");
-      right.textContent = `${o.status} · ${o.origQty}`;
-      row.append(left, right);
+      row.style.cssText = "padding:14px 8px;border-bottom:1px solid #292d35;display:flex;flex-direction:column;gap:7px";
+
+      const title = document.createElement("strong");
+      title.textContent = `${o.symbol || "—"} · ${o.side || "—"} ${o.type || ""}`;
+      title.style.color = o.side === "BUY" ? "#0ecb81" : "#f6465d";
+
+      const qty = Number(o.origQty || 0);
+      const price = Number(o.price || 0);
+      const executedTotal = Number(o.cummulativeQuoteQty || 0);
+      const total = executedTotal > 0 ? executedTotal : qty * price;
+
+      const details = document.createElement("div");
+      details.style.cssText = "font-size:13px;color:#b7bdc6;line-height:1.8;overflow-wrap:anywhere";
+      const date = o.createdAt ? new Date(o.createdAt).toLocaleString() : "Time unavailable";
+      details.textContent =
+        `Qty: ${o.origQty || "—"} · Total: ${total.toFixed(2)} USDT · Price: ${o.price || "Market"} · Status: ${o.status || "—"} · Order ID: ${o.orderId || "—"} · ${date}`;
+
+      row.append(title, details);
+
+      if (["NEW", "PARTIALLY_FILLED"].includes(String(o.status || "").toUpperCase())) {
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.textContent = "Cancel Order";
+        cancel.style.cssText = "align-self:flex-start;background:#f6465d;color:white;border:0;border-radius:5px;padding:8px 12px;cursor:pointer";
+        cancel.addEventListener("click", async () => {
+          if (!confirm(`Cancel ${o.symbol} order #${o.orderId}?`)) return;
+          cancel.disabled = true;
+          cancel.textContent = "Cancelling...";
+          try {
+            const token = await window.apexGetIdToken();
+            const response = await fetch(
+              `${APEX_BACKEND}/api/order/${encodeURIComponent(o.symbol)}/${encodeURIComponent(o.orderId)}`,
+              { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+            );
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Cancel failed");
+            notify("Testnet order cancelled.");
+            await loadApexOrderHistory();
+          } catch (e) {
+            notify(e.message || "Order cancel nahi hua.");
+            cancel.disabled = false;
+            cancel.textContent = "Cancel Order";
+          }
+        });
+        row.appendChild(cancel);
+      }
       box.appendChild(row);
     });
   } catch (e) {
     console.error(e);
-    box.textContent = e.message;
+    box.textContent = e.message || "Order history load nahi hui.";
   }
 }
 
