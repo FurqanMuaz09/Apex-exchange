@@ -186,79 +186,116 @@ fullname.style.color = "#929aa5"; labels.append(ticker, fullname); name.appendCh
 $("refreshHistory")?.addEventListener("click", loadApexOrderHistory);
 
 async function loadApexOrderHistory() {
-  const box = $("orderHistoryList");
-  if (!box) return;
+  const openBox = $("openOrdersList");
+  const filledBox = $("filledOrdersList");
+  const otherBox = $("otherOrdersList");
+
+  if (!openBox || !filledBox || !otherBox) return;
   setText("historyPair", "All pairs");
 
   if (!window.apexUser) {
-    box.textContent = "Log in to view Testnet order history.";
+    openBox.textContent = "Log in to view orders.";
+    filledBox.textContent = "Log in to view orders.";
+    otherBox.textContent = "Log in to view orders.";
     return;
   }
 
-  box.textContent = "Loading order history...";
+  openBox.textContent = "Loading...";
+  filledBox.textContent = "Loading...";
+  otherBox.textContent = "Loading...";
+
   try {
     const data = await apexPrivateGet("/api/orders");
-    box.replaceChildren();
     const orders = data.orders || [];
+    openBox.replaceChildren();
+    filledBox.replaceChildren();
+    otherBox.replaceChildren();
 
-    if (!orders.length) {
-      box.textContent = "No Testnet orders found.";
-      return;
-    }
+    const openOrders = [];
+    const filledOrders = [];
+    const otherOrders = [];
 
     orders.forEach(o => {
-      const row = document.createElement("div");
-      row.style.cssText = "padding:14px 8px;border-bottom:1px solid #292d35;display:flex;flex-direction:column;gap:7px";
-
-      const title = document.createElement("strong");
-      title.textContent = `${o.symbol || "—"} · ${o.side || "—"} ${o.type || ""}`;
-      title.style.color = o.side === "BUY" ? "#0ecb81" : "#f6465d";
-
-      const qty = Number(o.origQty || 0);
-      const price = Number(o.price || 0);
-      const executedTotal = Number(o.cummulativeQuoteQty || 0);
-      const total = executedTotal > 0 ? executedTotal : qty * price;
-
-      const details = document.createElement("div");
-      details.style.cssText = "font-size:13px;color:#b7bdc6;line-height:1.8;overflow-wrap:anywhere";
-      const date = o.createdAt ? new Date(o.createdAt).toLocaleString() : "Time unavailable";
-      details.textContent =
-        `Qty: ${o.origQty || "—"} · Total: ${total.toFixed(2)} USDT · Price: ${o.price || "Market"} · Status: ${o.status || "—"} · Order ID: ${o.orderId || "—"} · ${date}`;
-
-      row.append(title, details);
-
-      if (["NEW", "PARTIALLY_FILLED"].includes(String(o.status || "").toUpperCase())) {
-        const cancel = document.createElement("button");
-        cancel.type = "button";
-        cancel.textContent = "Cancel Order";
-        cancel.style.cssText = "align-self:flex-start;background:#f6465d;color:white;border:0;border-radius:5px;padding:8px 12px;cursor:pointer";
-        cancel.addEventListener("click", async () => {
-          if (!confirm(`Cancel ${o.symbol} order #${o.orderId}?`)) return;
-          cancel.disabled = true;
-          cancel.textContent = "Cancelling...";
-          try {
-            const token = await window.apexGetIdToken();
-            const response = await fetch(
-              `${APEX_BACKEND}/api/order/${encodeURIComponent(o.symbol)}/${encodeURIComponent(o.orderId)}`,
-              { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
-            );
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Cancel failed");
-            notify("Testnet order cancelled.");
-            await loadApexOrderHistory();
-          } catch (e) {
-            notify(e.message || "Order cancel nahi hua.");
-            cancel.disabled = false;
-            cancel.textContent = "Cancel Order";
-          }
-        });
-        row.appendChild(cancel);
+      const status = String(o.status || "").toUpperCase();
+      if (["NEW", "PARTIALLY_FILLED"].includes(status)) {
+        openOrders.push(o);
+      } else if (status === "FILLED") {
+        filledOrders.push(o);
+      } else {
+        otherOrders.push(o);
       }
-      box.appendChild(row);
     });
+
+    function renderOrders(box, list, emptyMessage, allowCancel) {
+      if (!list.length) {
+        box.textContent = emptyMessage;
+        return;
+      }
+
+      list.forEach(o => {
+        const row = document.createElement("div");
+        row.style.cssText = "padding:14px 8px;border-bottom:1px solid #292d35;display:flex;flex-direction:column;gap:7px";
+
+        const title = document.createElement("strong");
+        title.textContent = `${o.symbol || "—"} · ${o.side || "—"} ${o.type || ""}`;
+        title.style.color = o.side === "BUY" ? "#0ecb81" : "#f6465d";
+
+        const qty = Number(o.origQty || 0);
+        const price = Number(o.price || 0);
+        const executedTotal = Number(o.cummulativeQuoteQty || 0);
+        const total = executedTotal > 0 ? executedTotal : qty * price;
+
+        const details = document.createElement("div");
+        details.style.cssText = "font-size:13px;color:#b7bdc6;line-height:1.8;overflow-wrap:anywhere";
+        const date = o.createdAt ? new Date(o.createdAt).toLocaleString() : "Time unavailable";
+        details.textContent =
+          `Qty: ${o.origQty || "—"} · Total: ${total.toFixed(2)} USDT · Price: ${o.price || "Market"} · Status: ${o.status || "—"} · Order ID: ${o.orderId || "—"} · ${date}`;
+
+        row.append(title, details);
+
+        if (allowCancel && ["NEW", "PARTIALLY_FILLED"].includes(String(o.status || "").toUpperCase())) {
+          const cancel = document.createElement("button");
+          cancel.type = "button";
+          cancel.textContent = "Cancel Order";
+          cancel.style.cssText = "align-self:flex-start;background:#f6465d;color:white;border:0;border-radius:5px;padding:8px 12px;cursor:pointer";
+
+          cancel.addEventListener("click", async () => {
+            if (!confirm(`Cancel ${o.symbol} order #${o.orderId}?`)) return;
+            cancel.disabled = true;
+            cancel.textContent = "Cancelling...";
+
+            try {
+              const token = await window.apexGetIdToken();
+              const response = await fetch(
+                `${APEX_BACKEND}/api/order/${encodeURIComponent(o.symbol)}/${encodeURIComponent(o.orderId)}`,
+                { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+              );
+              const result = await response.json();
+              if (!response.ok) throw new Error(result.error || "Cancel failed");
+              notify("Testnet order cancelled.");
+              await loadApexOrderHistory();
+            } catch (e) {
+              notify(e.message || "Order cancel nahi hua.");
+              cancel.disabled = false;
+              cancel.textContent = "Cancel Order";
+            }
+          });
+
+          row.appendChild(cancel);
+        }
+
+        box.appendChild(row);
+      });
+    }
+
+    renderOrders(openBox, openOrders, "No open orders.", true);
+    renderOrders(filledBox, filledOrders, "No filled orders.", false);
+    renderOrders(otherBox, otherOrders, "No cancelled or other orders.", false);
   } catch (e) {
     console.error(e);
-    box.textContent = e.message || "Order history load nahi hui.";
+    openBox.textContent = e.message || "Order history load nahi hui.";
+    filledBox.textContent = "Order history load nahi hui.";
+    otherBox.textContent = "Order history load nahi hui.";
   }
 }
 
