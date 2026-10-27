@@ -24,24 +24,6 @@ jobs:
           mkdir -p apex-android/app/src/main/assets/apex
           cp index.html style.css app.js apex-android/app/src/main/assets/apex/
 
-      - name: Fix Java and Kotlin targets
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p = Path("apex-android/app/build.gradle.kts")
-          s = p.read_text()
-          s = re.sub(r'sourceCompatibility\s*=\s*JavaVersion\.VERSION_\d+', 'sourceCompatibility = JavaVersion.VERSION_17', s)
-          s = re.sub(r'targetCompatibility\s*=\s*JavaVersion\.VERSION_\d+', 'targetCompatibility = JavaVersion.VERSION_17', s)
-          s = re.sub(r'jvmTarget\s*=\s*"[^"]+"', 'jvmTarget = "17"', s)
-          if "compileOptions {" not in s:
-              s = re.sub(r'(android\s*\{)', r'\1\n    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n    }', s, count=1)
-          if "kotlinOptions {" not in s:
-              s = re.sub(r'(compileOptions\s*\{.*?\n\s*\})', r'\1\n    kotlinOptions {\n        jvmTarget = "17"\n    }', s, count=1, flags=re.S)
-          p.write_text(s)
-          print("Java/Kotlin targets set to 17")
-          PY
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
