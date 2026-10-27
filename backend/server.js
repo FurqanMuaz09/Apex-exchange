@@ -211,7 +211,34 @@ app.get('/api/orders', requireFirebaseAuth, async (req, res) => {
       .limit(100)
       .get();
 
-    const orders = snapshot.docs.map(doc => ({
+    for (const doc of snapshot.docs) {
+      const saved = doc.data();
+      if (!['NEW', 'PARTIALLY_FILLED'].includes(saved.status)) continue;
+      if (!saved.symbol || saved.orderId == null) continue;
+
+      try {
+        const live = await binanceRequest('GET', '/api/v3/order', {
+          symbol: saved.symbol,
+          orderId: saved.orderId
+        });
+
+        await doc.ref.update({
+          status: live.status || saved.status,
+          executedQty: live.executedQty || saved.executedQty || '0',
+          cummulativeQuoteQty: live.cummulativeQuoteQty || saved.cummulativeQuoteQty || '0',
+          updatedAt: FieldValue.serverTimestamp()
+        });
+      } catch (syncError) {
+        console.warn('Order status sync failed:', saved.symbol, saved.orderId, syncError.message);
+      }
+    }
+
+    const updated = await userOrders(req.user.uid)
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+
+    const orders = updated.docs.map(doc => ({
       ...doc.data(),
       historyId: doc.id,
       createdAt: doc.data().createdAt?.toDate?.().toISOString() || null,
