@@ -804,65 +804,108 @@ async function renderApexHoldings() {
   const box = $("holdingsSummary");
   const title = $("holdingsPairTitle");
   if (!box) return;
-  const symbol = String(currentPair || "BTCUSDT");
+
+  const symbol = String(currentPair || "BTCUSDT").toUpperCase();
   const coin = symbol.replace(/USDT$/, "");
   if (title) title.textContent = `${symbol.replace(/USDT$/, "/USDT")} Holdings`;
-  if (!window.apexUser) { box.textContent = "Log in to view Testnet holdings."; return; }
+
+  if (!window.apexUser) {
+    box.textContent = "Log in to view Testnet holdings.";
+    return;
+  }
+
   box.textContent = "Loading holdings...";
+
   try {
-    const [account, orderData] = await Promise.all([
+    const [accountData, orderData] = await Promise.all([
       apexPrivateGet("/api/account"),
       apexPrivateGet("/api/holdings-orders")
     ]);
-    window.apexAccountData = account;
-    const asset = (account.balances || []).find(x => x.asset === coin) || {};
-    const qty = Number(asset.free || 0) + Number(asset.locked || 0);
-    const orders = (orderData.orders || []).filter(o =>
-      o.symbol === symbol && Number(o.executedQty || 0) > 0
-    ).sort((a,b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
-    let netQty = 0, netCost = 0;
+
+    window.apexAccountData = accountData;
+
+    const balances = accountData?.balances ||
+      accountData?.account?.balances ||
+      accountData?.data?.balances || [];
+
+    const asset = balances.find(x =>
+      String(x.asset || "").toUpperCase() === coin
+    ) || {};
+
+    const free = Number(asset.free ?? asset.available ?? 0) || 0;
+    const locked = Number(asset.locked ?? 0) || 0;
+    const qty = free + locked;
+
+    const orders = (orderData?.orders || [])
+      .filter(o =>
+        String(o.symbol || "").toUpperCase() === symbol &&
+        Number(o.executedQty || 0) > 0
+      )
+      .sort((a, b) =>
+        new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+      );
+
+    let netQty = 0;
+    let netCost = 0;
+
     for (const o of orders) {
       const filled = Number(o.executedQty || 0);
-      const quote = Number(o.cummulativeQuoteQty || 0);
+      const quote = Number(o.cummulativeQuoteQty ?? o.cumulativeQuoteQty ?? 0);
       if (filled <= 0 || quote < 0) continue;
-      if (String(o.side).toUpperCase() === "BUY") {
-        netCost += quote; netQty += filled;
-      } else if (String(o.side).toUpperCase() === "SELL" && netQty > 0) {
+
+      if (String(o.side || "").toUpperCase() === "BUY") {
+        netQty += filled;
+        netCost += quote;
+      } else if (String(o.side || "").toUpperCase() === "SELL" && netQty > 0) {
         const sold = Math.min(filled, netQty);
         netCost -= (netCost / netQty) * sold;
         netQty -= sold;
       }
     }
+
     const avg = netQty > 0 ? netCost / netQty : 0;
-    const market = marketData.find(m => m.symbol === symbol);
-    const price = Number(market?.lastPrice || String($("tradePrice")?.textContent || "").replace(/[^0-9.]/g,"") || 0);
+    const markets = typeof marketData !== "undefined" && Array.isArray(marketData)
+      ? marketData : [];
+    const market = markets.find(m =>
+      String(m.symbol || "").toUpperCase() === symbol
+    );
+    const priceText = String($("tradePrice")?.textContent || "").replace(/[^0-9.]/g, "");
+    const price = Number(market?.lastPrice || priceText || 0);
     const value = qty * price;
     const cost = qty * avg;
     const pnl = value - cost;
-    const pnlPct = cost > 0 ? pnl / cost * 100 : 0;
+    const pnlPct = cost ? pnl / cost * 100 : 0;
+
     box.replaceChildren();
+
     const rows = [
-      ["Available", `${Number(asset.free || 0).toFixed(8)} ${coin}`],
-      ["Locked", `${Number(asset.locked || 0).toFixed(8)} ${coin}`],
+      ["Available", `${free.toFixed(8)} ${coin}`],
+      ["Locked", `${locked.toFixed(8)} ${coin}`],
+      ["Total quantity", `${qty.toFixed(8)} ${coin}`],
       ["Average buy cost (estimated)", avg ? `${avg.toFixed(8)} USDT` : "No filled buy history"],
       ["Current price", price ? `${price.toFixed(8)} USDT` : "Price unavailable"],
       ["Current value", `${value.toFixed(4)} USDT`],
       ["Estimated unrealized PnL", `${pnl >= 0 ? "+" : ""}${pnl.toFixed(4)} USDT (${pnlPct.toFixed(2)}%)`]
     ];
+
     for (const [label, val] of rows) {
       const row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;gap:12px;padding:12px 8px;border-bottom:1px solid #292d35";
-      const l = document.createElement("span"); l.textContent = label;
-      const v = document.createElement("strong"); v.textContent = val;
-      if (label.includes("PnL")) v.style.color = pnl >= 0 ? "#0ecb81" : "#f6465d";
-      row.append(l,v); box.appendChild(row);
+      const name = document.createElement("span");
+      name.textContent = label;
+      const valueEl = document.createElement("strong");
+      valueEl.textContent = val;
+      if (label.includes("PnL")) valueEl.style.color = pnl >= 0 ? "#0ecb81" : "#f6465d";
+      row.append(name, valueEl);
+      box.appendChild(row);
     }
+
     const note = document.createElement("small");
     note.style.cssText = "display:block;color:#848e9c;padding:10px 8px";
-    note.textContent = "Estimate based on the latest 100 saved orders and current Testnet balance; it may differ from exact tax/accounting cost basis.";
+    note.textContent = "Estimated figures based on Testnet balance and saved filled orders; average cost may not reflect full account history.";
     box.appendChild(note);
   } catch (e) {
-    box.textContent = e.message || "Holdings load nahi ho sake.";
+    box.textContent = e?.message || "Holdings load nahi ho sake.";
   }
 }
 
