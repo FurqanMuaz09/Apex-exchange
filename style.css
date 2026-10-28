@@ -14,3 +14,36 @@
 .auth-close { position:absolute; right:14px; top:14px; background:transparent; color:#fff; border:0; font-size:18px; }
 .auth-divider { text-align:center; margin:16px 0; color:#848e9c; }
 .auth-link { display:block; margin:12px auto; background:transparent; border:0; color:#f0b90b; }
+
+/* APEX responsive trading workspace */
+.trade-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+}
+.trade-order-entry,
+.trade-market-depth {
+  min-width: 0;
+}
+.trade-order-entry .order-tabs {
+  margin-top: 0;
+}
+.trade-order-entry .order-form {
+  height: 100%;
+}
+.trade-market-depth .trade-tools {
+  margin: 0;
+  height: 100%;
+}
+@media (min-width: 900px) {
+  body {
+    max-width: 1200px;
+  }
+}
+@media (max-width: 700px) {
+  .trade-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
