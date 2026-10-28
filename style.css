@@ -139,3 +139,14 @@
 #trade #orderPanelTabs{display:flex!important;overflow-x:auto;flex-wrap:nowrap;gap:4px!important;margin:5px 0!important}
 #trade #orderPanelTabs button{flex:0 0 auto;white-space:nowrap;padding:7px 9px!important;font-size:10px!important}
 }
+
+/* Pair percentage and compact order controls */
+#trade .pair-row{grid-template-columns:minmax(0,1fr) auto auto!important;align-items:center!important}
+#trade .pair-select-wrap{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+#trade #tradeChangePercent{font-size:12px!important;font-weight:700;margin-top:3px;color:var(--green)}
+#trade .pair-row .right{order:2}
+#trade .pair-row #chartExpand{order:3;justify-self:end;width:30px!important;height:30px!important;font-size:19px!important}
+#trade #orderPanelTabs{display:flex!important;align-items:center;gap:6px!important;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:8px 0!important}
+#trade #orderPanelTabs::-webkit-scrollbar{display:none}
+#trade #orderPanelTabs button{flex:0 0 auto!important;padding:7px 10px!important;font-size:11px!important;white-space:nowrap}
+#trade #orderPanelTabs button[data-order-panel="history"]{margin-left:auto;padding:6px 10px!important;font-size:20px!important;min-width:34px}

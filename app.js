@@ -527,6 +527,7 @@ async function refreshMarkets() {
 
     const btc = lookup[currentPair];
     if (btc) setText("tradePrice", money(btc.lastPrice));
+  if (btc) { setText("tradeChangePercent", changeText(btc.priceChangePercent)); setColor($("tradeChangePercent"), btc.priceChangePercent); }
 
     document.querySelectorAll(".welcome .tag").forEach((tag) => {
       tag.textContent = "Live market data";
@@ -734,6 +735,8 @@ tradePairSelect?.addEventListener("change", () => {
   const ticker = marketData.find(item => item.symbol === currentPair);
   if (ticker) {
     setText("tradePrice", money(ticker.lastPrice));
+    setText("tradeChangePercent", changeText(ticker.priceChangePercent));
+    setColor($("tradeChangePercent"), ticker.priceChangePercent);
     setText("bookMidPrice", money(ticker.lastPrice));
     if ($("orderPrice")) $("orderPrice").value = ticker.lastPrice;
   }
