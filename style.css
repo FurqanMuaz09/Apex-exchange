@@ -47,3 +47,64 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* APEX compact mobile trading layout */
+#trade .page-heading { margin-top: 4px; }
+#trade .page-heading button { display: none; }
+#trade .pair-row { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 8px; }
+.pair-select-wrap { min-width: 0; }
+#tradePairSelect { width: 100%; max-width: 170px; background: #171b21; color: #eaecef; border: 1px solid #343943; border-radius: 7px; padding: 8px 5px; font-weight: 700; font-size: 13px; }
+.pair-select-wrap small { display: block; color: #848e9c; font-size: 10px; margin-top: 4px; }
+.candle-button { width: 38px; height: 38px; border: 1px solid #343943; border-radius: 8px; color: #f0b90b; font-size: 23px; }
+#trade .trade-workspace { grid-template-columns: minmax(0,0.95fr) minmax(0,1.05fr); gap: 8px; align-items: start; }
+#trade .trade-order-entry, #trade .trade-market-depth { min-width: 0; }
+#trade .order-tabs { margin: 0 0 7px; padding: 3px; }
+#trade .order-tabs button { padding: 9px 2px; font-size: 12px; }
+#trade .order-form { padding: 9px 7px; }
+#trade .order-form label { font-size: 10px; gap: 5px; margin-bottom: 10px; }
+#trade .order-form input, #trade .order-form select { min-width: 0; width: 100%; height: 36px; padding: 0 6px; font-size: 11px; }
+#trade .order-summary { gap: 4px; font-size: 10px; flex-wrap: wrap; }
+#trade .order-submit-buttons button { padding: 11px 3px !important; font-size: 11px; }
+#trade .disclaimer { font-size: 9px; overflow-wrap: anywhere; }
+#trade .trade-market-depth .trade-tools { padding: 7px 5px; margin: 0; }
+#trade .trade-tool-head { align-items: flex-start; flex-direction: column; gap: 2px; }
+#trade .trade-tool-head b { font-size: 11px; }
+#trade .trade-tool-head span { font-size: 8px; }
+#trade .book-columns { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 4px; }
+#trade .book-row { gap: 2px; padding: 5px 0; font-size: 9px; overflow-wrap: anywhere; }
+#trade .book-mid-price { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 2px; margin: 8px 0; border-top: 1px solid #292d35; border-bottom: 1px solid #292d35; }
+#trade .book-mid-price small, #trade .book-mid-price span { color: #848e9c; font-size: 9px; }
+#trade .book-mid-price b { color: #0ecb81; font-size: clamp(15px,4vw,21px); overflow-wrap: anywhere; }
+#trade #orderPanelTabs { display: flex !important; overflow-x: auto; flex-wrap: nowrap; gap: 7px !important; scrollbar-width: none; }
+#trade #orderPanelTabs button { flex: 0 0 auto; white-space: nowrap; padding: 11px 13px !important; }
+#trade #orderPanelTabs::-webkit-scrollbar { display: none; }
+@media (max-width: 380px) {
+  #trade .trade-workspace { gap: 5px; }
+  #trade .order-form { padding: 7px 5px; }
+  #trade .trade-market-depth .trade-tools { padding: 6px 4px; }
+}
+
+
+/* Keep exchange trading panels side-by-side on Android */
+@media (max-width: 700px) {
+  .trade-workspace {
+    display: grid !important;
+    grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr) !important;
+    gap: 7px !important;
+  }
+  .trade-order-entry, .trade-market-depth { min-width: 0; }
+  .trade-order-entry .order-form { padding: 8px !important; }
+  .trade-order-entry .order-tabs button {
+    padding: 8px 3px !important;
+    font-size: 12px !important;
+  }
+  .trade-market-depth .trade-tools { padding: 7px !important; }
+  .book-columns { gap: 5px !important; }
+  .book-row, .recent-row {
+    gap: 3px !important;
+    padding: 4px 0 !important;
+    font-size: 9px !important;
+  }
+  .trade-tool-head { flex-wrap: wrap; }
+}

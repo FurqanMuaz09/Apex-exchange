@@ -419,8 +419,20 @@ function makeMarketRow(item) {
   row.append(asset, price, changeGroup);
   row.addEventListener("click", () => {
     currentPair = item.symbol;
+    const pairSelect = $("tradePairSelect");
+    if (pairSelect) {
+      if (![...pairSelect.options].some(option => option.value === currentPair)) {
+        const option = document.createElement("option");
+        option.value = currentPair;
+        option.textContent = coin.symbol + "/USDT";
+        pairSelect.appendChild(option);
+      }
+      pairSelect.value = currentPair;
+    }
+    setText("pairSubtitle", coin.name || coin.symbol);
+    setText("bookMidPair", coin.symbol + "/USDT");
+    setText("bookMidPrice", money(item.lastPrice));
     if (!document.getElementById("holdingsPanel")?.hidden) renderApexHoldings();
-    setText("pairName", coin.symbol + "/USDT");
     setText("tradePrice", money(item.lastPrice));
     const priceInput = $("orderPrice");
     if (priceInput) priceInput.value = item.lastPrice;
@@ -474,6 +486,30 @@ function renderMarkets() {
 async function refreshMarkets() {
   try {
     marketData = await api("/ticker/24hr");
+
+    const pairSelect = $("tradePairSelect");
+    if (pairSelect) {
+      const selectedPair = currentPair;
+      const pairs = marketData
+        .filter(item => item.symbol.endsWith("USDT"))
+        .sort((a, b) => Number(b.quoteVolume || 0) - Number(a.quoteVolume || 0));
+
+      pairSelect.replaceChildren();
+      pairs.forEach(item => {
+        const option = document.createElement("option");
+        option.value = item.symbol;
+        option.textContent = item.symbol.replace(/USDT$/, "/USDT");
+        pairSelect.appendChild(option);
+      });
+
+      if (!pairs.some(item => item.symbol === selectedPair)) {
+        const option = document.createElement("option");
+        option.value = selectedPair;
+        option.textContent = selectedPair.replace(/USDT$/, "/USDT");
+        pairSelect.appendChild(option);
+      }
+      pairSelect.value = selectedPair;
+    }
     renderMarkets();
 
     const lookup = Object.fromEntries(marketData.map((x) => [x.symbol, x]));
@@ -532,6 +568,9 @@ async function refreshTrade() {
 
     renderBook(bids, book.bids, "bid");
     renderBook(asks, book.asks, "ask");
+    const liveTicker = marketData.find(item => item.symbol === currentPair);
+    if (liveTicker) setText("bookMidPrice", money(liveTicker.lastPrice));
+    setText("bookMidPair", currentPair.replace(/USDT$/, "") + "/USDT");
 
     if (recent) {
       recent.replaceChildren();
@@ -682,6 +721,27 @@ if (event.target.closest("#hideBalance")) {
         : "Connect account USDT";
     }
   }
+});
+
+
+const tradePairSelect = document.getElementById("tradePairSelect");
+tradePairSelect?.addEventListener("change", () => {
+  currentPair = tradePairSelect.value;
+  const coin = currentPair.replace(/USDT$/, "");
+
+  setText("pairSubtitle", coin === "BTC" ? "Bitcoin" : coin === "ETH" ? "Ethereum" : "BNB");
+  setText("bookMidPair", coin + "/USDT");
+  const ticker = marketData.find(item => item.symbol === currentPair);
+  if (ticker) {
+    setText("tradePrice", money(ticker.lastPrice));
+    setText("bookMidPrice", money(ticker.lastPrice));
+    if ($("orderPrice")) $("orderPrice").value = ticker.lastPrice;
+  }
+  if ($("amountSlider")) $("amountSlider").value = 0;
+  updateOrderAction();
+  updateTotal();
+  refreshTrade();
+  if (!document.getElementById("holdingsPanel")?.hidden) renderApexHoldings();
 });
 
 $("marketSearch")?.addEventListener("input", renderMarkets);
