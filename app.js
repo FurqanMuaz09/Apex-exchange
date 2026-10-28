@@ -756,3 +756,51 @@ document.addEventListener("click", event => {
     tab.style.borderColor = active ? "#0ecb81" : "#292d35";
   });
 });
+
+// APEX professional TradingView chart
+if (!window.apexProfessionalChartInit) {
+  window.apexProfessionalChartInit = true;
+  const chartView = document.getElementById("professionalChartView");
+  const chartBox = document.getElementById("tradingViewChart");
+  const chartPair = document.getElementById("professionalChartPair");
+  let chartInterval = "15";
+
+  function loadProfessionalChart() {
+    if (!chartBox || !chartPair) return;
+    const symbol = String(currentPair || "BTCUSDT").toUpperCase();
+    chartPair.textContent = symbol.replace(/USDT$/, "/USDT");
+    const url = "https://s.tradingview.com/widgetembed/?" +
+      "symbol=" + encodeURIComponent("BINANCE:" + symbol) +
+      "&interval=" + chartInterval +
+      "&hidesidetoolbar=0&symboledit=1&saveimage=0" +
+      "&toolbarbg=%230b0e11&theme=dark&style=1" +
+      "&timezone=Etc%2FUTC&withdateranges=1&hideideas=1";
+    chartBox.innerHTML = "";
+    const frame = document.createElement("iframe");
+    frame.src = url;
+    frame.title = "Live TradingView candlestick chart";
+    frame.style.cssText = "width:100%;height:100%;min-height:420px;border:0";
+    frame.allowFullscreen = true;
+    chartBox.appendChild(frame);
+  }
+
+  document.getElementById("chartExpand")?.addEventListener("click", () => {
+    if (!chartView) return;
+    chartView.hidden = false;
+    document.body.style.overflow = "hidden";
+    loadProfessionalChart();
+  });
+
+  document.getElementById("chartClose")?.addEventListener("click", () => {
+    if (chartView) chartView.hidden = true;
+    document.body.style.overflow = "";
+  });
+
+  document.querySelectorAll("[data-interval]").forEach(button => {
+    button.addEventListener("click", () => {
+      const intervals = { "1m": "1", "15m": "15", "1h": "60", "4h": "240", "1d": "D" };
+      chartInterval = intervals[button.dataset.interval] || "15";
+      if (chartView && !chartView.hidden) loadProfessionalChart();
+    });
+  });
+}
