@@ -204,6 +204,31 @@ app.post('/api/order', requireFirebaseAuth, orderLimiter, async (req, res) => {
   }
 });
 
+app.get('/api/holdings-orders', requireFirebaseAuth, async (req, res) => {
+  try {
+    const snapshot = await userOrders(req.user.uid)
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+
+    const orders = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        symbol: data.symbol,
+        side: data.side,
+        status: data.status,
+        executedQty: data.executedQty || '0',
+        cummulativeQuoteQty: data.cummulativeQuoteQty || '0',
+        createdAt: data.createdAt?.toDate?.().toISOString() || null
+      };
+    });
+
+    res.json({ mode: 'TESTNET ONLY', orders });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.get('/api/orders', requireFirebaseAuth, async (req, res) => {
   try {
     const snapshot = await userOrders(req.user.uid)

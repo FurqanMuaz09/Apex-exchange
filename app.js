@@ -749,7 +749,7 @@ async function renderApexHoldings() {
   try {
     const [account, orderData] = await Promise.all([
       apexPrivateGet("/api/account"),
-      apexPrivateGet("/api/orders")
+      apexPrivateGet("/api/holdings-orders")
     ]);
     window.apexAccountData = account;
     const asset = (account.balances || []).find(x => x.asset === coin) || {};
