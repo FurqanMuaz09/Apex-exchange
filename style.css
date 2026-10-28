@@ -108,3 +108,34 @@
   }
   .trade-tool-head { flex-wrap: wrap; }
 }
+
+
+@media(max-width:700px){
+#trade{padding:5px 6px 12px!important}
+#trade .page-heading{margin:2px 0 4px!important}
+#trade .page-heading h1{font-size:17px!important}
+#trade .pair-row{padding:5px 0!important;gap:4px!important}
+#tradePairSelect{max-width:125px!important;padding:5px 3px!important;font-size:11px!important}
+#trade .pair-row .right b{font-size:13px!important}
+#trade .candle-button{width:29px!important;height:29px!important;font-size:18px!important}
+#trade .trade-workspace{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)!important;gap:5px!important;margin-top:5px!important}
+#trade .order-tabs{margin:0 0 4px!important;padding:2px!important}
+#trade .order-tabs button{padding:6px 2px!important;font-size:11px!important}
+#trade .order-form{padding:6px 5px!important}
+#trade .order-form label{gap:3px!important;margin-bottom:6px!important;font-size:10px!important}
+#trade .order-form input,#trade .order-form select{height:30px!important;padding:0 5px!important;font-size:10px!important}
+#trade .order-summary{padding:6px 0!important;font-size:9px!important}
+#trade #availableBalance{margin-top:5px!important;font-size:9px!important}
+#trade .order-submit-buttons button{padding:9px 2px!important;font-size:10px!important}
+#trade .trade-market-depth .trade-tools{padding:5px 3px!important}
+#trade .trade-tool-head{margin-bottom:4px!important;gap:2px!important}
+#trade .trade-tool-head b{font-size:10px!important}
+#trade .trade-tool-head span{font-size:8px!important}
+#trade .book-columns{gap:3px!important}
+#trade .book-row,#trade .recent-row{padding:3px 0!important;gap:2px!important;font-size:8px!important}
+#trade .book-mid-price{margin:4px 0!important;padding:5px 0!important}
+#trade .book-mid-price b{font-size:14px!important}
+#trade .section-title{margin:8px 0 4px!important}
+#trade #orderPanelTabs{display:flex!important;overflow-x:auto;flex-wrap:nowrap;gap:4px!important;margin:5px 0!important}
+#trade #orderPanelTabs button{flex:0 0 auto;white-space:nowrap;padding:7px 9px!important;font-size:10px!important}
+}
