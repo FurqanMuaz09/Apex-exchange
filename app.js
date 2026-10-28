@@ -419,6 +419,7 @@ function makeMarketRow(item) {
   row.append(asset, price, changeGroup);
   row.addEventListener("click", () => {
     currentPair = item.symbol;
+    if (!document.getElementById("holdingsPanel")?.hidden) renderApexHoldings();
     setText("pairName", coin.symbol + "/USDT");
     setText("tradePrice", money(item.lastPrice));
     const priceInput = $("orderPrice");
