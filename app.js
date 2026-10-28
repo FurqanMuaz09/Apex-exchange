@@ -416,7 +416,7 @@ function makeMarketRow(item) {
   changeGroup.style.cssText = "display:flex;align-items:center;justify-content:flex-end;gap:4px";
   changeGroup.append(star, change);
 
-  row.append(asset, price, changeGroup);
+  row.append(asset, changeGroup);
   row.addEventListener("click", () => {
     currentPair = item.symbol;
     const pairSelect = $("tradePairSelect");
@@ -429,7 +429,7 @@ function makeMarketRow(item) {
       }
       pairSelect.value = currentPair;
     }
-    setText("pairSubtitle", coin.name || coin.symbol);
+    setText("pairSubtitle", "");
     setText("bookMidPair", coin.symbol + "/USDT");
     setText("bookMidPrice", money(item.lastPrice));
     if (!document.getElementById("holdingsPanel")?.hidden) renderApexHoldings();
