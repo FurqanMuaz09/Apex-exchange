@@ -10,10 +10,10 @@
 <input id="amountSlider" type="range" min="0" max="100" step="1" value="0" style="width:100%;margin:10px 0;accent-color:#0ecb81">
 <div style="display:flex;justify-content:space-between;font-size:11px;color:#848e9c;margin-bottom:12px"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
 <div class="order-submit-buttons" style="margin-top:12px"><button type="button" id="placeOrder" style="width:100%;background:#0ecb81;color:#07130e;border:0;border-radius:10px;padding:16px;font-weight:700">Buy BTC</button></div><p class="disclaimer">Binance Spot Testnet only. Orders require login and a funded Testnet account.</p></div></div><div class="trade-market-depth"><div class="trade-tools"><div class="trade-tool-head"><b>Order book</b><span>Price (USDT) · Amount</span></div><div class="book-columns"><div id="bids"><div class="book-row bid"><span>Loading bids…</span><span>—</span></div></div><div id="asks"><div class="book-row ask"><span>Loading asks…</span><span>—</span></div></div></div><div class="book-mid-price"><small>LIVE PRICE</small><b id="bookMidPrice">—</b><span id="bookMidPair">BTC/USDT</span></div><div class="trade-tool-head recent-head"><b>Recent trades</b><span>Price · Amount · Time</span></div><div id="recentTrades"><div class="recent-row"><span>Waiting for public market data</span></div></div></div></div></div><div class="section-title"><h3>Orders · <span id="historyPair">All pairs</span></h3><button type="button" id="refreshHistory">Refresh</button></div>
-<div id="orderPanelTabs" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0">
-<button type="button" data-order-panel="holdings" aria-selected="false" style="padding:14px 8px;border:1px solid #292d35;border-radius:10px;background:#161a1e;color:#b7bdc6;font-weight:700">▤ Holdings</button>
-<button type="button" data-order-panel="open" aria-selected="true" style="padding:14px 8px;border:1px solid #0ecb81;border-radius:10px;background:#17372f;color:#fff;font-weight:700">↔ Open Orders</button>
-<button type="button" data-order-panel="history" aria-selected="false" style="padding:14px 8px;border:1px solid #292d35;border-radius:10px;background:#161a1e;color:#b7bdc6;font-weight:700"><span aria-hidden="true">◷</span></button>
+<div id="orderPanelTabs" class="order-panel-tabs">
+<button type="button" data-order-panel="holdings" aria-selected="false">Holdings</button>
+<button type="button" data-order-panel="open" aria-selected="true">Open Orders</button>
+<button type="button" data-order-panel="history" aria-selected="false" aria-label="Order History"><span aria-hidden="true">◷</span> History</button>
 </div>
 <div id="holdingsPanel" class="order-section" hidden>
 <h4 id="holdingsPairTitle">BTC/USDT Holdings</h4>
