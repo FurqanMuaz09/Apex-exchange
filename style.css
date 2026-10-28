@@ -228,3 +228,53 @@
   padding: 5px 9px !important;
   font-size: 18px !important;
 }
+
+/* Clean final overrides for APEX trading header and tabs */
+#trade .pair-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
+  align-items: center !important;
+  gap: 7px !important;
+}
+#trade .pair-select-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  min-width: 0 !important;
+}
+#trade #tradeChangePercent {
+  display: block !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  margin-top: 3px !important;
+}
+#trade #pairSubtitle {
+  display: block !important;
+  font-size: 10px !important;
+  margin-top: 2px !important;
+}
+#trade .pair-row .right { min-width: 0 !important; }
+#trade #orderPanelTabs {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 6px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  white-space: nowrap !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+}
+#trade #orderPanelTabs::-webkit-scrollbar { display: none !important; }
+#trade #orderPanelTabs button {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  white-space: nowrap !important;
+  padding: 7px 10px !important;
+  font-size: 11px !important;
+}
+#trade #orderPanelTabs button[data-order-panel="history"] {
+  margin-left: auto !important;
+  min-width: 34px !important;
+  padding: 5px 9px !important;
+}
