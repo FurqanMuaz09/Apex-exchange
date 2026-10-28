@@ -11,9 +11,14 @@
 <input id="amountSlider" type="range" min="0" max="100" step="1" value="0" style="width:100%;margin:10px 0;accent-color:#0ecb81">
 <div style="display:flex;justify-content:space-between;font-size:11px;color:#848e9c;margin-bottom:12px"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
 <div class="order-submit-buttons" style="margin-top:12px"><button type="button" id="placeOrder" style="width:100%;background:#0ecb81;color:#07130e;border:0;border-radius:10px;padding:16px;font-weight:700">Buy BTC</button></div><p class="disclaimer">Binance Spot Testnet only. Orders require login and a funded Testnet account.</p><div class="section-title"><h3>Orders · <span id="historyPair">All pairs</span></h3><button type="button" id="refreshHistory">Refresh</button></div>
-<div id="orderPanelTabs" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0">
+<div id="orderPanelTabs" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0">
+<button type="button" data-order-panel="holdings" aria-selected="false" style="padding:14px 8px;border:1px solid #292d35;border-radius:10px;background:#161a1e;color:#b7bdc6;font-weight:700">▤ Holdings</button>
 <button type="button" data-order-panel="open" aria-selected="true" style="padding:14px 8px;border:1px solid #0ecb81;border-radius:10px;background:#17372f;color:#fff;font-weight:700">↔ Open Orders</button>
 <button type="button" data-order-panel="history" aria-selected="false" style="padding:14px 8px;border:1px solid #292d35;border-radius:10px;background:#161a1e;color:#b7bdc6;font-weight:700">◷ Order History</button>
+</div>
+<div id="holdingsPanel" class="order-section" hidden>
+<h4 id="holdingsPairTitle">BTC/USDT Holdings</h4>
+<div id="holdingsSummary">Log in to view Testnet holdings.</div>
 </div>
 <div id="openOrdersPanel" class="order-section">
 <h4>Open Buy / Sell Orders</h4>
@@ -24,7 +29,7 @@
 <div id="filledOrdersList">Filled orders will appear here.</div>
 <h4>Cancelled / Other Orders</h4>
 <div id="otherOrdersList">Cancelled and other orders will appear here.</div>
-</div></div></section>
+</div></section>
 <section class="page" id="assets"><div class="page-heading"><h1>Assets</h1><button>◉</button></div><div class="balance-card"><span class="muted">Total estimated value</span><h2 data-wallet-total>Log in to view</h2><p class="muted">Binance Spot Testnet account balances. Estimated USDT value excludes assets without a USDT ticker.</p><div class="quick-actions"><button data-action="deposit"><i>↓</i>Deposit</button><button data-action="withdraw"><i>↑</i>Withdraw</button><button data-action="transfer"><i>⇄</i>Transfer</button></div></div><div class="section-title"><h3>My assets</h3><button>Hide small balances ◉</button></div><div id="walletAssetList">Log in to view Testnet balances.</div><p class="disclaimer">Testnet only. This is a shared backend Testnet account, not a separate wallet for each user.</p></section>
 <section class="page" id="profile"><div class="profile-head"><span class="avatar big">U</span><div><h2>Welcome to APEX</h2><p>Sign in to manage your account</p></div></div><button class="primary wide" id="loginBtn">Log in / Sign up</button><button class="primary wide" id="logoutBtn" hidden>Log out</button><div class="menu-list"><button>Identity verification <span>›</span></button><button>Security <span>›</span></button><button>Payment methods <span>›</span></button><button>Notifications <span>›</span></button><button>Help & Support <span>›</span></button><button>About APEX <span>›</span></button></div><p class="disclaimer">Demo profile. Authentication and KYC are not connected.</p></section>
 </main>
