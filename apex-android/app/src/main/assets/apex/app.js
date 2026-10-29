@@ -342,11 +342,11 @@ function apexCoinInfo(asset) {
   };
 }
 
-function makeMarketRow(item) {
+function makeMarketRow(item, showPrice = false) {
   const row = document.createElement("button");
   row.type = "button";
   row.className = "market-row";
-  row.style.cssText = "display:grid;grid-template-columns:minmax(0,1.4fr) minmax(70px,1fr) auto;align-items:center;gap:8px;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
+  row.style.cssText = "display:grid;grid-template-columns:" + (showPrice ? "minmax(0,1.4fr) minmax(70px,1fr) auto" : "minmax(0,1fr) auto") + ";align-items:center;gap:8px;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
 
   const coin = apexCoinInfo(item.symbol);
   const asset = document.createElement("span");
@@ -416,10 +416,28 @@ function makeMarketRow(item) {
   changeGroup.style.cssText = "display:flex;align-items:center;justify-content:flex-end;gap:4px";
   changeGroup.append(star, change);
 
-  row.append(asset, price, changeGroup);
+  if (showPrice) {
+    price.style.cssText = "text-align:right;font-size:13px;font-weight:600;white-space:nowrap";
+    row.append(asset, price, changeGroup);
+  } else {
+    row.append(asset, changeGroup);
+  }
   row.addEventListener("click", () => {
     currentPair = item.symbol;
-    setText("pairName", coin.symbol + "/USDT");
+    const pairSelect = $("tradePairSelect");
+    if (pairSelect) {
+      if (![...pairSelect.options].some(option => option.value === currentPair)) {
+        const option = document.createElement("option");
+        option.value = currentPair;
+        option.textContent = coin.symbol + "/USDT";
+        pairSelect.appendChild(option);
+      }
+      pairSelect.value = currentPair;
+    }
+    setText("pairSubtitle", "");
+    setText("bookMidPair", coin.symbol + "/USDT");
+    setText("bookMidPrice", money(item.lastPrice));
+    if (!document.getElementById("holdingsPanel")?.hidden) renderApexHoldings();
     setText("tradePrice", money(item.lastPrice));
     const priceInput = $("orderPrice");
     if (priceInput) priceInput.value = item.lastPrice;
@@ -462,7 +480,7 @@ function renderMarkets() {
 
   if (home) {
     home.replaceChildren();
-    items.slice(0, 8).forEach((item) => home.appendChild(makeMarketRow(item)));
+    items.slice(0, 8).forEach((item) => home.appendChild(makeMarketRow(item, true)));
   }
   if (all) {
     all.replaceChildren();
@@ -473,6 +491,30 @@ function renderMarkets() {
 async function refreshMarkets() {
   try {
     marketData = await api("/ticker/24hr");
+
+    const pairSelect = $("tradePairSelect");
+    if (pairSelect) {
+      const selectedPair = currentPair;
+      const pairs = marketData
+        .filter(item => item.symbol.endsWith("USDT"))
+        .sort((a, b) => Number(b.quoteVolume || 0) - Number(a.quoteVolume || 0));
+
+      pairSelect.replaceChildren();
+      pairs.forEach(item => {
+        const option = document.createElement("option");
+        option.value = item.symbol;
+        option.textContent = item.symbol.replace(/USDT$/, "/USDT");
+        pairSelect.appendChild(option);
+      });
+
+      if (!pairs.some(item => item.symbol === selectedPair)) {
+        const option = document.createElement("option");
+        option.value = selectedPair;
+        option.textContent = selectedPair.replace(/USDT$/, "/USDT");
+        pairSelect.appendChild(option);
+      }
+      pairSelect.value = selectedPair;
+    }
     renderMarkets();
 
     const lookup = Object.fromEntries(marketData.map((x) => [x.symbol, x]));
@@ -490,6 +532,7 @@ async function refreshMarkets() {
 
     const btc = lookup[currentPair];
     if (btc) setText("tradePrice", money(btc.lastPrice));
+  if (btc) { setText("tradeChangePercent", changeText(btc.priceChangePercent)); setColor($("tradeChangePercent"), btc.priceChangePercent); }
 
     document.querySelectorAll(".welcome .tag").forEach((tag) => {
       tag.textContent = "Live market data";
@@ -511,11 +554,50 @@ async function refreshTrade() {
     const bids = $("bids");
     const asks = $("asks");
     const recent = $("recentTrades");
+    const bookColumns = bids?.parentElement;
+    const midBox = $("bookMidPrice")?.closest(".book-mid-price");
+
+    if (bookColumns && bids && asks && midBox) {
+      bookColumns.style.cssText = "display:flex;flex-direction:column;gap:4px;";
+      bookColumns.insertBefore(asks, bids);
+      bookColumns.insertBefore(midBox, bids);
+      asks.style.order = "1";
+      midBox.style.order = "2";
+      bids.style.order = "3";
+    }
+
+    const tools = $("recentTrades")?.closest(".trade-tools");
+    const recentHead = tools?.querySelector(".recent-head");
+    if (recentHead && !$("toggleRecentTrades")) {
+      const toggle = document.createElement("button");
+      toggle.id = "toggleRecentTrades";
+      toggle.type = "button";
+      toggle.title = "Show recent trades";
+      toggle.setAttribute("aria-label", "Show recent trades");
+      toggle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 7-8"/><path d="M14 7h5v5"/></svg>';
+      toggle.style.cssText = "border:1px solid #343a46;background:#202630;color:#eaecef;border-radius:6px;width:26px;height:24px;font-size:16px;cursor:pointer;";
+      recentHead.replaceChildren();
+      const title = document.createElement("b");
+      title.textContent = "Recent Trades";
+      recentHead.append(title, toggle);
+      if (recent) recent.hidden = true;
+      if (bookColumns) bookColumns.hidden = false;
+      toggle.addEventListener("click", () => {
+        const showingTrades = !recent.hidden;
+        recent.hidden = showingTrades;
+        if (bookColumns) bookColumns.hidden = !showingTrades;
+        toggle.innerHTML = showingTrades
+          ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
+          : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 7-8"/><path d="M14 7h5v5"/></svg>';
+        toggle.title = showingTrades ? "Show recent trades" : "Show order book";
+        toggle.setAttribute("aria-label", toggle.title);
+      });
+    }
 
     function renderBook(container, rows, className) {
       if (!container) return;
       container.replaceChildren();
-      rows.slice(0, 8).forEach(([price, amount]) => {
+      rows.slice(0, 7).forEach(([price, amount]) => {
         const row = document.createElement("div");
         row.className = `book-row ${className}`;
         row.style.cssText =
@@ -531,6 +613,9 @@ async function refreshTrade() {
 
     renderBook(bids, book.bids, "bid");
     renderBook(asks, book.asks, "ask");
+    const liveTicker = marketData.find(item => item.symbol === currentPair);
+    if (liveTicker) setText("bookMidPrice", money(liveTicker.lastPrice));
+    setText("bookMidPair", currentPair.replace(/USDT$/, "") + "/USDT");
 
     if (recent) {
       recent.replaceChildren();
@@ -683,6 +768,29 @@ if (event.target.closest("#hideBalance")) {
   }
 });
 
+
+const tradePairSelect = document.getElementById("tradePairSelect");
+tradePairSelect?.addEventListener("change", () => {
+  currentPair = tradePairSelect.value;
+  const coin = currentPair.replace(/USDT$/, "");
+
+  setText("pairSubtitle", coin === "BTC" ? "Bitcoin" : coin === "ETH" ? "Ethereum" : "BNB");
+  setText("bookMidPair", coin + "/USDT");
+  const ticker = marketData.find(item => item.symbol === currentPair);
+  if (ticker) {
+    setText("tradePrice", money(ticker.lastPrice));
+    setText("tradeChangePercent", changeText(ticker.priceChangePercent));
+    setColor($("tradeChangePercent"), ticker.priceChangePercent);
+    setText("bookMidPrice", money(ticker.lastPrice));
+    if ($("orderPrice")) $("orderPrice").value = ticker.lastPrice;
+  }
+  if ($("amountSlider")) $("amountSlider").value = 0;
+  updateOrderAction();
+  updateTotal();
+  refreshTrade();
+  if (!document.getElementById("holdingsPanel")?.hidden) renderApexHoldings();
+});
+
 $("marketSearch")?.addEventListener("input", renderMarkets);
 $("orderAmount")?.addEventListener("input", updateTotal);
 $("orderPrice")?.addEventListener("input", updateTotal);
@@ -735,18 +843,132 @@ refreshTimer = setInterval(() => {
 window.addEventListener("apex-auth-changed", () => { loadApexAccount(); loadApexOrderHistory(); });
 
 
+
+async function renderApexHoldings() {
+  const box = $("holdingsSummary");
+  const title = $("holdingsPairTitle");
+  if (!box) return;
+
+  const symbol = String(currentPair || "BTCUSDT").toUpperCase();
+  const coin = symbol.replace(/USDT$/, "");
+  if (title) title.textContent = `${symbol.replace(/USDT$/, "/USDT")} Holdings`;
+
+  if (!window.apexUser) {
+    box.textContent = "Log in to view Testnet holdings.";
+    return;
+  }
+
+  box.textContent = "Loading holdings...";
+
+  try {
+    const [accountData, orderData] = await Promise.all([
+      apexPrivateGet("/api/account"),
+      apexPrivateGet("/api/holdings-orders")
+    ]);
+
+    window.apexAccountData = accountData;
+
+    const balances = accountData?.balances ||
+      accountData?.account?.balances ||
+      accountData?.data?.balances || [];
+
+    const asset = balances.find(x =>
+      String(x.asset || "").toUpperCase() === coin
+    ) || {};
+
+    const free = Number(asset.free ?? asset.available ?? 0) || 0;
+    const locked = Number(asset.locked ?? 0) || 0;
+    const qty = free + locked;
+
+    const orders = (orderData?.orders || [])
+      .filter(o =>
+        String(o.symbol || "").toUpperCase() === symbol &&
+        Number(o.executedQty || 0) > 0
+      )
+      .sort((a, b) =>
+        new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+      );
+
+    let netQty = 0;
+    let netCost = 0;
+
+    for (const o of orders) {
+      const filled = Number(o.executedQty || 0);
+      const quote = Number(o.cummulativeQuoteQty ?? o.cumulativeQuoteQty ?? 0);
+      if (filled <= 0 || quote < 0) continue;
+
+      if (String(o.side || "").toUpperCase() === "BUY") {
+        netQty += filled;
+        netCost += quote;
+      } else if (String(o.side || "").toUpperCase() === "SELL" && netQty > 0) {
+        const sold = Math.min(filled, netQty);
+        netCost -= (netCost / netQty) * sold;
+        netQty -= sold;
+      }
+    }
+
+    const avg = netQty > 0 ? netCost / netQty : 0;
+    const markets = typeof marketData !== "undefined" && Array.isArray(marketData)
+      ? marketData : [];
+    const market = markets.find(m =>
+      String(m.symbol || "").toUpperCase() === symbol
+    );
+    const priceText = String($("tradePrice")?.textContent || "").replace(/[^0-9.]/g, "");
+    const price = Number(market?.lastPrice || priceText || 0);
+    const value = qty * price;
+    const cost = qty * avg;
+    const pnl = value - cost;
+    const pnlPct = cost ? pnl / cost * 100 : 0;
+
+    box.replaceChildren();
+
+    const rows = [
+      ["Available", `${free.toFixed(8)} ${coin}`],
+      ["Locked", `${locked.toFixed(8)} ${coin}`],
+      ["Total quantity", `${qty.toFixed(8)} ${coin}`],
+      ["Average buy cost (estimated)", avg ? `${avg.toFixed(8)} USDT` : "No filled buy history"],
+      ["Current price", price ? `${price.toFixed(8)} USDT` : "Price unavailable"],
+      ["Current value", `${value.toFixed(4)} USDT`],
+      ["Estimated unrealized PnL", `${pnl >= 0 ? "+" : ""}${pnl.toFixed(4)} USDT (${pnlPct.toFixed(2)}%)`]
+    ];
+
+    for (const [label, val] of rows) {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;justify-content:space-between;gap:12px;padding:12px 8px;border-bottom:1px solid #292d35";
+      const name = document.createElement("span");
+      name.textContent = label;
+      const valueEl = document.createElement("strong");
+      valueEl.textContent = val;
+      if (label.includes("PnL")) valueEl.style.color = pnl >= 0 ? "#0ecb81" : "#f6465d";
+      row.append(name, valueEl);
+      box.appendChild(row);
+    }
+
+    const note = document.createElement("small");
+    note.style.cssText = "display:block;color:#848e9c;padding:10px 8px";
+    note.textContent = "Estimated figures based on Testnet balance and saved filled orders; average cost may not reflect full account history.";
+    box.appendChild(note);
+  } catch (e) {
+    box.textContent = e?.message || "Holdings load nahi ho sake.";
+  }
+}
+
 /* APEX_ORDER_PANEL_TABS */
 document.addEventListener("click", event => {
   const button = event.target.closest("[data-order-panel]");
   if (!button) return;
 
-  const showHistory = button.dataset.orderPanel === "history";
+  const selected = button.dataset.orderPanel;
   const openPanel = document.getElementById("openOrdersPanel");
   const historyPanel = document.getElementById("orderHistoryPanel");
-  if (!openPanel || !historyPanel) return;
+  const holdingsPanel = document.getElementById("holdingsPanel");
+  if (!openPanel || !historyPanel || !holdingsPanel) return;
 
-  openPanel.hidden = showHistory;
-  historyPanel.hidden = !showHistory;
+  openPanel.hidden = selected !== "open";
+  historyPanel.hidden = selected !== "history";
+  holdingsPanel.hidden = selected !== "holdings";
+
+  if (selected === "holdings") renderApexHoldings();
 
   document.querySelectorAll("[data-order-panel]").forEach(tab => {
     const active = tab === button;
@@ -756,3 +978,76 @@ document.addEventListener("click", event => {
     tab.style.borderColor = active ? "#0ecb81" : "#292d35";
   });
 });
+
+/*  APEX_ORDER_PANEL_TABS */
+document.addEventListener("click", event => {
+  const button = event.target.closest("[data-order-panel]");
+  if (!button) return;
+
+  const selected = button.dataset.orderPanel;
+  const openPanel = document.getElementById("openOrdersPanel");
+  const historyPanel = document.getElementById("orderHistoryPanel");
+  const holdingsPanel = document.getElementById("holdingsPanel");
+  if (!openPanel || !historyPanel || !holdingsPanel) return;
+
+  openPanel.hidden = selected !== "open";
+  historyPanel.hidden = selected !== "history";
+  holdingsPanel.hidden = selected !== "holdings";
+  if (selected === "holdings") renderApexHoldings();
+
+  document.querySelectorAll("[data-order-panel]").forEach(tab => {
+    const active = tab === button;
+    tab.setAttribute("aria-selected", String(active));
+    tab.style.background = active ? "#17372f" : "#161a1e";
+    tab.style.color = active ? "#ffffff" : "#b7bdc6";
+    tab.style.borderColor = active ? "#0ecb81" : "#292d35";
+  });
+});
+
+// APEX professional TradingView chart
+if (!window.apexProfessionalChartInit) {
+  window.apexProfessionalChartInit = true;
+  const chartView = document.getElementById("professionalChartView");
+  const chartBox = document.getElementById("tradingViewChart");
+  const chartPair = document.getElementById("professionalChartPair");
+  let chartInterval = "15";
+
+  function loadProfessionalChart() {
+    if (!chartBox || !chartPair) return;
+    const symbol = String(currentPair || "BTCUSDT").toUpperCase();
+    chartPair.textContent = symbol.replace(/USDT$/, "/USDT");
+    const url = "https://s.tradingview.com/widgetembed/?" +
+      "symbol=" + encodeURIComponent("BINANCE:" + symbol) +
+      "&interval=" + chartInterval +
+      "&hidesidetoolbar=0&symboledit=1&saveimage=0" +
+      "&toolbarbg=%230b0e11&theme=dark&style=1" +
+      "&timezone=Etc%2FUTC&withdateranges=1&hideideas=1";
+    chartBox.innerHTML = "";
+    const frame = document.createElement("iframe");
+    frame.src = url;
+    frame.title = "Live TradingView candlestick chart";
+    frame.style.cssText = "width:100%;height:100%;min-height:420px;border:0";
+    frame.allowFullscreen = true;
+    chartBox.appendChild(frame);
+  }
+
+  document.getElementById("chartExpand")?.addEventListener("click", () => {
+    if (!chartView) return;
+    chartView.hidden = false;
+    document.body.style.overflow = "hidden";
+    loadProfessionalChart();
+  });
+
+  document.getElementById("chartClose")?.addEventListener("click", () => {
+    if (chartView) chartView.hidden = true;
+    document.body.style.overflow = "";
+  });
+
+  document.querySelectorAll("[data-interval]").forEach(button => {
+    button.addEventListener("click", () => {
+      const intervals = { "1m": "1", "15m": "15", "1h": "60", "4h": "240", "1d": "D" };
+      chartInterval = intervals[button.dataset.interval] || "15";
+      if (chartView && !chartView.hidden) loadProfessionalChart();
+    });
+  });
+}
