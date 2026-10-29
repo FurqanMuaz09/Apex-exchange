@@ -574,7 +574,7 @@ async function refreshTrade() {
       toggle.type = "button";
       toggle.title = "Show recent trades";
       toggle.setAttribute("aria-label", "Show recent trades");
-      toggle.textContent = "↕";
+      toggle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 7-8"/><path d="M14 7h5v5"/></svg>';
       toggle.style.cssText = "border:1px solid #343a46;background:#202630;color:#eaecef;border-radius:6px;width:26px;height:24px;font-size:16px;cursor:pointer;";
       recentHead.replaceChildren();
       const title = document.createElement("b");
@@ -586,7 +586,9 @@ async function refreshTrade() {
         const showingTrades = !recent.hidden;
         recent.hidden = showingTrades;
         if (bookColumns) bookColumns.hidden = !showingTrades;
-        toggle.textContent = showingTrades ? "↕" : "☷";
+        toggle.innerHTML = showingTrades
+          ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
+          : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 7-8"/><path d="M14 7h5v5"/></svg>';
         toggle.title = showingTrades ? "Show recent trades" : "Show order book";
         toggle.setAttribute("aria-label", toggle.title);
       });
