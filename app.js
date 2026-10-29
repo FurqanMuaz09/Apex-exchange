@@ -342,11 +342,11 @@ function apexCoinInfo(asset) {
   };
 }
 
-function makeMarketRow(item) {
+function makeMarketRow(item, showPrice = false) {
   const row = document.createElement("button");
   row.type = "button";
   row.className = "market-row";
-  row.style.cssText = "display:grid;grid-template-columns:minmax(0,1.4fr) minmax(70px,1fr) auto;align-items:center;gap:8px;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
+  row.style.cssText = "display:grid;grid-template-columns:" + (showPrice ? "minmax(0,1.4fr) minmax(70px,1fr) auto" : "minmax(0,1fr) auto") + ";align-items:center;gap:8px;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #292d35;background:transparent;color:inherit;text-align:left";
 
   const coin = apexCoinInfo(item.symbol);
   const asset = document.createElement("span");
@@ -416,7 +416,12 @@ function makeMarketRow(item) {
   changeGroup.style.cssText = "display:flex;align-items:center;justify-content:flex-end;gap:4px";
   changeGroup.append(star, change);
 
-  row.append(asset, changeGroup);
+  if (showPrice) {
+    price.style.cssText = "text-align:right;font-size:13px;font-weight:600;white-space:nowrap";
+    row.append(asset, price, changeGroup);
+  } else {
+    row.append(asset, changeGroup);
+  }
   row.addEventListener("click", () => {
     currentPair = item.symbol;
     const pairSelect = $("tradePairSelect");
@@ -475,7 +480,7 @@ function renderMarkets() {
 
   if (home) {
     home.replaceChildren();
-    items.slice(0, 8).forEach((item) => home.appendChild(makeMarketRow(item)));
+    items.slice(0, 8).forEach((item) => home.appendChild(makeMarketRow(item, true)));
   }
   if (all) {
     all.replaceChildren();

@@ -300,8 +300,8 @@
 
 /* APEX_PAIR_DISPLAY_FINAL */
 #trade #pairSubtitle { display: none !important; }
-#trade #tradePrice { display: none !important; }
-#trade .pair-row { grid-template-columns: minmax(0, 1fr) auto !important; }
+#trade #tradePrice { display: block !important; visibility: visible !important; }
+#trade .pair-row { grid-template-columns: minmax(0, 1fr) auto auto !important; }
 #trade #orderPanelTabs {
   display: flex !important;
   flex-wrap: nowrap !important;
@@ -318,3 +318,87 @@
   white-space: nowrap !important;
 }
 #trade #orderPanelTabs::-webkit-scrollbar { display: none !important; }
+
+/* Fix selectable market pair percentage */
+#allMarkets .market-row,
+#marketList .market-row {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  overflow: visible !important;
+}
+#allMarkets .market-row > span:last-child,
+#marketList .market-row > span:last-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+#allMarkets .market-row > span:last-child > span:last-child,
+#marketList .market-row > span:last-child > span:last-child {
+  display: inline-block !important;
+  visibility: visible !important;
+}
+
+/* Put 24h percentage beside selected pair */
+#trade .pair-select-wrap {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+#trade #tradeChangePercent {
+  display: inline-block !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+}
+#trade #pairSubtitle {
+  display: none !important;
+}
+
+/* Percentage inside pair selector button */
+#trade .pair-select-wrap {
+  position: relative !important;
+}
+#trade #tradePairSelect {
+  width: 100% !important;
+  max-width: 190px !important;
+  padding-right: 48px !important;
+}
+#trade #tradeChangePercent {
+  position: absolute !important;
+  left: 90px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  font-size: 10px !important;
+  white-space: nowrap !important;
+}
+
+/* APEX: swipeable Holdings / Open Orders / History tabs */
+#trade #orderPanelTabs {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+  scrollbar-width: none !important;
+  padding: 4px 2px 8px !important;
+}
+#trade #orderPanelTabs::-webkit-scrollbar {
+  display: none !important;
+}
+#trade #orderPanelTabs button {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+#trade #orderPanelTabs button[data-order-panel="history"] {
+  margin-left: 0 !important;
+}
