@@ -554,6 +554,43 @@ async function refreshTrade() {
     const bids = $("bids");
     const asks = $("asks");
     const recent = $("recentTrades");
+    const bookColumns = bids?.parentElement;
+    const midBox = $("bookMidPrice")?.closest(".book-mid-price");
+
+    if (bookColumns && bids && asks && midBox) {
+      bookColumns.style.cssText = "display:flex;flex-direction:column;gap:4px;";
+      bookColumns.insertBefore(asks, bids);
+      bookColumns.insertBefore(midBox, bids);
+      asks.style.order = "1";
+      midBox.style.order = "2";
+      bids.style.order = "3";
+    }
+
+    const tools = $("recentTrades")?.closest(".trade-tools");
+    const recentHead = tools?.querySelector(".recent-head");
+    if (recentHead && !$("toggleRecentTrades")) {
+      const toggle = document.createElement("button");
+      toggle.id = "toggleRecentTrades";
+      toggle.type = "button";
+      toggle.title = "Show recent trades";
+      toggle.setAttribute("aria-label", "Show recent trades");
+      toggle.textContent = "↕";
+      toggle.style.cssText = "border:1px solid #343a46;background:#202630;color:#eaecef;border-radius:6px;width:26px;height:24px;font-size:16px;cursor:pointer;";
+      recentHead.replaceChildren();
+      const title = document.createElement("b");
+      title.textContent = "Recent Trades";
+      recentHead.append(title, toggle);
+      if (recent) recent.hidden = true;
+      if (bookColumns) bookColumns.hidden = false;
+      toggle.addEventListener("click", () => {
+        const showingTrades = !recent.hidden;
+        recent.hidden = showingTrades;
+        if (bookColumns) bookColumns.hidden = !showingTrades;
+        toggle.textContent = showingTrades ? "↕" : "☷";
+        toggle.title = showingTrades ? "Show recent trades" : "Show order book";
+        toggle.setAttribute("aria-label", toggle.title);
+      });
+    }
 
     function renderBook(container, rows, className) {
       if (!container) return;

@@ -402,3 +402,14 @@
 #trade #orderPanelTabs button[data-order-panel="history"] {
   margin-left: 0 !important;
 }
+
+/* APEX order book: asks above, live price center, bids below */
+#trade .book-columns { display:flex !important; flex-direction:column !important; gap:4px !important; }
+#trade .book-columns > #asks,
+#trade .book-columns > #bids { width:100%; }
+#trade .book-mid-price { order:2; margin:6px 0; }
+#trade #asks { order:1; }
+#trade #bids { order:3; }
+#trade #toggleRecentTrades { margin-left:auto; }
+#trade #recentTrades[hidden],
+#trade .book-columns[hidden] { display:none !important; }
