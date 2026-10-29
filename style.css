@@ -441,3 +441,23 @@
     gap: 7px !important;
   }
 }
+
+/* APEX compact order book height */
+#trade .trade-market-depth .trade-tools {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+#trade .book-row {
+  padding: 2px 2px !important;
+  line-height: 1.15 !important;
+  font-size: 9px !important;
+}
+#trade .book-columns {
+  gap: 3px !important;
+}
+#trade .book-mid-price {
+  margin-top: 3px !important;
+  margin-bottom: 3px !important;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}

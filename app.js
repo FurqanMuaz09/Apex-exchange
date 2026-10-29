@@ -597,7 +597,7 @@ async function refreshTrade() {
     function renderBook(container, rows, className) {
       if (!container) return;
       container.replaceChildren();
-      rows.slice(0, 8).forEach(([price, amount]) => {
+      rows.slice(0, 7).forEach(([price, amount]) => {
         const row = document.createElement("div");
         row.className = `book-row ${className}`;
         row.style.cssText =
