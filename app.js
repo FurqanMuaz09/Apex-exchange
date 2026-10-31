@@ -356,7 +356,7 @@ function makeMarketRow(item, showPrice = false) {
   img.alt = coin.symbol;
   img.width = 30;
   img.height = 30;
-  img.style.cssText = "width:30px;height:30px;object-fit:contain;flex-shrink:0";
+  img.style.cssText = "width:34px;height:34px;object-fit:contain;flex-shrink:0;border-radius:50%;background:#252a32;padding:5px;box-sizing:border-box;border:1px solid #3a414c";
   let ix = 0;
   img.onerror = () => {
     ix++;
@@ -444,6 +444,8 @@ function makeMarketRow(item, showPrice = false) {
     if ($("amountSlider")) $("amountSlider").value = 0;
     updateOrderAction();
     updateTotal();
+    const sheet = $("allPairsSheet");
+    if (sheet) sheet.hidden = true;
     showPage("trade");
     refreshTrade();
   });
@@ -455,7 +457,9 @@ function renderMarkets() {
   let items = marketData.filter((item) => item.symbol.endsWith("USDT"));
 
   const search = $("marketSearch");
-  const query = search ? search.value.trim().toUpperCase() : "";
+  const homeSearch = $("homeSearch");
+  const sheetSearch = $("pairsSheetSearch");
+  const query = ((homeSearch?.value || search?.value || sheetSearch?.value || "")).trim().toUpperCase();
   if (query) items = items.filter((item) => item.symbol.includes(query));
 
   if (currentFilter === "Gainers" || currentFilter === "Gainer") {
@@ -480,11 +484,22 @@ function renderMarkets() {
 
   if (home) {
     home.replaceChildren();
-    items.slice(0, 8).forEach((item) => home.appendChild(makeMarketRow(item, true)));
+    items.slice(0, 6).forEach((item) => home.appendChild(makeMarketRow(item, true)));
   }
+
+  const sheetList = $("sheetMarkets");
+  if (sheetList) {
+    sheetList.replaceChildren();
+    const allPairs = marketData
+      .filter(item => item.symbol.endsWith("USDT"))
+      .filter(item => !query || item.symbol.includes(query))
+      .sort((a, b) => Number(b.quoteVolume || 0) - Number(a.quoteVolume || 0));
+    allPairs.forEach(item => sheetList.appendChild(makeMarketRow(item, true)));
+  }
+
   if (all) {
     all.replaceChildren();
-    items.slice(0, 100).forEach((item) => all.appendChild(makeMarketRow(item)));
+    items.slice(0, 100).forEach((item) => all.appendChild(makeMarketRow(item, true)));
   }
 }
 
@@ -792,6 +807,28 @@ tradePairSelect?.addEventListener("change", () => {
 });
 
 $("marketSearch")?.addEventListener("input", renderMarkets);
+$("homeSearch")?.addEventListener("input", renderMarkets);
+$("pairsSheetSearch")?.addEventListener("input", renderMarkets);
+$("homeSearchClear")?.addEventListener("click", () => {
+  if ($("homeSearch")) $("homeSearch").value = "";
+  renderMarkets();
+});
+$("viewMorePairs")?.addEventListener("click", () => {
+  const sheet = $("allPairsSheet");
+  if (sheet) {
+    sheet.hidden = false;
+    if ($("pairsSheetSearch")) $("pairsSheetSearch").value = "";
+    renderMarkets();
+  }
+});
+function closePairsSheet() {
+  const sheet = $("allPairsSheet");
+  if (sheet) sheet.hidden = true;
+}
+$("pairsSheetClose")?.addEventListener("click", closePairsSheet);
+$("pairsSheetX")?.addEventListener("click", closePairsSheet);
+$("supportOpen")?.addEventListener("click", () => notify("APEX Help & Support"));
+
 $("orderAmount")?.addEventListener("input", updateTotal);
 $("orderPrice")?.addEventListener("input", updateTotal);
 document.querySelectorAll("[data-interval]").forEach((button) => {
