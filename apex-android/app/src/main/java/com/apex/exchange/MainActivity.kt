@@ -131,7 +131,7 @@ fun ApexHome() {
 }
 
 @Composable
-fun HomeAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+fun RowScope.HomeAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Column(
         modifier = Modifier
             .weight(1f)
