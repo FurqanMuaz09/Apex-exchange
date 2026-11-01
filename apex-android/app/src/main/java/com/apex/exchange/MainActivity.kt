@@ -229,6 +229,7 @@ class MainActivity:ComponentActivity(){
  var signup by remember { mutableStateOf(false) }
  var email by remember { mutableStateOf("") }
  var password by remember { mutableStateOf("") }
+ var showPassword by remember { mutableStateOf(false) }
  var notice by remember { mutableStateOf("") }
  DisposableEffect(auth) {
   val listener = FirebaseAuth.AuthStateListener { user = it.currentUser }
@@ -252,7 +253,7 @@ class MainActivity:ComponentActivity(){
     Text("Email",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=12.dp))
     OutlinedTextField(value=email,onValueChange={email=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Email address")})
     Text("Password",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=10.dp))
-    OutlinedTextField(value=password,onValueChange={password=it},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),placeholder={Text("Password")})
+    OutlinedTextField(value=password,onValueChange={password=it},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=if(showPassword) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),placeholder={Text("Password")},trailingIcon={IconButton(onClick={showPassword=!showPassword}){Icon(if(showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,contentDescription="Toggle password visibility")}})
     Button(onClick={
      notice=""
      if(email.trim().isEmpty() || password.length<6) notice="Valid email aur kam az kam 6-character password enter karein."
