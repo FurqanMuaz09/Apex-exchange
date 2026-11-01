@@ -1,6 +1,11 @@
 package com.apex.exchange
 
 import android.os.Bundle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import java.net.URL
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -29,8 +34,29 @@ private val Yellow=Color(0xFFF0B90B)
 private val Green=Color(0xFF0ECB81)
 private val Red=Color(0xFFF6465D)
 
-private data class Asset(val pair:String,val name:String)
+private data class Asset(val pair:String,val name:String) {
+ val symbol:String get()=pair.replace("/","")
+}
 private val assets=listOf(Asset("BTC/USDT","Bitcoin"),Asset("ETH/USDT","Ethereum"),Asset("BNB/USDT","BNB"),Asset("SOL/USDT","Solana"),Asset("XRP/USDT","XRP"))
+private data class Ticker(val price:Double,val change:Double)
+private object NativeMarket {
+ val tickers = mutableStateMapOf<String,Ticker>()
+ var error by mutableStateOf("")
+ suspend fun refresh() = withContext(Dispatchers.IO) {
+  try {
+   val symbols=assets.joinToString(prefix="[",postfix="]") { "\"\u0024{it.symbol}\"" }
+   val raw=URL("https://api.binance.com/api/v3/ticker/24hr?symbols="+java.net.URLEncoder.encode(symbols,"UTF-8")).readText()
+   val rows=JSONArray(raw)
+   val result=mutableMapOf<String,Ticker>()
+   for(i in 0 until rows.length()) {
+    val row=rows.getJSONObject(i)
+    result[row.getString("symbol")]=Ticker(row.getString("lastPrice").toDouble(),row.getString("priceChangePercent").toDouble())
+   }
+   withContext(Dispatchers.Main) { tickers.putAll(result); error="" }
+  } catch(e:Exception) { withContext(Dispatchers.Main) { error="Live market connection unavailable" } }
+ }
+}
+private fun priceText(value:Double):String = if(value>=1) "%,.2f".format(java.util.Locale.US,value) else "%,.6f".format(java.util.Locale.US,value)
 
 class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){
@@ -43,6 +69,7 @@ class MainActivity:ComponentActivity(){
 
 @Composable private fun APEXNativeApp(){
  var tab by remember { mutableStateOf("Home") }
+ LaunchedEffect(Unit) { while(true) { NativeMarket.refresh(); delay(10_000) } }
  Scaffold(containerColor=Bg,bottomBar={
   NavigationBar(containerColor=Panel){
    listOf("Home","Markets","Trade","Assets","Profile").forEach { item ->
@@ -93,8 +120,9 @@ class MainActivity:ComponentActivity(){
 @Composable private fun AssetRow(asset:Asset,onClick:()->Unit){
  Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=16.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically){
   Column(Modifier.weight(1f)){Text(asset.pair,color=Txt,fontWeight=FontWeight.SemiBold);Text(asset.name,color=Muted,fontSize=11.sp)}
-  Text("--",color=Txt,modifier=Modifier.width(90.dp),textAlign=TextAlign.End)
-  Text("--",color=Muted,modifier=Modifier.width(75.dp),textAlign=TextAlign.End,fontSize=12.sp)
+  val ticker=NativeMarket.tickers[asset.symbol]
+  Text(ticker?.let{priceText(it.price)} ?: "—",color=Txt,modifier=Modifier.width(90.dp),textAlign=TextAlign.End)
+  Text(ticker?.let{(if(it.change>=0) "+" else "")+"%.2f%%".format(java.util.Locale.US,it.change)} ?: "—",color=ticker?.let{if(it.change>=0)Green else Red} ?: Muted,modifier=Modifier.width(75.dp),textAlign=TextAlign.End,fontSize=12.sp)
  }
  HorizontalDivider(color=Panel2)
 }
@@ -114,7 +142,7 @@ class MainActivity:ComponentActivity(){
 @Composable private fun TradeScreen(modifier:Modifier){
  var pair by remember{mutableStateOf("BTC/USDT")};var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")}
  Column(modifier.fillMaxSize().background(Bg)){Header("Spot Trading");Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)){
-  Row(verticalAlignment=Alignment.CenterVertically){var expanded by remember{mutableStateOf(false)};Box{Text(pair+"  ▾",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false})}}};Spacer(Modifier.weight(1f));Text("--",color=Green,fontWeight=FontWeight.Bold)}
+  Row(verticalAlignment=Alignment.CenterVertically){var expanded by remember{mutableStateOf(false)};Box{Text(pair+"  ▾",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false})}}};Spacer(Modifier.weight(1f));Text(NativeMarket.tickers[pair.replace("/","")]?.let{priceText(it.price)} ?: "—",color=Green,fontWeight=FontWeight.Bold)}
   Box(Modifier.fillMaxWidth().padding(vertical=16.dp).height(190.dp).background(Panel,RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Text("Candlestick chart",color=Muted)}
   Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(10.dp)).padding(4.dp)){listOf("Buy","Sell").forEach{Button(onClick={side=it},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(side==it){if(it=="Buy")Green else Red}else Panel,contentColor=Bg)){Text(it)}}}
   Spacer(Modifier.height(12.dp));Text("Order type",color=Muted);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("Market","Limit","Stop-limit").forEach{FilterChip(selected=order==it,onClick={order=it},label={Text(it)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Yellow,selectedLabelColor=Bg))}}
