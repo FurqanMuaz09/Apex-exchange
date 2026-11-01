@@ -4,13 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,156 +19,249 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Background = Color(0xFF0B0E11)
-private val SurfaceDark = Color(0xFF181A20)
+private val Bg = Color(0xFF0B0E11)
+private val Panel = Color(0xFF181A20)
+private val Panel2 = Color(0xFF20242B)
+private val Txt = Color(0xFFEAECEF)
+private val Muted = Color(0xFF848E9C)
 private val Yellow = Color(0xFFF0B90B)
-private val Green = Color(0xFF0ECB81)
-private val Red = Color(0xFFF6465D)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                ApexHome()
+                APEXApp()
             }
         }
     }
 }
 
 @Composable
-fun ApexHome() {
+fun APEXApp() {
+    var selectedTab by remember { mutableStateOf("Home") }
+
     Scaffold(
-        containerColor = Background,
+        containerColor = Bg,
         bottomBar = {
-            NavigationBar(containerColor = SurfaceDark) {
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.Home, null) },
-                    label = { Text("Home") }
+            NavigationBar(containerColor = Panel) {
+                val tabs = listOf(
+                    "Home", "Markets", "Trade", "Assets"
                 )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.ShowChart, null) },
-                    label = { Text("Markets") }
+                val icons = listOf(
+                    Icons.Default.Home,
+                    Icons.Default.ShowChart,
+                    Icons.Default.CandlestickChart,
+                    Icons.Default.AccountBalanceWallet
                 )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.CandlestickChart, null) },
-                    label = { Text("Trade") }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = { Icon(Icons.Default.AccountBalanceWallet, null) },
-                    label = { Text("Assets") }
-                )
+
+                tabs.forEachIndexed { index, tab ->
+                    NavigationBarItem(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        icon = { Icon(icons[index], contentDescription = tab) },
+                        label = { Text(tab) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Yellow,
+                            selectedTextColor = Yellow,
+                            indicatorColor = Panel2,
+                            unselectedIconColor = Muted,
+                            unselectedTextColor = Muted
+                        )
+                    )
+                }
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 18.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("APEX", color = Yellow, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-                    Row {
-                        Icon(Icons.Default.Notifications, null, tint = Color.White)
-                        Spacer(Modifier.width(18.dp))
-                        Icon(Icons.Default.Person, null, tint = Color.White)
-                    }
-                }
-            }
-
-            item {
-                Text("Total Balance", color = Color.LightGray, fontSize = 14.sp)
-                Text("$0.00", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(20.dp))
-            }
-
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HomeAction("Deposit", Icons.Default.ArrowDownward)
-                    HomeAction("Withdraw", Icons.Default.ArrowUpward)
-                    HomeAction("Transfer", Icons.Default.SwapHoriz)
-                }
-                Spacer(Modifier.height(28.dp))
-            }
-
-            item {
-                Text("Markets", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-            }
-
-            item { MarketRow("BTC / USDT", "Bitcoin", "$0.00", "+0.00%", true) }
-            item { MarketRow("ETH / USDT", "Ethereum", "$0.00", "+0.00%", true) }
-            item { MarketRow("BNB / USDT", "BNB", "$0.00", "-0.00%", false) }
-            item { MarketRow("SOL / USDT", "Solana", "$0.00", "+0.00%", true) }
-            item { MarketRow("XRP / USDT", "XRP", "$0.00", "-0.00%", false) }
-
-            item {
-                Spacer(Modifier.height(20.dp))
-                Text(
-                    "Native APEX interface • Testnet connection pending",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(bottom = 20.dp)
-                )
-            }
+        when (selectedTab) {
+            "Home" -> HomeScreen(Modifier.padding(padding))
+            else -> ComingSoonScreen(selectedTab, Modifier.padding(padding))
         }
     }
 }
 
 @Composable
-fun RowScope.HomeAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+fun HomeScreen(modifier: Modifier = Modifier) {
+    var filter by remember { mutableStateOf("All") }
+    var balanceHidden by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 16.dp)
+    ) {
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "APEX",
+                    color = Yellow,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.Search, null, tint = Txt)
+                Spacer(Modifier.width(18.dp))
+                Icon(Icons.Default.SupportAgent, null, tint = Txt)
+                Spacer(Modifier.width(18.dp))
+                Icon(Icons.Default.NotificationsNone, null, tint = Txt)
+            }
+        }
+
+        item {
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(Panel, RoundedCornerShape(16.dp))
+                    .padding(18.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Est. Total Value (USD)", color = Muted, fontSize = 13.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        if (balanceHidden) Icons.Default.VisibilityOff
+                        else Icons.Default.Visibility,
+                        contentDescription = "Hide balance",
+                        tint = Muted,
+                        modifier = Modifier.clickable {
+                            balanceHidden = !balanceHidden
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    if (balanceHidden) "******" else "Connect account",
+                    color = Txt,
+                    fontSize = 27.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(Modifier.height(16.dp))
+                Text("Today's PNL     --", color = Muted, fontSize = 13.sp)
+                Spacer(Modifier.height(18.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionButton("Add Funds", Icons.Default.Add)
+                    ActionButton("Withdraw", Icons.Default.ArrowUpward)
+                    ActionButton("Transfer", Icons.Default.SwapHoriz)
+                }
+            }
+        }
+
+        item {
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(Panel2, RoundedCornerShape(14.dp))
+                    .padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Trade Smarter with APEX",
+                        color = Txt,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("Explore the crypto markets", color = Muted, fontSize = 12.sp)
+                }
+                Text("APEX", color = Yellow, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        item {
+            Spacer(Modifier.height(24.dp))
+            Text("Markets", color = Txt, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach { option ->
+                    Text(
+                        option,
+                        color = if (filter == option) Yellow else Muted,
+                        fontSize = 13.sp,
+                        fontWeight = if (filter == option) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.clickable { filter = option }
+                    )
+                }
+            }
+        }
+
+        item {
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Trading Pair", color = Muted, fontSize = 12.sp)
+                Text("Last Price / 24h Change", color = Muted, fontSize = 12.sp)
+            }
+        }
+
+        items(5) { index ->
+            val coins = listOf(
+                "BTC/USDT" to "Bitcoin",
+                "ETH/USDT" to "Ethereum",
+                "BNB/USDT" to "BNB",
+                "SOL/USDT" to "Solana",
+                "XRP/USDT" to "XRP"
+            )
+            val coin = coins[index]
+
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(coin.first, color = Txt, fontWeight = FontWeight.SemiBold)
+                    Text(coin.second, color = Muted, fontSize = 12.sp)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("--", color = Txt)
+                    Text("--", color = Muted, fontSize = 12.sp)
+                }
+            }
+            HorizontalDivider(color = Panel2)
+        }
+
+        item {
+            Text(
+                "Live market data connection pending.",
+                color = Muted,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(vertical = 20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun RowScope.ActionButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
     Column(
-        modifier = Modifier
-            .weight(1f)
-            .background(SurfaceDark, RoundedCornerShape(12.dp))
-            .padding(14.dp),
+        Modifier.weight(1f)
+            .background(Panel2, RoundedCornerShape(10.dp))
+            .clickable { }
+            .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(icon, null, tint = Yellow)
         Spacer(Modifier.height(6.dp))
-        Text(label, color = Color.White, fontSize = 12.sp)
+        Text(label, color = Txt, fontSize = 11.sp)
     }
 }
 
 @Composable
-fun MarketRow(
-    pair: String,
-    name: String,
-    price: String,
-    change: String,
-    positive: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+fun ComingSoonScreen(title: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxSize().background(Bg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column {
-            Text(pair, color = Color.White, fontWeight = FontWeight.SemiBold)
-            Text(name, color = Color.Gray, fontSize = 12.sp)
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(price, color = Color.White)
-            Text(change, color = if (positive) Green else Red, fontSize = 12.sp)
-        }
+        Text(title, color = Txt, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Native screen is being built.", color = Muted)
     }
-    HorizontalDivider(color = SurfaceDark)
 }

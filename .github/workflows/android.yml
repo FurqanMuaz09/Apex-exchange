@@ -16,25 +16,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract Android project
-        run: unzip -o APEX-Android-GitHub-Upload.zip -d .
-
-      - name: Restore fixed Android Gradle config
-        run: |
-          git checkout -- apex-android/app/build.gradle.kts
-          git checkout -- apex-android/app/src/main/java/com/apex/exchange/MainActivity.kt
-
-      - name: Sync latest website files
-        run: |
-          mkdir -p apex-android/app/src/main/assets/apex
-          cp index.html style.css app.js apex-android/app/src/main/assets/apex/
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
+      - name: Build native Android APK
         run: gradle -p apex-android --no-daemon assembleDebug
 
       - name: Upload APK

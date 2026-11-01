@@ -1,10 +1,38 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0e11"><title>APEX — Crypto Exchange</title><link rel="manifest" href="./manifest.json"><link rel="icon" type="image/svg+xml" href="./favicon.svg"><link rel="stylesheet" href="style.css"></head>
-<body><header class="top"><div class="brand"><span class="mark">A</span><b>APEX</b></div><div class="top-actions"><button aria-label="Search" id="searchOpen">⌕</button><button aria-label="Notifications">♧</button><button class="avatar">U</button></div></header>
+<body><header class="top home-top">
+  <div class="brand"><span class="mark">A</span><b>APEX</b></div>
+  <label class="header-search"><span>⌕</span><input id="homeSearch" placeholder="Search BTC/USDT" autocomplete="off"><button type="button" id="homeSearchClear">×</button></label>
+  <div class="top-actions"><button aria-label="Help and Support" id="supportOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13v-2a9 9 0 0 1 18 0v2M3 12h3v7H5a2 2 0 0 1-2-2v-5Zm18 0h-3v7h1a2 2 0 0 0 2-2v-5ZM18 19c-1 2-3 2-5 2"/></svg></button><button aria-label="Notifications" id="notificationOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg></button></div>
+</header>
 <main id="app">
-<section class="page active" id="home"><div class="welcome"><div><small>Welcome to APEX</small><h1>Trade smarter.</h1></div><span class="tag">● Connecting to Binance…</span></div><div class="market-ticker"><div><small>BTC/USDT</small><b id="tickerBTC">—</b><em id="tickerBTCChange">Loading</em></div><div><small>ETH/USDT</small><b id="tickerETH">—</b><em id="tickerETHChange">Loading</em></div><div><small>BNB/USDT</small><b id="tickerBNB">—</b><em id="tickerBNBChange">Loading</em></div></div><div class="balance-card"><div class="balance-head"><span>Estimated Balance</span><button id="hideBalance">◉</button></div><h2 id="balance">Connect account <small>USDT</small></h2><p class="muted">Portfolio balance appears after secure account connection.</p><div class="quick-actions"><button data-action="deposit"><i>↓</i>Deposit</button><button data-action="withdraw"><i>↑</i>Withdraw</button><button data-action="transfer"><i>⇄</i>Transfer</button><button data-action="buy"><i>＋</i>Buy Crypto</button></div></div>
-<div class="section-title"><h3>Market overview</h3><button data-tab="markets">View all ›</button></div><div class="chips"><button class="chip selected" data-filter="All">All</button><button class="chip" data-filter="Favorite">Favorite</button><button class="chip" data-filter="Hot">Hot</button><button class="chip" data-filter="New">New</button><button class="chip" data-filter="Gainers">Gainer</button><button class="chip" data-filter="Losers">Loser</button></div><div class="market-list" id="homeMarkets"></div>
-<div class="promo"><div><span class="eyebrow">APEX LEARN</span><h3>Build your crypto knowledge</h3><p>Understand risk before you trade.</p></div><span class="promo-icon">↗</span></div></section>
+<section class="page active" id="home">
+  <div class="balance-card home-balance">
+    <div class="balance-head"><span>Est. Total Value (USD)</span><button id="hideBalance">◉ Hide</button></div>
+    <div class="home-balance-line">
+      <h2 id="balance">Connect account</h2>
+      <button class="add-funds" data-action="deposit">Add Funds</button>
+    </div>
+    <div class="home-pnl"><span>Today's PNL</span><strong>—</strong></div>
+  </div>
+
+  <div class="promo home-promo">
+    <div><span class="eyebrow">APEX EXCHANGE</span><h3>Trade Smarter with APEX</h3><p>Explore the crypto market</p></div>
+    <span class="promo-icon">◆</span>
+  </div>
+
+  <div class="chips home-chips">
+    <button class="chip selected" data-filter="Favorite">Favorite</button>
+    <button class="chip" data-filter="Hot">Hot</button>
+    <button class="chip" data-filter="Gainer">Gainer</button>
+    <button class="chip" data-filter="Loser">Loser</button>
+    <button class="chip" data-filter="New">New</button>
+  </div>
+
+  <div class="home-market-head"><span>Name</span><span>Last Price</span><span>24h chg%</span></div>
+  <div class="market-list home-market-list" id="homeMarkets"></div>
+  <button type="button" id="viewMorePairs" class="view-more-pairs">View More ↓</button>
+</section>
 <section class="page" id="markets"><div class="page-heading"><h1>Markets</h1><button id="marketSearchBtn">⌕ Search</button></div><div class="searchbar" id="searchbar"><span>⌕</span><input id="marketSearch" placeholder="Search coins" autocomplete="off"></div><div class="chips"><button class="chip selected" data-mktfilter="All">All</button><button class="chip" data-mktfilter="Gainers">Gainers</button><button class="chip" data-mktfilter="Losers">Losers</button></div><div class="list-head"><span>Asset / Pair</span><span>Last price</span><span>24h</span></div><div id="allMarkets" class="market-list"></div></section>
 <section class="page" id="trade"><div class="page-heading"><h1>Spot Trading</h1></div><div class="pair-row"><div class="pair-select-wrap"><select id="tradePairSelect" aria-label="Select trading pair"><option value="BTCUSDT">BTC/USDT</option><option value="ETHUSDT">ETH/USDT</option><option value="BNBUSDT">BNB/USDT</option></select><small id="tradeChangePercent" class="pair-change">—</small><small id="pairSubtitle">Select trading pair</small></div><button type="button" id="chartExpand" class="candle-button" aria-label="Open professional candlestick chart" title="Candlestick chart"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 3v18M12 2v20M19 5v14"/><rect x="3" y="7" width="4" height="7" rx=".5"/><rect x="10" y="10" width="4" height="6" rx=".5"/><rect x="17" y="8" width="4" height="8" rx=".5"/></svg></button><div class="right"><b class="green" id="tradePrice">Loading…</b></div></div><div class="trade-workspace"><div class="trade-order-entry"><div class="order-tabs"><button class="selected" data-order="Buy">Buy</button><button data-order="Sell">Sell</button></div><div class="order-form"><label>Order type <select id="orderType"><option>Market</option><option>Limit</option><option>Stop-limit</option></select></label><label id="priceLabel">Price (USDT)<input id="orderPrice" placeholder="Market price" inputmode="decimal"></label><label>Amount (USDT)<input id="orderAmount" placeholder="10.00" inputmode="decimal"><small id="orderAmountHint">Enter amount in USDT</small></label><div class="order-summary"><span>Estimated total</span><b id="orderTotal">0.00 USDT</b></div><div id="availableBalance" style="font-size:12px;color:#aeb4bc;margin-top:12px">Available balance: —</div>
 <input id="amountSlider" type="range" min="0" max="100" step="1" value="0" style="width:100%;margin:10px 0;accent-color:#0ecb81">
@@ -32,6 +60,17 @@
 <section class="page" id="assets"><div class="page-heading"><h1>Assets</h1><button>◉</button></div><div class="balance-card"><span class="muted">Total estimated value</span><h2 data-wallet-total>Log in to view</h2><p class="muted">Binance Spot Testnet account balances. Estimated USDT value excludes assets without a USDT ticker.</p><div class="quick-actions"><button data-action="deposit"><i>↓</i>Deposit</button><button data-action="withdraw"><i>↑</i>Withdraw</button><button data-action="transfer"><i>⇄</i>Transfer</button></div></div><div class="section-title"><h3>My assets</h3><button>Hide small balances ◉</button></div><div id="walletAssetList">Log in to view Testnet balances.</div><p class="disclaimer">Testnet only. This is a shared backend Testnet account, not a separate wallet for each user.</p></section>
 <section class="page" id="profile"><div class="profile-head"><span class="avatar big">U</span><div><h2>Welcome to APEX</h2><p>Sign in to manage your account</p></div></div><button class="primary wide" id="loginBtn">Log in / Sign up</button><button class="primary wide" id="logoutBtn" hidden>Log out</button><div class="menu-list"><button>Identity verification <span>›</span></button><button>Security <span>›</span></button><button>Payment methods <span>›</span></button><button>Notifications <span>›</span></button><button>Help & Support <span>›</span></button><button>About APEX <span>›</span></button></div><p class="disclaimer">Demo profile. Authentication and KYC are not connected.</p></section>
 </main>
+
+<section id="allPairsSheet" class="pairs-sheet" hidden>
+  <div class="pairs-sheet-backdrop" id="pairsSheetClose"></div>
+  <div class="pairs-sheet-panel">
+    <div class="pairs-sheet-handle"></div>
+    <div class="pairs-sheet-heading"><h2>All Trading Pairs</h2><button type="button" id="pairsSheetX">✕</button></div>
+    <div class="searchbar"><span>⌕</span><input id="pairsSheetSearch" placeholder="Search all pairs" autocomplete="off"></div>
+    <div class="list-head"><span>Asset / Pair</span><span>Last price</span><span>24h</span></div>
+    <div id="sheetMarkets" class="market-list"></div>
+  </div>
+</section>
 <section id="professionalChartView" hidden style="position:fixed;inset:0;z-index:20;background:#0b0e11;padding:16px;overflow:auto">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
     <div><b id="professionalChartPair">BTC/USDT</b><div style="font-size:12px;color:#848e9c">Live TradingView chart</div></div>
