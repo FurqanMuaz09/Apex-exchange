@@ -6,6 +6,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import java.net.URL
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,6 +50,7 @@ private object NativeMarket {
  val bids = mutableStateMapOf<String,List<BookLevel>>()
  val asks = mutableStateMapOf<String,List<BookLevel>>()
  val recent = mutableStateMapOf<String,List<TradeTick>>()
+ val candles = mutableStateMapOf<String,List<Float>>()
  var error by mutableStateOf("")
  suspend fun refreshPair(symbol:String) = withContext(Dispatchers.IO) {
   try {
@@ -54,9 +58,11 @@ private object NativeMarket {
    val bidRows=depth.getJSONArray("bids"); val askRows=depth.getJSONArray("asks")
    val bidList=(0 until bidRows.length()).map{val a=bidRows.getJSONArray(it);BookLevel(a.getString(0).toDouble(),a.getString(1).toDouble())}
    val askList=(0 until askRows.length()).map{val a=askRows.getJSONArray(it);BookLevel(a.getString(0).toDouble(),a.getString(1).toDouble())}
+   val klineRows=JSONArray(URL("https://api.binance.com/api/v3/klines?symbol="+symbol+"&interval=1m&limit=60").readText())
+   val closes=(0 until klineRows.length()).map{ klineRows.getJSONArray(it).getString(4).toFloat() }
    val tradeRows=JSONArray(URL("https://api.binance.com/api/v3/trades?symbol="+symbol+"&limit=12").readText())
    val tradeList=(0 until tradeRows.length()).map{val t=tradeRows.getJSONObject(it);TradeTick(t.getString("price").toDouble(),t.getString("qty").toDouble(),t.getBoolean("isBuyerMaker"))}
-   withContext(Dispatchers.Main){bids[symbol]=bidList;asks[symbol]=askList;recent[symbol]=tradeList}
+   withContext(Dispatchers.Main){bids[symbol]=bidList;asks[symbol]=askList;recent[symbol]=tradeList;candles[symbol]=closes}
   } catch(_:Exception) { }
  }
  suspend fun refresh() = withContext(Dispatchers.IO) {
@@ -167,16 +173,18 @@ class MainActivity:ComponentActivity(){
 @Composable private fun TradeScreen(modifier:Modifier){
  var pair by remember{mutableStateOf("BTC/USDT")}
  LaunchedEffect(pair){while(true){NativeMarket.refreshPair(pair.replace("/",""));delay(3000)}}
- var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")}
+ var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")};var orderMessage by remember{mutableStateOf("")}
  Column(modifier.fillMaxSize().background(Bg)){Header("Spot Trading");Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){var expanded by remember{mutableStateOf(false)};Box{Text(pair+"  ▾",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false})}}};Spacer(Modifier.weight(1f));Text(NativeMarket.tickers[pair.replace("/","")]?.let{priceText(it.price)} ?: "—",color=Green,fontWeight=FontWeight.Bold)}
-  Box(Modifier.fillMaxWidth().padding(vertical=16.dp).height(190.dp).background(Panel,RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Text("Candlestick chart",color=Muted)}
+  NativePriceChart(pair)
+  Text("1m   5m   15m   1H   4H   1D",color=Muted,fontSize=11.sp,modifier=Modifier.padding(vertical=6.dp))
   Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(10.dp)).padding(4.dp)){listOf("Buy","Sell").forEach{Button(onClick={side=it},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(side==it){if(it=="Buy")Green else Red}else Panel,contentColor=Bg)){Text(it)}}}
   Spacer(Modifier.height(12.dp));Text("Order type",color=Muted);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("Market","Limit","Stop-limit").forEach{FilterChip(selected=order==it,onClick={order=it},label={Text(it)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Yellow,selectedLabelColor=Bg))}}
   if(order!="Market")InputField("Price (USDT)",price,{price=it})
   InputField("Amount (USDT)",amount,{amount=it})
   Text("Estimated total     "+(amount.ifBlank{"0.00"})+" USDT",color=Txt,modifier=Modifier.fillMaxWidth().padding(top=10.dp).background(Panel,RoundedCornerShape(10.dp)).padding(14.dp))
-  Button(onClick={},modifier=Modifier.fillMaxWidth().padding(top=14.dp),colors=ButtonDefaults.buttonColors(containerColor=if(side=="Buy")Green else Red,contentColor=Bg)){Text(side+" "+pair)}
+  Button(onClick={val qty=amount.toDoubleOrNull();val p=price.toDoubleOrNull();orderMessage=when{qty==null||qty<=0->"Valid amount enter karein.";order!="Market"&&(p==null||p<=0)->"Valid price enter karein.";else->"Order submit nahi hua: secure Testnet backend aur Firebase login abhi connect nahi hain."}},modifier=Modifier.fillMaxWidth().padding(top=14.dp),colors=ButtonDefaults.buttonColors(containerColor=if(side=="Buy")Green else Red,contentColor=Bg)){Text(side+" "+pair)}
+  if(orderMessage.isNotBlank()) Text(orderMessage,color=Yellow,fontSize=12.sp,modifier=Modifier.padding(10.dp))
   Text("Binance Spot Testnet only. Orders require login and a funded Testnet account.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(12.dp))
   Text("Order book",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold)
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Price (USDT)",color=Muted,fontSize=11.sp);Text("Amount",color=Muted,fontSize=11.sp)}
@@ -204,3 +212,5 @@ class MainActivity:ComponentActivity(){
   Text("Authentication and KYC need native Firebase integration.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(16.dp))
  }
 }
+
+@Composable private fun NativePriceChart(pair:String) { val points=NativeMarket.candles[pair.replace("/","")].orEmpty(); Column(Modifier.fillMaxWidth().padding(vertical=12.dp).background(Panel,RoundedCornerShape(12.dp)).padding(10.dp)) { Text(pair+" · 1 minute",color=Muted,fontSize=11.sp); if(points.size<2) Box(Modifier.fillMaxWidth().height(170.dp),contentAlignment=Alignment.Center){Text("Loading chart data…",color=Muted)} else Canvas(Modifier.fillMaxWidth().height(170.dp)){ val low=points.minOrNull()?:0f;val high=points.maxOrNull()?:1f;val range=(high-low).takeIf{it>0f}?:1f;val path=Path();points.forEachIndexed{index,value->val x=size.width*index/(points.size-1).toFloat();val y=size.height-(value-low)/range*size.height;if(index==0)path.moveTo(x,y)else path.lineTo(x,y)};drawPath(path,color=Yellow,style=Stroke(width=2.5f));for(i in 1..3)drawLine(Panel2,androidx.compose.ui.geometry.Offset(0f,size.height*i/4),androidx.compose.ui.geometry.Offset(size.width,size.height*i/4),1f) } } }
