@@ -122,9 +122,12 @@ class MainActivity:ComponentActivity(){
 }
 @Composable private fun HomeScreen(modifier:Modifier,onTrade:()->Unit){
  var filter by remember{mutableStateOf("Favorite")}
+ var query by remember{mutableStateOf("")}
+ var showAll by remember{mutableStateOf(false)}
  var hidden by remember{mutableStateOf(false)}
  LazyColumn(modifier.fillMaxSize().background(Bg)){
-  item{Header(search=true)}
+  item{Header(search=false)}
+  item{SearchField(query,{query=it},"Search BTC/USDT") }
   item{
    Column(Modifier.padding(horizontal=16.dp).fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(16.dp)){
     Row(verticalAlignment=Alignment.CenterVertically){Text("Est. Total Value (USD)",color=Muted,fontSize=12.sp);Spacer(Modifier.width(8.dp));Icon(Icons.Default.Visibility,null,tint=Muted,modifier=Modifier.clickable{hidden=!hidden})}
@@ -135,15 +138,16 @@ class MainActivity:ComponentActivity(){
   item{Row(Modifier.padding(16.dp).fillMaxWidth().background(Panel2,RoundedCornerShape(12.dp)).padding(16.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("APEX EXCHANGE",color=Yellow,fontSize=10.sp);Text("Trade Smarter with APEX",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Text("Explore the crypto market",color=Muted,fontSize=12.sp)};Text("◆",color=Yellow,fontSize=30.sp)}}
   item{Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("Favorite","Hot","Gainer","Loser","New").forEach{AssistChip(onClick={filter=it},label={Text(it)},colors=AssistChipDefaults.assistChipColors(containerColor=if(filter==it)Yellow else Panel,labelColor=if(filter==it)Bg else Muted))}}}
   item{MarketHeader()}
+  val searched=assets.filter{it.pair.contains(query,true)||it.name.contains(query,true)}
   val visible=when(filter) {
-   "Gainer"->assets.filter{(NativeMarket.tickers[it.symbol]?.change ?: 0.0)>0}.sortedByDescending{NativeMarket.tickers[it.symbol]?.change ?: 0.0}
-   "Loser"->assets.filter{(NativeMarket.tickers[it.symbol]?.change ?: 0.0)<0}.sortedBy{NativeMarket.tickers[it.symbol]?.change ?: 0.0}
-   "Hot"->assets.sortedByDescending{kotlin.math.abs(NativeMarket.tickers[it.symbol]?.change ?: 0.0)}
+   "Gainer"->searched.filter{(NativeMarket.tickers[it.symbol]?.change ?: 0.0)>0}.sortedByDescending{NativeMarket.tickers[it.symbol]?.change ?: 0.0}
+   "Loser"->searched.filter{(NativeMarket.tickers[it.symbol]?.change ?: 0.0)<0}.sortedBy{NativeMarket.tickers[it.symbol]?.change ?: 0.0}
+   "Hot"->searched.sortedByDescending{kotlin.math.abs(NativeMarket.tickers[it.symbol]?.change ?: 0.0)}
    "New"->emptyList()
-   else->assets
+   else->searched
   }
-  items(visible){AssetRow(it,onTrade)}
-  item{Text("Market prices will appear when the native market data service is connected.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(18.dp))}
+  items(if(showAll) visible else visible.take(5)){AssetRow(it,onTrade)}
+  item{Text("View More ↓",color=Yellow,fontSize=13.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.fillMaxWidth().clickable{showAll=!showAll}.padding(18.dp),textAlign=TextAlign.Center)}
  }
 }
 @Composable private fun MarketHeader(){Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("Name",color=Muted,fontSize=11.sp);Text("Last Price        24h chg%",color=Muted,fontSize=11.sp)}}
@@ -173,15 +177,17 @@ class MainActivity:ComponentActivity(){
 @Composable private fun TradeScreen(modifier:Modifier){
  var pair by remember{mutableStateOf("BTC/USDT")}
  LaunchedEffect(pair){while(true){NativeMarket.refreshPair(pair.replace("/",""));delay(3000)}}
- var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")};var orderMessage by remember{mutableStateOf("")}
+ var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")};var orderMessage by remember{mutableStateOf("")};var amountPercent by remember{mutableFloatStateOf(0f)};var orderPanel by remember{mutableStateOf("Open Orders")}
  Column(modifier.fillMaxSize().background(Bg)){Header("Spot Trading");Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){var expanded by remember{mutableStateOf(false)};Box{Text(pair+"  ▾",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false})}}};Spacer(Modifier.weight(1f));Text(NativeMarket.tickers[pair.replace("/","")]?.let{priceText(it.price)} ?: "—",color=Green,fontWeight=FontWeight.Bold)}
   NativePriceChart(pair)
-  Text("1m   5m   15m   1H   4H   1D",color=Muted,fontSize=11.sp,modifier=Modifier.padding(vertical=6.dp))
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(16.dp)){listOf("1m","5m","15m","1H","4H","1D").forEach{Text(it,color=if(it=="1m")Yellow else Muted,fontSize=11.sp,modifier=Modifier.clickable{}.padding(vertical=8.dp))}}
   Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(10.dp)).padding(4.dp)){listOf("Buy","Sell").forEach{Button(onClick={side=it},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(side==it){if(it=="Buy")Green else Red}else Panel,contentColor=Bg)){Text(it)}}}
   Spacer(Modifier.height(12.dp));Text("Order type",color=Muted);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("Market","Limit","Stop-limit").forEach{FilterChip(selected=order==it,onClick={order=it},label={Text(it)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Yellow,selectedLabelColor=Bg))}}
   if(order!="Market")InputField("Price (USDT)",price,{price=it})
-  InputField("Amount (USDT)",amount,{amount=it})
+  InputField("Amount (USDT)",amount,{amount=it;amountPercent=0f})
+  Slider(value=amountPercent,onValueChange={amountPercent=it;amount=String.format(java.util.Locale.US,"%.2f",it*100)},valueRange=0f..1f,colors=SliderDefaults.colors(thumbColor=Yellow,activeTrackColor=Yellow))
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){listOf("0%","25%","50%","75%","100%").forEach{Text(it,color=Muted,fontSize=10.sp,modifier=Modifier.clickable{val v=it.removeSuffix("%").toFloat()/100f;amountPercent=v;amount=String.format(java.util.Locale.US,"%.2f",v*100)})}}
   Text("Estimated total     "+(amount.ifBlank{"0.00"})+" USDT",color=Txt,modifier=Modifier.fillMaxWidth().padding(top=10.dp).background(Panel,RoundedCornerShape(10.dp)).padding(14.dp))
   Button(onClick={val qty=amount.toDoubleOrNull();val p=price.toDoubleOrNull();orderMessage=when{qty==null||qty<=0->"Valid amount enter karein.";order!="Market"&&(p==null||p<=0)->"Valid price enter karein.";else->"Order submit nahi hua: secure Testnet backend aur Firebase login abhi connect nahi hain."}},modifier=Modifier.fillMaxWidth().padding(top=14.dp),colors=ButtonDefaults.buttonColors(containerColor=if(side=="Buy")Green else Red,contentColor=Bg)){Text(side+" "+pair)}
   if(orderMessage.isNotBlank()) Text(orderMessage,color=Yellow,fontSize=12.sp,modifier=Modifier.padding(10.dp))
@@ -193,7 +199,7 @@ class MainActivity:ComponentActivity(){
   Text("Recent trades",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=12.dp))
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Price",color=Muted,fontSize=11.sp);Text("Amount",color=Muted,fontSize=11.sp)}
   NativeMarket.recent[pair.replace("/","")].orEmpty().forEach{trade->Row(Modifier.fillMaxWidth().padding(vertical=3.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(priceText(trade.price),color=if(trade.buyerMaker)Red else Green,fontSize=12.sp);Text("%.5f".format(trade.quantity),color=Txt,fontSize=12.sp)}}
-  Text("Orders",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Row(horizontalArrangement=Arrangement.spacedBy(18.dp)){Text("Holdings",color=Muted);Text("Open Orders",color=Yellow);Text("History",color=Muted)};Text("Log in to view Testnet orders.",color=Muted,modifier=Modifier.padding(18.dp))
+  Text("Orders · $pair",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=16.dp));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(22.dp)){listOf("Holdings","Open Orders","History").forEach{Text(it,color=if(orderPanel==it)Yellow else Muted,modifier=Modifier.clickable{orderPanel=it}.padding(vertical=12.dp))}};Text(if(orderPanel=="Holdings")"Log in to view Testnet holdings." else if(orderPanel=="Open Orders")"Log in to view open orders." else "Log in to view order history.",color=Muted,modifier=Modifier.padding(18.dp))
  }}
 }
 @Composable private fun InputField(label:String,value:String,onValue:(String)->Unit){
