@@ -2,6 +2,9 @@ name: Build APEX Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - native-full-parity
 
 jobs:
   build:
