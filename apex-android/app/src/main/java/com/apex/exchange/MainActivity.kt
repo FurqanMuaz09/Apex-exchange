@@ -44,7 +44,7 @@ private object NativeMarket {
  var error by mutableStateOf("")
  suspend fun refresh() = withContext(Dispatchers.IO) {
   try {
-   val symbols=assets.joinToString(prefix="[",postfix="]") { "\"\u0024{it.symbol}\"" }
+   val symbols=assets.joinToString(prefix="[",postfix="]") { "\"" + it.symbol + "\"" }
    val raw=URL("https://api.binance.com/api/v3/ticker/24hr?symbols="+java.net.URLEncoder.encode(symbols,"UTF-8")).readText()
    val rows=JSONArray(raw)
    val result=mutableMapOf<String,Ticker>()
