@@ -152,11 +152,12 @@ class MainActivity:ComponentActivity(){
 }
 @Composable private fun MarketHeader(){Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("Name",color=Muted,fontSize=11.sp);Text("Last Price        24h chg%",color=Muted,fontSize=11.sp)}}
 @Composable private fun AssetRow(asset:Asset,onClick:()->Unit){
- Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=16.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically){
-  Column(Modifier.weight(1f)){Text(asset.pair,color=Txt,fontWeight=FontWeight.SemiBold);Text(asset.name,color=Muted,fontSize=11.sp)}
+ Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=16.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically){
   val ticker=NativeMarket.tickers[asset.symbol]
-  Text(ticker?.let{priceText(it.price)} ?: "—",color=Txt,modifier=Modifier.width(90.dp),textAlign=TextAlign.End)
-  Text(ticker?.let{(if(it.change>=0) "+" else "")+"%.2f%%".format(java.util.Locale.US,it.change)} ?: "—",color=ticker?.let{if(it.change>=0)Green else Red} ?: Muted,modifier=Modifier.width(75.dp),textAlign=TextAlign.End,fontSize=12.sp)
+  val coinColor=when(asset.symbol){"BTCUSDT"->Color(0xFFF7931A);"ETHUSDT"->Color(0xFF627EEA);"BNBUSDT"->Color(0xFFF3BA2F);"SOLUSDT"->Color(0xFF9945FF);else->Color(0xFF16A6D8)}
+  Box(Modifier.size(36.dp).background(coinColor,RoundedCornerShape(50)),contentAlignment=Alignment.Center){Text(asset.symbol.take(1),color=Bg,fontWeight=FontWeight.ExtraBold,fontSize=17.sp)}
+  Column(Modifier.weight(1f).padding(start=10.dp)){Text(asset.pair,color=Txt,fontWeight=FontWeight.SemiBold);Text(asset.name,color=Muted,fontSize=11.sp)}
+  Column(Modifier.width(105.dp),horizontalAlignment=Alignment.End){Text(ticker?.let{priceText(it.price)} ?: "—",color=Txt,fontWeight=FontWeight.Medium);Text(ticker?.let{(if(it.change>=0) "+" else "")+"%.2f%%".format(java.util.Locale.US,it.change)} ?: "—",color=ticker?.let{if(it.change>=0)Green else Red} ?: Muted,fontSize=11.sp)}
  }
  HorizontalDivider(color=Panel2)
 }
