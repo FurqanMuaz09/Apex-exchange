@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.URL
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -39,9 +40,25 @@ private data class Asset(val pair:String,val name:String) {
 }
 private val assets=listOf(Asset("BTC/USDT","Bitcoin"),Asset("ETH/USDT","Ethereum"),Asset("BNB/USDT","BNB"),Asset("SOL/USDT","Solana"),Asset("XRP/USDT","XRP"))
 private data class Ticker(val price:Double,val change:Double)
+private data class BookLevel(val price:Double,val quantity:Double)
+private data class TradeTick(val price:Double,val quantity:Double,val buyerMaker:Boolean)
 private object NativeMarket {
  val tickers = mutableStateMapOf<String,Ticker>()
+ val bids = mutableStateMapOf<String,List<BookLevel>>()
+ val asks = mutableStateMapOf<String,List<BookLevel>>()
+ val recent = mutableStateMapOf<String,List<TradeTick>>()
  var error by mutableStateOf("")
+ suspend fun refreshPair(symbol:String) = withContext(Dispatchers.IO) {
+  try {
+   val depth=JSONObject(URL("https://api.binance.com/api/v3/depth?symbol="+symbol+"&limit=8").readText())
+   val bidRows=depth.getJSONArray("bids"); val askRows=depth.getJSONArray("asks")
+   val bidList=(0 until bidRows.length()).map{val a=bidRows.getJSONArray(it);BookLevel(a.getString(0).toDouble(),a.getString(1).toDouble())}
+   val askList=(0 until askRows.length()).map{val a=askRows.getJSONArray(it);BookLevel(a.getString(0).toDouble(),a.getString(1).toDouble())}
+   val tradeRows=JSONArray(URL("https://api.binance.com/api/v3/trades?symbol="+symbol+"&limit=12").readText())
+   val tradeList=(0 until tradeRows.length()).map{val t=tradeRows.getJSONObject(it);TradeTick(t.getString("price").toDouble(),t.getString("qty").toDouble(),t.getBoolean("isBuyerMaker"))}
+   withContext(Dispatchers.Main){bids[symbol]=bidList;asks[symbol]=askList;recent[symbol]=tradeList}
+  } catch(_:Exception) { }
+ }
  suspend fun refresh() = withContext(Dispatchers.IO) {
   try {
    val symbols=assets.joinToString(prefix="[",postfix="]") { "\"" + it.symbol + "\"" }
@@ -148,7 +165,9 @@ class MainActivity:ComponentActivity(){
  }
 }
 @Composable private fun TradeScreen(modifier:Modifier){
- var pair by remember{mutableStateOf("BTC/USDT")};var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")}
+ var pair by remember{mutableStateOf("BTC/USDT")}
+ LaunchedEffect(pair){while(true){NativeMarket.refreshPair(pair.replace("/",""));delay(3000)}}
+ var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")}
  Column(modifier.fillMaxSize().background(Bg)){Header("Spot Trading");Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){var expanded by remember{mutableStateOf(false)};Box{Text(pair+"  ▾",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false})}}};Spacer(Modifier.weight(1f));Text(NativeMarket.tickers[pair.replace("/","")]?.let{priceText(it.price)} ?: "—",color=Green,fontWeight=FontWeight.Bold)}
   Box(Modifier.fillMaxWidth().padding(vertical=16.dp).height(190.dp).background(Panel,RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Text("Candlestick chart",color=Muted)}
@@ -159,8 +178,13 @@ class MainActivity:ComponentActivity(){
   Text("Estimated total     "+(amount.ifBlank{"0.00"})+" USDT",color=Txt,modifier=Modifier.fillMaxWidth().padding(top=10.dp).background(Panel,RoundedCornerShape(10.dp)).padding(14.dp))
   Button(onClick={},modifier=Modifier.fillMaxWidth().padding(top=14.dp),colors=ButtonDefaults.buttonColors(containerColor=if(side=="Buy")Green else Red,contentColor=Bg)){Text(side+" "+pair)}
   Text("Binance Spot Testnet only. Orders require login and a funded Testnet account.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(12.dp))
-  Text("Order book",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Text("Price (USDT)                         Amount",color=Muted);Text("Waiting for order book data",color=Muted,modifier=Modifier.padding(18.dp))
-  Text("Recent trades",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Text("Waiting for public market data",color=Muted,modifier=Modifier.padding(18.dp))
+  Text("Order book",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold)
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Price (USDT)",color=Muted,fontSize=11.sp);Text("Amount",color=Muted,fontSize=11.sp)}
+  NativeMarket.asks[pair.replace("/","")].orEmpty().asReversed().forEach{level->Row(Modifier.fillMaxWidth().padding(vertical=3.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(priceText(level.price),color=Red,fontSize=12.sp);Text("%.5f".format(level.quantity),color=Txt,fontSize=12.sp)}}
+  NativeMarket.bids[pair.replace("/","")].orEmpty().forEach{level->Row(Modifier.fillMaxWidth().padding(vertical=3.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(priceText(level.price),color=Green,fontSize=12.sp);Text("%.5f".format(level.quantity),color=Txt,fontSize=12.sp)}}
+  Text("Recent trades",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=12.dp))
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Price",color=Muted,fontSize=11.sp);Text("Amount",color=Muted,fontSize=11.sp)}
+  NativeMarket.recent[pair.replace("/","")].orEmpty().forEach{trade->Row(Modifier.fillMaxWidth().padding(vertical=3.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(priceText(trade.price),color=if(trade.buyerMaker)Red else Green,fontSize=12.sp);Text("%.5f".format(trade.quantity),color=Txt,fontSize=12.sp)}}
   Text("Orders",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Row(horizontalArrangement=Arrangement.spacedBy(18.dp)){Text("Holdings",color=Muted);Text("Open Orders",color=Yellow);Text("History",color=Muted)};Text("Log in to view Testnet orders.",color=Muted,modifier=Modifier.padding(18.dp))
  }}
 }
