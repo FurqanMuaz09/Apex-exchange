@@ -1,45 +1,146 @@
 package com.apex.exchange
 
 import android.os.Bundle
-import android.webkit.WebChromeClient
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.*
 
-class MainActivity : ComponentActivity() {
-    private lateinit var webView: WebView
+private val Bg=Color(0xFF0B0E11)
+private val Panel=Color(0xFF181A20)
+private val Panel2=Color(0xFF20242B)
+private val Txt=Color(0xFFEAECEF)
+private val Muted=Color(0xFF848E9C)
+private val Yellow=Color(0xFFF0B90B)
+private val Green=Color(0xFF0ECB81)
+private val Red=Color(0xFFF6465D)
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+private data class Asset(val pair:String,val name:String)
+private val assets=listOf(Asset("BTC/USDT","Bitcoin"),Asset("ETH/USDT","Ethereum"),Asset("BNB/USDT","BNB"),Asset("SOL/USDT","Solana"),Asset("XRP/USDT","XRP"))
 
-        webView = WebView(this).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.databaseEnabled = true
-            settings.loadWithOverviewMode = true
-            settings.useWideViewPort = true
-            settings.javaScriptCanOpenWindowsAutomatically = true
-            settings.setSupportMultipleWindows(false)
-            webViewClient = WebViewClient()
-            webChromeClient = WebChromeClient()
-            isVerticalScrollBarEnabled = false
-            isHorizontalScrollBarEnabled = false
-            setBackgroundColor(android.graphics.Color.rgb(11, 14, 17))
-            loadUrl("file:///android_asset/apex/index.html")
-        }
+class MainActivity:ComponentActivity(){
+ override fun onCreate(savedInstanceState:Bundle?){
+  super.onCreate(savedInstanceState)
+  window.statusBarColor=android.graphics.Color.rgb(11,14,17)
+  window.navigationBarColor=android.graphics.Color.rgb(11,14,17)
+  setContent { APEXNativeApp() }
+ }
+}
 
-        setContentView(webView)
+@Composable private fun APEXNativeApp(){
+ var tab by remember { mutableStateOf("Home") }
+ Scaffold(containerColor=Bg,bottomBar={
+  NavigationBar(containerColor=Panel){
+   listOf("Home","Markets","Trade","Assets","Profile").forEach { item ->
+    val icon=when(item){"Home"->Icons.Default.Home;"Markets"->Icons.Default.ShowChart;"Trade"->Icons.Default.SwapHoriz;"Assets"->Icons.Default.AccountBalanceWallet;else->Icons.Default.Person}
+    NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(icon,null)},label={Text(item,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=Yellow,selectedTextColor=Yellow,indicatorColor=Panel2,unselectedIconColor=Muted,unselectedTextColor=Muted))
+   }
+  }
+ }){padding->
+  when(tab){
+   "Home"->HomeScreen(Modifier.padding(padding),{tab="Trade"})
+   "Markets"->MarketsScreen(Modifier.padding(padding),{tab="Trade"})
+   "Trade"->TradeScreen(Modifier.padding(padding))
+   "Assets"->AssetsScreen(Modifier.padding(padding))
+   else->ProfileScreen(Modifier.padding(padding))
+  }
+ }
+}
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack() else finish()
-            }
-        })
-    }
-
-    override fun onDestroy() {
-        webView.destroy()
-        super.onDestroy()
-    }
+@Composable private fun Header(title:String="APEX",search:Boolean=false){
+ Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=15.dp),verticalAlignment=Alignment.CenterVertically){
+  Text(title,color=Yellow,fontSize=23.sp,fontWeight=FontWeight.ExtraBold)
+  Spacer(Modifier.weight(1f))
+  if(search) Icon(Icons.Default.Search,null,tint=Txt)
+  Spacer(Modifier.width(18.dp));Icon(Icons.Default.SupportAgent,null,tint=Txt)
+  Spacer(Modifier.width(18.dp));Icon(Icons.Default.NotificationsNone,null,tint=Txt)
+ }
+}
+@Composable private fun HomeScreen(modifier:Modifier,onTrade:()->Unit){
+ var filter by remember{mutableStateOf("Favorite")}
+ var hidden by remember{mutableStateOf(false)}
+ LazyColumn(modifier.fillMaxSize().background(Bg)){
+  item{Header(search=true)}
+  item{
+   Column(Modifier.padding(horizontal=16.dp).fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(16.dp)){
+    Row(verticalAlignment=Alignment.CenterVertically){Text("Est. Total Value (USD)",color=Muted,fontSize=12.sp);Spacer(Modifier.width(8.dp));Icon(Icons.Default.Visibility,null,tint=Muted,modifier=Modifier.clickable{hidden=!hidden})}
+    Row(verticalAlignment=Alignment.CenterVertically){Text(if(hidden)"******" else "Connect account",color=Txt,fontSize=26.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));Button(onClick=onTrade,colors=ButtonDefaults.buttonColors(containerColor=Yellow,contentColor=Bg)){Text("Add Funds")}}
+    Text("Today's PNL       —",color=Muted,fontSize=12.sp)
+   }
+  }
+  item{Row(Modifier.padding(16.dp).fillMaxWidth().background(Panel2,RoundedCornerShape(12.dp)).padding(16.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("APEX EXCHANGE",color=Yellow,fontSize=10.sp);Text("Trade Smarter with APEX",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Text("Explore the crypto market",color=Muted,fontSize=12.sp)};Text("◆",color=Yellow,fontSize=30.sp)}}
+  item{Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("Favorite","Hot","Gainer","Loser","New").forEach{AssistChip(onClick={filter=it},label={Text(it)},colors=AssistChipDefaults.assistChipColors(containerColor=if(filter==it)Yellow else Panel,labelColor=if(filter==it)Bg else Muted))}}}
+  item{MarketHeader()}
+  items(assets){AssetRow(it,onTrade)}
+  item{Text("Market prices will appear when the native market data service is connected.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(18.dp))}
+ }
+}
+@Composable private fun MarketHeader(){Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("Name",color=Muted,fontSize=11.sp);Text("Last Price        24h chg%",color=Muted,fontSize=11.sp)}}
+@Composable private fun AssetRow(asset:Asset,onClick:()->Unit){
+ Row(Modifier.fillMaxWidth().clickable(onClick=onClick).padding(horizontal=16.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically){
+  Column(Modifier.weight(1f)){Text(asset.pair,color=Txt,fontWeight=FontWeight.SemiBold);Text(asset.name,color=Muted,fontSize=11.sp)}
+  Text("--",color=Txt,modifier=Modifier.width(90.dp),textAlign=TextAlign.End)
+  Text("--",color=Muted,modifier=Modifier.width(75.dp),textAlign=TextAlign.End,fontSize=12.sp)
+ }
+ HorizontalDivider(color=Panel2)
+}
+@Composable private fun SearchField(text:String,onText:(String)->Unit,hint:String){
+ Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp).background(Panel,RoundedCornerShape(10.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically){
+  Icon(Icons.Default.Search,null,tint=Muted);Spacer(Modifier.width(8.dp))
+  BasicTextField(text,onText,modifier=Modifier.weight(1f),singleLine=true,textStyle=LocalTextStyle.current.copy(color=Txt),decorationBox={inner->if(text.isEmpty())Text(hint,color=Muted);inner()})
+ }
+}
+@Composable private fun MarketsScreen(modifier:Modifier,onTrade:()->Unit){
+ var query by remember{mutableStateOf("")};var filter by remember{mutableStateOf("All")}
+ Column(modifier.fillMaxSize().background(Bg)){Header("Markets");SearchField(query,{query=it},"Search coins")
+  Row(Modifier.padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("All","Gainers","Losers").forEach{FilterChip(selected=filter==it,onClick={filter=it},label={Text(it)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Yellow,selectedLabelColor=Bg))}}
+  MarketHeader();LazyColumn{items(assets.filter{it.pair.contains(query,true)||it.name.contains(query,true)}){AssetRow(it,onTrade)}}
+ }
+}
+@Composable private fun TradeScreen(modifier:Modifier){
+ var pair by remember{mutableStateOf("BTC/USDT")};var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")}
+ Column(modifier.fillMaxSize().background(Bg)){Header("Spot Trading");Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)){
+  Row(verticalAlignment=Alignment.CenterVertically){var expanded by remember{mutableStateOf(false)};Box{Text(pair+"  ▾",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false})}}};Spacer(Modifier.weight(1f));Text("--",color=Green,fontWeight=FontWeight.Bold)}
+  Box(Modifier.fillMaxWidth().padding(vertical=16.dp).height(190.dp).background(Panel,RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Text("Candlestick chart",color=Muted)}
+  Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(10.dp)).padding(4.dp)){listOf("Buy","Sell").forEach{Button(onClick={side=it},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(side==it){if(it=="Buy")Green else Red}else Panel,contentColor=Bg)){Text(it)}}}
+  Spacer(Modifier.height(12.dp));Text("Order type",color=Muted);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("Market","Limit","Stop-limit").forEach{FilterChip(selected=order==it,onClick={order=it},label={Text(it)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Yellow,selectedLabelColor=Bg))}}
+  if(order!="Market")InputField("Price (USDT)",price,{price=it})
+  InputField("Amount (USDT)",amount,{amount=it})
+  Text("Estimated total     "+(amount.ifBlank{"0.00"})+" USDT",color=Txt,modifier=Modifier.fillMaxWidth().padding(top=10.dp).background(Panel,RoundedCornerShape(10.dp)).padding(14.dp))
+  Button(onClick={},modifier=Modifier.fillMaxWidth().padding(top=14.dp),colors=ButtonDefaults.buttonColors(containerColor=if(side=="Buy")Green else Red,contentColor=Bg)){Text(side+" "+pair)}
+  Text("Binance Spot Testnet only. Orders require login and a funded Testnet account.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(12.dp))
+  Text("Order book",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Text("Price (USDT)                         Amount",color=Muted);Text("Waiting for order book data",color=Muted,modifier=Modifier.padding(18.dp))
+  Text("Recent trades",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Text("Waiting for public market data",color=Muted,modifier=Modifier.padding(18.dp))
+  Text("Orders",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Row(horizontalArrangement=Arrangement.spacedBy(18.dp)){Text("Holdings",color=Muted);Text("Open Orders",color=Yellow);Text("History",color=Muted)};Text("Log in to view Testnet orders.",color=Muted,modifier=Modifier.padding(18.dp))
+ }}
+}
+@Composable private fun InputField(label:String,value:String,onValue:(String)->Unit){
+ Text(label,color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=12.dp))
+ BasicTextField(value,onValue,modifier=Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(9.dp)).padding(14.dp),singleLine=true,textStyle=LocalTextStyle.current.copy(color=Txt),decorationBox={inner->if(value.isEmpty())Text("Enter "+label,color=Muted);inner()})
+}
+@Composable private fun AssetsScreen(modifier:Modifier){
+ Column(modifier.fillMaxSize().background(Bg)){Header("Assets");Column(Modifier.padding(16.dp).fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(18.dp)){Text("Total estimated value",color=Muted);Text("Log in to view",color=Txt,fontSize=26.sp,fontWeight=FontWeight.Bold);Text("Binance Spot Testnet account balances.",color=Muted,fontSize=12.sp);Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){listOf("↓ Deposit","↑ Withdraw","⇄ Transfer").forEach{Text(it,color=Yellow,modifier=Modifier.clickable{}.padding(10.dp))}}}
+  Text("My assets",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(16.dp));Text("Log in to view Testnet balances.",color=Muted,modifier=Modifier.padding(16.dp));Text("Testnet only. This is a shared backend Testnet account.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(16.dp))
+ }
+}
+@Composable private fun ProfileScreen(modifier:Modifier){
+ Column(modifier.fillMaxSize().background(Bg)){Header("Profile");Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.AccountCircle,null,tint=Yellow,modifier=Modifier.size(52.dp));Column(Modifier.padding(start=14.dp)){Text("Welcome to APEX",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold);Text("Sign in to manage your account",color=Muted,fontSize=12.sp)}}
+  Button(onClick={},modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp),colors=ButtonDefaults.buttonColors(containerColor=Yellow,contentColor=Bg)){Text("Log in / Sign up")}
+  listOf("Identity verification","Security","Payment methods","Notifications","Help & Support","About APEX").forEach{Row(Modifier.fillMaxWidth().clickable{}.padding(18.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(it,color=Txt);Text("›",color=Muted)};HorizontalDivider(color=Panel2)}
+  Text("Authentication and KYC need native Firebase integration.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(16.dp))
+ }
 }
