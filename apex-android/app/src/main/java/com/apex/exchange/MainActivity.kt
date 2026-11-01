@@ -112,7 +112,14 @@ class MainActivity:ComponentActivity(){
   item{Row(Modifier.padding(16.dp).fillMaxWidth().background(Panel2,RoundedCornerShape(12.dp)).padding(16.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("APEX EXCHANGE",color=Yellow,fontSize=10.sp);Text("Trade Smarter with APEX",color=Txt,fontSize=18.sp,fontWeight=FontWeight.Bold);Text("Explore the crypto market",color=Muted,fontSize=12.sp)};Text("◆",color=Yellow,fontSize=30.sp)}}
   item{Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("Favorite","Hot","Gainer","Loser","New").forEach{AssistChip(onClick={filter=it},label={Text(it)},colors=AssistChipDefaults.assistChipColors(containerColor=if(filter==it)Yellow else Panel,labelColor=if(filter==it)Bg else Muted))}}}
   item{MarketHeader()}
-  items(assets){AssetRow(it,onTrade)}
+  val visible=when(filter) {
+   "Gainer"->assets.filter{(NativeMarket.tickers[it.symbol]?.change ?: 0.0)>0}.sortedByDescending{NativeMarket.tickers[it.symbol]?.change ?: 0.0}
+   "Loser"->assets.filter{(NativeMarket.tickers[it.symbol]?.change ?: 0.0)<0}.sortedBy{NativeMarket.tickers[it.symbol]?.change ?: 0.0}
+   "Hot"->assets.sortedByDescending{kotlin.math.abs(NativeMarket.tickers[it.symbol]?.change ?: 0.0)}
+   "New"->emptyList()
+   else->assets
+  }
+  items(visible){AssetRow(it,onTrade)}
   item{Text("Market prices will appear when the native market data service is connected.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(18.dp))}
  }
 }
@@ -136,7 +143,8 @@ class MainActivity:ComponentActivity(){
  var query by remember{mutableStateOf("")};var filter by remember{mutableStateOf("All")}
  Column(modifier.fillMaxSize().background(Bg)){Header("Markets");SearchField(query,{query=it},"Search coins")
   Row(Modifier.padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("All","Gainers","Losers").forEach{FilterChip(selected=filter==it,onClick={filter=it},label={Text(it)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Yellow,selectedLabelColor=Bg))}}
-  MarketHeader();LazyColumn{items(assets.filter{it.pair.contains(query,true)||it.name.contains(query,true)}){AssetRow(it,onTrade)}}
+  MarketHeader();val filtered=assets.filter{it.pair.contains(query,true)||it.name.contains(query,true)}.filter{when(filter){"Gainers"->(NativeMarket.tickers[it.symbol]?.change ?: 0.0)>0;"Losers"->(NativeMarket.tickers[it.symbol]?.change ?: 0.0)<0;else->true}}
+  LazyColumn{items(filtered){AssetRow(it,onTrade)}}
  }
 }
 @Composable private fun TradeScreen(modifier:Modifier){
