@@ -180,7 +180,13 @@ class MainActivity:ComponentActivity(){
  LaunchedEffect(pair){while(true){NativeMarket.refreshPair(pair.replace("/",""));delay(3000)}}
  var side by remember{mutableStateOf("Buy")};var order by remember{mutableStateOf("Market")};var amount by remember{mutableStateOf("")};var price by remember{mutableStateOf("")};var orderMessage by remember{mutableStateOf("")};var amountPercent by remember{mutableFloatStateOf(0f)};var orderPanel by remember{mutableStateOf("Open Orders")}
  Column(modifier.fillMaxSize().background(Bg)){Header("Spot Trading");Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)){
-  Row(verticalAlignment=Alignment.CenterVertically){var expanded by remember{mutableStateOf(false)};Box{Text(pair+"  ▾",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false})}}};Spacer(Modifier.weight(1f));Text(NativeMarket.tickers[pair.replace("/","")]?.let{priceText(it.price)} ?: "—",color=Green,fontWeight=FontWeight.Bold)}
+  val currentTicker=NativeMarket.tickers[pair.replace("/","")]
+  Row(verticalAlignment=Alignment.CenterVertically){
+   var expanded by remember{mutableStateOf(false)}
+   Box{Column{Text(pair+"  ▾",color=Txt,fontSize=19.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{expanded=true});Text(currentTicker?.let{(if(it.change>=0) "+" else "")+"%.2f%%".format(java.util.Locale.US,it.change)} ?: "24h —",color=currentTicker?.let{if(it.change>=0)Green else Red} ?: Muted,fontSize=11.sp)};DropdownMenu(expanded,{expanded=false}){listOf("BTC/USDT","ETH/USDT","BNB/USDT").forEach{DropdownMenuItem(text={Text(it)},onClick={pair=it;expanded=false;amount="";price="";amountPercent=0f})}}}
+   Spacer(Modifier.weight(1f))
+   Column(horizontalAlignment=Alignment.End){Text(currentTicker?.let{priceText(it.price)} ?: "—",color=currentTicker?.let{if(it.change>=0)Green else Red} ?: Muted,fontWeight=FontWeight.Bold,fontSize=17.sp);Text("Last price",color=Muted,fontSize=10.sp)}
+  }
   NativePriceChart(pair)
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(16.dp)){listOf("1m","5m","15m","1H","4H","1D").forEach{Text(it,color=if(it=="1m")Yellow else Muted,fontSize=11.sp,modifier=Modifier.clickable{}.padding(vertical=8.dp))}}
   Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(10.dp)).padding(4.dp)){listOf("Buy","Sell").forEach{Button(onClick={side=it},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(side==it){if(it=="Buy")Green else Red}else Panel,contentColor=Bg)){Text(it)}}}
@@ -189,6 +195,7 @@ class MainActivity:ComponentActivity(){
   InputField("Amount (USDT)",amount,{amount=it;amountPercent=0f})
   Slider(value=amountPercent,onValueChange={amountPercent=it;amount=String.format(java.util.Locale.US,"%.2f",it*100)},valueRange=0f..1f,colors=SliderDefaults.colors(thumbColor=Yellow,activeTrackColor=Yellow))
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){listOf("0%","25%","50%","75%","100%").forEach{Text(it,color=Muted,fontSize=10.sp,modifier=Modifier.clickable{val v=it.removeSuffix("%").toFloat()/100f;amountPercent=v;amount=String.format(java.util.Locale.US,"%.2f",v*100)})}}
+  Text("Available balance: —",color=Muted,fontSize=11.sp,modifier=Modifier.fillMaxWidth().padding(top=8.dp))
   Text("Estimated total     "+(amount.ifBlank{"0.00"})+" USDT",color=Txt,modifier=Modifier.fillMaxWidth().padding(top=10.dp).background(Panel,RoundedCornerShape(10.dp)).padding(14.dp))
   Button(onClick={val qty=amount.toDoubleOrNull();val p=price.toDoubleOrNull();orderMessage=when{qty==null||qty<=0->"Valid amount enter karein.";order!="Market"&&(p==null||p<=0)->"Valid price enter karein.";else->"Order submit nahi hua: secure Testnet backend aur Firebase login abhi connect nahi hain."}},modifier=Modifier.fillMaxWidth().padding(top=14.dp),colors=ButtonDefaults.buttonColors(containerColor=if(side=="Buy")Green else Red,contentColor=Bg)){Text(side+" "+pair)}
   if(orderMessage.isNotBlank()) Text(orderMessage,color=Yellow,fontSize=12.sp,modifier=Modifier.padding(10.dp))
