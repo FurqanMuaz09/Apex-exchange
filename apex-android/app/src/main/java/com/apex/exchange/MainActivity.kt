@@ -191,12 +191,14 @@ class MainActivity:ComponentActivity(){
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(16.dp)){listOf("1m","5m","15m","1H","4H","1D").forEach{Text(it,color=if(it=="1m")Yellow else Muted,fontSize=11.sp,modifier=Modifier.clickable{}.padding(vertical=8.dp))}}
   Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(10.dp)).padding(4.dp)){listOf("Buy","Sell").forEach{Button(onClick={side=it},modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=if(side==it){if(it=="Buy")Green else Red}else Panel,contentColor=Bg)){Text(it)}}}
   Spacer(Modifier.height(12.dp));Text("Order type",color=Muted);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("Market","Limit","Stop-limit").forEach{FilterChip(selected=order==it,onClick={order=it},label={Text(it)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Yellow,selectedLabelColor=Bg))}}
-  if(order!="Market")InputField("Price (USDT)",price,{price=it})
+  if(order=="Limit")InputField("Price (USDT)",price,{price=it})
   InputField("Amount (USDT)",amount,{amount=it;amountPercent=0f})
-  Slider(value=amountPercent,onValueChange={amountPercent=it;amount=String.format(java.util.Locale.US,"%.2f",it*100)},valueRange=0f..1f,colors=SliderDefaults.colors(thumbColor=Yellow,activeTrackColor=Yellow))
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){listOf("0%","25%","50%","75%","100%").forEach{Text(it,color=Muted,fontSize=10.sp,modifier=Modifier.clickable{val v=it.removeSuffix("%").toFloat()/100f;amountPercent=v;amount=String.format(java.util.Locale.US,"%.2f",v*100)})}}
-  Text("Available balance: —",color=Muted,fontSize=11.sp,modifier=Modifier.fillMaxWidth().padding(top=8.dp))
-  Text("Estimated total     "+(amount.ifBlank{"0.00"})+" USDT",color=Txt,modifier=Modifier.fillMaxWidth().padding(top=10.dp).background(Panel,RoundedCornerShape(10.dp)).padding(14.dp))
+  Text("Available balance: Login to view",color=Muted,fontSize=11.sp,modifier=Modifier.fillMaxWidth().padding(top=10.dp))
+  Text("Amount allocation",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=12.dp))
+  Slider(value=amountPercent,onValueChange={amountPercent=it},valueRange=0f..1f,enabled=false,colors=SliderDefaults.colors(thumbColor=Yellow,activeTrackColor=Yellow,disabledThumbColor=Muted,disabledActiveTrackColor=Panel2))
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){listOf("0%","25%","50%","75%","100%").forEach{Text(it,color=Muted,fontSize=10.sp)}}
+  Text("Log in to load balance and enable percentage allocation.",color=Muted,fontSize=10.sp,modifier=Modifier.padding(top=4.dp))
+  Text("Estimated total     "+(amount.toDoubleOrNull()?.let{String.format(java.util.Locale.US,"%.2f USDT",it)} ?: "0.00 USDT"),color=Txt,modifier=Modifier.fillMaxWidth().padding(top=10.dp).background(Panel,RoundedCornerShape(10.dp)).padding(14.dp))
   Button(onClick={val qty=amount.toDoubleOrNull();val p=price.toDoubleOrNull();orderMessage=when{qty==null||qty<=0->"Valid amount enter karein.";order!="Market"&&(p==null||p<=0)->"Valid price enter karein.";else->"Order submit nahi hua: secure Testnet backend aur Firebase login abhi connect nahi hain."}},modifier=Modifier.fillMaxWidth().padding(top=14.dp),colors=ButtonDefaults.buttonColors(containerColor=if(side=="Buy")Green else Red,contentColor=Bg)){Text(side+" "+pair)}
   if(orderMessage.isNotBlank()) Text(orderMessage,color=Yellow,fontSize=12.sp,modifier=Modifier.padding(10.dp))
   Text("Binance Spot Testnet only. Orders require login and a funded Testnet account.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(12.dp))
