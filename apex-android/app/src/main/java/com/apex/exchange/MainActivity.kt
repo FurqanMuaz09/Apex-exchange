@@ -1,6 +1,7 @@
 package com.apex.exchange
 
 import android.os.Bundle
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -222,32 +223,52 @@ class MainActivity:ComponentActivity(){
  }
 }
 @Composable private fun ProfileScreen(modifier:Modifier){
+ val auth = remember { FirebaseAuth.getInstance() }
+ var user by remember { mutableStateOf(auth.currentUser) }
  var showLogin by remember { mutableStateOf(false) }
  var signup by remember { mutableStateOf(false) }
  var email by remember { mutableStateOf("") }
  var password by remember { mutableStateOf("") }
  var notice by remember { mutableStateOf("") }
+ DisposableEffect(auth) {
+  val listener = FirebaseAuth.AuthStateListener { user = it.currentUser }
+  auth.addAuthStateListener(listener)
+  onDispose { auth.removeAuthStateListener(listener) }
+ }
  Column(modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState())){
   Header("Profile")
   Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){
    Icon(Icons.Default.AccountCircle,null,tint=Yellow,modifier=Modifier.size(52.dp))
-   Column(Modifier.padding(start=14.dp)){Text("Welcome to APEX",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold);Text("Sign in to manage your account",color=Muted,fontSize=12.sp)}
+   Column(Modifier.padding(start=14.dp)){Text(user?.email ?: "Welcome to APEX",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold);Text(if(user==null)"Sign in to manage your account" else "Account signed in",color=Muted,fontSize=12.sp)}
   }
-  Button(onClick={showLogin=!showLogin},modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp),colors=ButtonDefaults.buttonColors(containerColor=Yellow,contentColor=Bg)){Text(if(showLogin)"Close login" else "Log in / Sign up")}
-  if(showLogin){
+  if(user!=null){
+   Button(onClick={auth.signOut();notice="Signed out."},modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp),colors=ButtonDefaults.buttonColors(containerColor=Yellow,contentColor=Bg)){Text("Log out")}
+  } else {
+   Button(onClick={showLogin=!showLogin},modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp),colors=ButtonDefaults.buttonColors(containerColor=Yellow,contentColor=Bg)){Text(if(showLogin)"Close login" else "Log in / Sign up")}
+  }
+  if(showLogin && user==null){
    Column(Modifier.padding(16.dp).fillMaxWidth().background(Panel,RoundedCornerShape(12.dp)).padding(16.dp)){
     Text(if(signup)"Create account" else "Log in",color=Txt,fontSize=20.sp,fontWeight=FontWeight.Bold)
     Text("Email",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=12.dp))
     OutlinedTextField(value=email,onValueChange={email=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Email address")})
     Text("Password",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=10.dp))
     OutlinedTextField(value=password,onValueChange={password=it},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation(),placeholder={Text("Password")})
-    Button(onClick={notice="Firebase authentication connection is the next setup step."},modifier=Modifier.fillMaxWidth().padding(top=12.dp),colors=ButtonDefaults.buttonColors(containerColor=Yellow,contentColor=Bg)){Text(if(signup)"Create account" else "Log in")}
-    TextButton(onClick={signup=!signup}){Text(if(signup)"Already registered? Log in" else "New user? Sign up",color=Yellow)}
-    if(notice.isNotBlank())Text(notice,color=Muted,fontSize=11.sp)
+    Button(onClick={
+     notice=""
+     if(email.trim().isEmpty() || password.length<6) notice="Valid email aur kam az kam 6-character password enter karein."
+     else {
+      val task=if(signup) auth.createUserWithEmailAndPassword(email.trim(),password) else auth.signInWithEmailAndPassword(email.trim(),password)
+      task.addOnCompleteListener { result ->
+       notice=if(result.isSuccessful){showLogin=false;password="";if(signup)"Account created and signed in." else "Login successful."} else result.exception?.localizedMessage ?: "Authentication failed."
+      }
+     }
+    },modifier=Modifier.fillMaxWidth().padding(top=12.dp),colors=ButtonDefaults.buttonColors(containerColor=Yellow,contentColor=Bg)){Text(if(signup)"Create account" else "Log in")}
+    TextButton(onClick={signup=!signup;notice=""}){Text(if(signup)"Already registered? Log in" else "New user? Sign up",color=Yellow)}
    }
   }
+  if(notice.isNotBlank())Text(notice,color=if(notice.contains("successful")||notice.contains("created")||notice.contains("out"))Green else Muted,fontSize=11.sp,modifier=Modifier.padding(16.dp))
   listOf("Identity verification","Security","Payment methods","Notifications","Help & Support","About APEX").forEach{Row(Modifier.fillMaxWidth().clickable{}.padding(18.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(it,color=Txt);Text("›",color=Muted)};HorizontalDivider(color=Panel2)}
-  Text("Account verification and security settings.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(16.dp))
+  Text("Email/password authentication uses Firebase.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(16.dp))
  }
 }
 
