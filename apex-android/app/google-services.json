@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1067881983186",
+    "project_id": "apexexchange-b5467",
+    "storage_bucket": "apexexchange-b5467.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1067881983186:android:cf467867cfb703b7b4510b",
+        "android_client_info": {
+          "package_name": "com.apex.exchange"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1067881983186-fcv31ae2ogfmqj5f67ed8qrum18upqtl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeTQNynIiz59eUXNzX0lcyI3tj2M2vHQE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1067881983186-fcv31ae2ogfmqj5f67ed8qrum18upqtl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
