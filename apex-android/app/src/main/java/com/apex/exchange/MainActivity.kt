@@ -886,6 +886,7 @@ private fun ProfileScreen(onDetail: (String) -> Unit) {
         auth.addAuthStateListener(listener)
         onDispose { auth.removeAuthStateListener(listener) }
     }
+    val currentUser = user
     Column {
         TopBar("Profile") { onDetail("Notifications") }
         Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
@@ -893,14 +894,14 @@ private fun ProfileScreen(onDetail: (String) -> Unit) {
                 Icon(Icons.Filled.AccountCircle, null, tint = Yellow, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(user?.displayName ?: if (user == null) "Welcome to APEX" else "APEX Member", color = White, fontWeight = FontWeight.Bold)
-                    Text(user?.email ?: "Login or create your account", color = Muted, fontSize = 12.sp)
-                    if (user != null) Text("UID: ${user.uid}", color = Muted, fontSize = 9.sp, maxLines = 1)
+                    Text(currentUser?.displayName ?: if (currentUser == null) "Welcome to APEX" else "APEX Member", color = White, fontWeight = FontWeight.Bold)
+                    Text(currentUser?.email ?: "Login or create your account", color = Muted, fontSize = 12.sp)
+                    if (user != null) Text("UID: ${currentUser.uid}", color = Muted, fontSize = 9.sp, maxLines = 1)
                 }
                 Icon(Icons.Filled.ChevronRight, null, tint = Muted)
             }
         }
-        if (user == null) {
+        if (currentUser == null) {
             Button(
                 onClick = { onDetail("Login / Sign up") },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
