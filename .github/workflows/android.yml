@@ -22,7 +22,9 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build native Android APK
-        run: gradle -p apex-android --no-daemon assembleDebug
+        env:
+          APEX_API_BASE_URL: ${{ secrets.APEX_API_BASE_URL }}
+        run: gradle -p apex-android --no-daemon -PAPEX_API_BASE_URL="$APEX_API_BASE_URL" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
