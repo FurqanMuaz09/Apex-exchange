@@ -1,6 +1,14 @@
 package com.apex.exchange
 
 import android.os.Bundle
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.content.Intent
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.FirebaseAuth
 import org.json.JSONArray
@@ -938,12 +946,50 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
 @Composable
 private fun AuthScreen(onSuccess: () -> Unit) {
     val auth = remember { FirebaseAuth.getInstance() }
+    val context = LocalContext.current
+    val webClientId = "1067881983186-fcv31ae2ogfmqj5f67ed8qrum18upqtl.apps.googleusercontent.com"
+    val googleOptions = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(webClientId)
+            .requestEmail()
+            .build()
+    }
+    val googleClient = remember { GoogleSignIn.getClient(context, googleOptions) }
     var isSignUp by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            try {
+                val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    .getResult(ApiException::class.java)
+                val idToken = account.idToken
+                if (idToken.isNullOrBlank()) {
+                    busy = false
+                    error = "Google ID token missing. Check Firebase OAuth setup."
+                } else {
+                    auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
+                        .addOnCompleteListener { task ->
+                            busy = false
+                            if (task.isSuccessful) onSuccess()
+                            else error = task.exception?.localizedMessage ?: "Google sign-in failed."
+                        }
+                }
+            } catch (e: Exception) {
+                busy = false
+                error = e.localizedMessage ?: "Google sign-in was cancelled or failed."
+            }
+        } else {
+            busy = false
+            error = "Google sign-in cancelled."
+        }
+    }
 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -954,6 +1000,39 @@ private fun AuthScreen(onSuccess: () -> Unit) {
         Text(if (isSignUp) "Create your account" else "Welcome back", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Text("Secure sign in with Firebase Authentication", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(22.dp))
+
+        OutlinedButton(
+            onClick = {
+                error = null
+                busy = true
+                try {
+                    googleLauncher.launch(googleClient.signInIntent)
+                } catch (e: Exception) {
+                    busy = false
+                    error = e.localizedMessage ?: "Unable to open Google sign-in."
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Color(0xFF202124)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDADCE0)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (busy) {
+                CircularProgressIndicator(modifier = Modifier.size(19.dp), color = Color(0xFF4285F4), strokeWidth = 2.dp)
+            } else {
+                Text("G", color = Color(0xFF4285F4), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(12.dp))
+                Text("Continue with Google", color = Color(0xFF202124), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            HorizontalDivider(Modifier.weight(1f), color = Panel)
+            Text("  or use email  ", color = Muted, fontSize = 11.sp)
+            HorizontalDivider(Modifier.weight(1f), color = Panel)
+        }
+        Spacer(Modifier.height(18.dp))
         OutlinedTextField(
             value = email, onValueChange = { email = it.trim(); error = null },
             modifier = Modifier.fillMaxWidth(), label = { Text("Email address") },
@@ -1019,8 +1098,6 @@ private fun AuthScreen(onSuccess: () -> Unit) {
         TextButton(onClick = { isSignUp = !isSignUp; error = null; confirmPassword = "" }, modifier = Modifier.fillMaxWidth()) {
             Text(if (isSignUp) "Already have an account? Login" else "New to APEX? Create account", color = Yellow)
         }
-        Spacer(Modifier.height(10.dp))
-        Text("Email/password sign-in. Google sign-in will be added in the next auth step.", color = Muted, fontSize = 10.sp)
     }
 }
 
