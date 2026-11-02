@@ -13,7 +13,7 @@ app.disable('x-powered-by');
 app.use(cors());
 app.use(express.json({ limit: '8kb' }));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || process.env.Port || 3000;
 const KEY = (process.env.BINANCE_TESTNET_API_KEY || '').trim();
 const SECRET = (process.env.BINANCE_TESTNET_API_SECRET || '').trim();
 const BASE = 'https://testnet.binance.vision';
