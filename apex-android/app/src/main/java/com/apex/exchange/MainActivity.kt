@@ -603,6 +603,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var asks by remember { mutableStateOf(emptyList<BookLevel>()) }
     var recentTrades by remember { mutableStateOf(emptyList<RecentTrade>()) }
     var depthError by remember { mutableStateOf<String?>(null) }
+    val orderScope = rememberCoroutineScope()
+    var orderBusy by remember { mutableStateOf(false) }
+    var orderMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pair, chartInterval) {
         while (true) {
             try {
@@ -804,12 +807,38 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 }
                 Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = { onDetail("Login required · Testnet order") },
+                    onClick = {
+                        val priceValue = if (orderType == "Limit") limitPrice.toDoubleOrNull() else marketPrice.replace(",", "").toDoubleOrNull()
+                        val enteredAmount = amount.toDoubleOrNull()
+                        if (FirebaseAuth.getInstance().currentUser == null) orderMessage = "Login first to place a Testnet order."
+                        else if (enteredAmount == null || enteredAmount <= 0 || priceValue == null || priceValue <= 0) orderMessage = "Enter a valid amount and price."
+                        else {
+                            orderBusy = true
+                            orderMessage = null
+                            orderScope.launch {
+                                try {
+                                    val quantity = enteredAmount / priceValue
+                                    val payload = JSONObject().put("symbol", pair.replace("/", "")).put("side", side.uppercase()).put("type", orderType.uppercase()).put("quantity", quantity)
+                                    if (orderType == "Limit") payload.put("price", priceValue)
+                                    val result = apexApiRequest("/api/order", "POST", payload)
+                                    val order = result.optJSONObject("order")
+                                    orderMessage = "Testnet order: ${order?.optString("status", "accepted") ?: "accepted"}"
+                                    amount = ""
+                                    percent = 0f
+                                } catch (e: Exception) { orderMessage = e.localizedMessage ?: "Order failed." }
+                                finally { orderBusy = false }
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().height(47.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg)
-                ) { Text("$side $base", fontWeight = FontWeight.Bold) }
-                Text("Orders are restricted to authenticated Binance Spot Testnet accounts.", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
+                , enabled = !orderBusy) {
+                    if (orderBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
+                    else Text("$side $base", fontWeight = FontWeight.Bold)
+                }
+                if (orderMessage != null) Text(orderMessage!!, color = if (orderMessage!!.startsWith("Testnet order")) Green else Red, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
+                Text("TESTNET ONLY · Secure backend connection required.", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
             }
         }
         item {
