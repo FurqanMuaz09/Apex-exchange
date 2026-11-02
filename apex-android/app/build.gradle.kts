@@ -6,6 +6,10 @@ plugins {
 }
 
 val apexApiBaseUrl = providers.gradleProperty("APEX_API_BASE_URL").orElse("").get()
+val apexKeystoreFile = providers.gradleProperty("APEX_KEYSTORE_FILE").orElse("").get()
+val apexKeystorePassword = providers.gradleProperty("APEX_KEYSTORE_PASSWORD").orElse("").get()
+val apexKeyAlias = providers.gradleProperty("APEX_KEY_ALIAS").orElse("").get()
+val apexKeyPassword = providers.gradleProperty("APEX_KEY_PASSWORD").orElse("").get()
 
 android {
     namespace = "com.apex.exchange"
@@ -18,6 +22,23 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    signingConfigs {
+        create("apex") {
+            if (apexKeystoreFile.isNotBlank()) {
+                storeFile = file(apexKeystoreFile)
+                storePassword = apexKeystorePassword
+                keyAlias = apexKeyAlias
+                keyPassword = apexKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (apexKeystoreFile.isNotBlank()) signingConfig = signingConfigs.getByName("apex")
+        }
     }
 
     buildFeatures { buildConfig = true }
