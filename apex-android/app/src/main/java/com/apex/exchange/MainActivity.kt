@@ -11,6 +11,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import android.content.Intent
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import org.json.JSONArray
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -889,7 +891,7 @@ private fun ProfileScreen(onDetail: (String) -> Unit) {
     val currentUser = user
     Column {
         TopBar("Profile") { onDetail("Notifications") }
-        Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
+        Card(Modifier.fillMaxWidth().padding(16.dp).clickable { onDetail("Profile Details") }, colors = CardDefaults.cardColors(containerColor = Panel)) {
             Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.AccountCircle, null, tint = Yellow, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.width(12.dp))
@@ -927,6 +929,8 @@ private fun ProfileScreen(onDetail: (String) -> Unit) {
 private fun NativeDetail(title: String, onBack: () -> Unit) {
     if (title == "Login / Sign up" || title == "Account Login") {
         AuthScreen(onBack)
+    } else if (title == "Profile Details") {
+        ProfileDetailsScreen(onBack)
     } else {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -938,6 +942,103 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
                     Text(title, color = White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Text("This native section will be connected next.", color = Muted, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileDetailsScreen(onBack: () -> Unit) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    val user = auth.currentUser
+    val db = remember { FirebaseFirestore.getInstance() }
+    var fullName by remember { mutableStateOf(user?.displayName.orEmpty()) }
+    var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var country by remember { mutableStateOf("") }
+    var dateOfBirth by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(true) }
+    var saving by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(user?.uid) {
+        if (user == null) {
+            loading = false
+            message = "Please sign in to manage your profile."
+        } else {
+            db.collection("users").document(user.uid).get()
+                .addOnSuccessListener { doc ->
+                    fullName = doc.getString("profileName") ?: fullName
+                    phone = doc.getString("profilePhone") ?: ""
+                    address = doc.getString("profileAddress") ?: ""
+                    country = doc.getString("profileCountry") ?: ""
+                    dateOfBirth = doc.getString("profileDob") ?: ""
+                    loading = false
+                }
+                .addOnFailureListener { e ->
+                    loading = false
+                    message = e.localizedMessage ?: "Could not load profile."
+                }
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("Profile Details", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        if (user == null) {
+            Text("Login first to save your profile details.", color = Muted, modifier = Modifier.padding(20.dp))
+        } else {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item {
+                    Text("Account information", color = Yellow, fontWeight = FontWeight.SemiBold)
+                    Text("UID: ${user.uid}", color = Muted, fontSize = 11.sp)
+                    Text(user.email ?: "", color = Muted, fontSize = 12.sp)
+                }
+                item {
+                    OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Full name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                }
+                item {
+                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Phone number") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                }
+                item {
+                    OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                }
+                item {
+                    OutlinedTextField(value = country, onValueChange = { country = it }, label = { Text("Country") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                }
+                item {
+                    OutlinedTextField(value = dateOfBirth, onValueChange = { dateOfBirth = it }, label = { Text("Date of birth (DD-MM-YYYY)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                }
+                item {
+                    if (message != null) Text(message!!, color = Red, fontSize = 12.sp)
+                    Button(
+                        onClick = {
+                            saving = true
+                            message = null
+                            val data = hashMapOf(
+                                "uid" to user.uid,
+                                "email" to (user.email ?: ""),
+                                "profileName" to fullName.trim(),
+                                "profilePhone" to phone.trim(),
+                                "profileAddress" to address.trim(),
+                                "profileCountry" to country.trim(),
+                                "profileDob" to dateOfBirth.trim(),
+                                "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                            )
+                            db.collection("users").document(user.uid).set(data, SetOptions.merge())
+                                .addOnSuccessListener { saving = false; message = "Profile saved successfully." }
+                                .addOnFailureListener { e -> saving = false; message = e.localizedMessage ?: "Profile save failed." }
+                        },
+                        enabled = !saving && !loading,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)
+                    ) {
+                        if (saving) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
+                        else Text("Save Profile", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
