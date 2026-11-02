@@ -279,33 +279,126 @@ private val sampleMarkets = listOf(
 private fun MarketsScreen(onCoin: (String) -> Unit) {
     var filter by remember { mutableStateOf("All") }
     var query by remember { mutableStateOf("") }
-    Column {
+    val favorites = remember { mutableStateListOf("BTC", "ETH") }
+    val hotCoins = setOf("BTC", "ETH", "BNB", "SOL")
+    val filtered = sampleMarkets.filter { coin ->
+        val matchesSearch = coin.symbol.contains(query, true) || coin.name.contains(query, true)
+        val matchesFilter = when (filter) {
+            "Favorite" -> coin.symbol in favorites
+            "Hot" -> coin.symbol in hotCoins
+            "Gainer" -> coin.up
+            "Loser" -> !coin.up
+            else -> true
+        }
+        matchesSearch && matchesFilter
+    }
+
+    Column(Modifier.fillMaxSize()) {
         TopBar("Markets")
         OutlinedTextField(
-            value = query, onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            placeholder = { Text("Search coins", color = Muted) },
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+            placeholder = { Text("Search coins or trading pairs", color = Muted, fontSize = 13.sp) },
             leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted) },
+            trailingIcon = {
+                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Filled.Close, "Clear search", tint = Muted)
+                }
+            },
             singleLine = true,
+            shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                focusedTextColor = White, unfocusedTextColor = White
+                focusedTextColor = White, unfocusedTextColor = White,
+                cursorColor = Yellow
             )
         )
-        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach {
-                FilterChip(selected = filter == it, onClick = { filter = it }, label = { Text(it) })
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach { option ->
+                FilterChip(
+                    selected = filter == option,
+                    onClick = { filter = option },
+                    label = { Text(option, fontSize = 10.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF383019),
+                        selectedLabelColor = Yellow,
+                        labelColor = Muted
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true, selected = filter == option,
+                        borderColor = Panel, selectedBorderColor = Color(0xFF66521B)
+                    )
+                )
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
-            Text("Pair", color = Muted, modifier = Modifier.weight(1f))
-            Text("Last price", color = Muted)
-            Spacer(Modifier.width(30.dp))
-            Text("24h", color = Muted)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Asset / Pair", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+            Text("Last price", color = Muted, fontSize = 11.sp)
+            Spacer(Modifier.width(24.dp))
+            Text("24h", color = Muted, fontSize = 11.sp)
         }
-        LazyColumn {
-            items(sampleMarkets.filter { it.symbol.contains(query, true) || it.name.contains(query, true) }) {
-                MarketRow(it) { onCoin(it.symbol) }
+        HorizontalDivider(color = Panel)
+        if (filtered.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Filled.SearchOff, null, tint = Muted, modifier = Modifier.size(34.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text(if (filter == "Favorite") "No favorite coins yet" else "No coins found", color = Muted)
+                    Text("Try another filter or search", color = Muted, fontSize = 11.sp)
+                }
+            }
+        } else {
+            LazyColumn(Modifier.weight(1f)) {
+                items(filtered) { coin ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onCoin(coin.symbol) }
+                            .padding(start = 16.dp, end = 10.dp, top = 11.dp, bottom = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(coin.symbol, color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Text("/USDT", color = Muted, fontSize = 10.sp)
+                            }
+                            Text(coin.name, color = Muted, fontSize = 11.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(coin.price, color = White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text("— USDT", color = Muted, fontSize = 9.sp)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.width(72.dp), contentAlignment = Alignment.CenterEnd) {
+                            Text(
+                                coin.change,
+                                color = if (coin.up) Green else Red,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                if (coin.symbol in favorites) favorites.remove(coin.symbol)
+                                else favorites.add(coin.symbol)
+                            },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                if (coin.symbol in favorites) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = "Toggle favorite",
+                                tint = if (coin.symbol in favorites) Yellow else Muted,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = Panel, thickness = 1.dp)
+                }
             }
         }
     }
