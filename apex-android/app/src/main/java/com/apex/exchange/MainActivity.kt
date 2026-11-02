@@ -147,9 +147,9 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                         Text("≈ $0.00", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.height(18.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ActionButton("Add Funds") { onDetail("Add Funds") }
-                            ActionButton("Trade") { onTrade() }
-                            ActionButton("Assets") { onDetail("Assets") }
+                            ActionButton("Add Funds", Modifier.weight(1f)) { onDetail("Add Funds") }
+                            ActionButton("Trade", Modifier.weight(1f)) { onTrade() }
+                            ActionButton("Assets", Modifier.weight(1f)) { onDetail("Assets") }
                         }
                     }
                 }
@@ -160,8 +160,8 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
         item {
             SectionTitle("Explore APEX")
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickTile("Spot Trading", Icons.Filled.SwapHoriz) { onTrade() }
-                QuickTile("My Profile", Icons.Filled.Person) { onDetail("Profile") }
+                QuickTile("Spot Trading", Icons.Filled.SwapHoriz, Modifier.weight(1f)) { onTrade() }
+                QuickTile("My Profile", Icons.Filled.Person, Modifier.weight(1f)) { onDetail("Profile") }
             }
             Spacer(Modifier.height(18.dp))
         }
@@ -297,9 +297,9 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton("Deposit") { onDetail("Deposit") }
-            ActionButton("Withdraw") { onDetail("Withdraw") }
-            ActionButton("Transfer") { onDetail("Transfer") }
+            ActionButton("Deposit", Modifier.weight(1f)) { onDetail("Deposit") }
+            ActionButton("Withdraw", Modifier.weight(1f)) { onDetail("Withdraw") }
+            ActionButton("Transfer", Modifier.weight(1f)) { onDetail("Transfer") }
         }
         SectionTitle("My Assets")
         sampleMarkets.forEach { coin ->
@@ -356,16 +356,16 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ActionButton(label: String, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.weight(1f),
+private fun ActionButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(onClick = onClick, modifier = modifier,
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2B3139)),
         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 10.dp)
     ) { Text(label, color = White, fontSize = 11.sp) }
 }
 
 @Composable
-private fun QuickTile(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Card(Modifier.weight(1f).clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = Panel)) {
+private fun QuickTile(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(modifier.clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = Panel)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Yellow)
             Spacer(Modifier.width(8.dp))
