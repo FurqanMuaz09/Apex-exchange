@@ -832,8 +832,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     },
                     modifier = Modifier.fillMaxWidth().height(47.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg)
-                , enabled = !orderBusy) {
+                    colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg),
+                    enabled = !orderBusy) {
                     if (orderBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
                     else Text("$side $base", fontWeight = FontWeight.Bold)
                 }
