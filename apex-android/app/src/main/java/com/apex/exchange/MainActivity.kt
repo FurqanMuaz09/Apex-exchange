@@ -911,28 +911,65 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
 
 @Composable
 private fun AssetsScreen(onDetail: (String) -> Unit) {
-    Column {
+    val user = FirebaseAuth.getInstance().currentUser
+    val scope = rememberCoroutineScope()
+    var balances by remember { mutableStateOf(listOf<Pair<String, String>>()) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("Login to load your Binance Spot Testnet wallet.") }
+    var totalUsdt by remember { mutableStateOf(0.0) }
+
+    fun refreshWallet() {
+        if (user == null) { message = "Login to load your Testnet wallet."; return }
+        busy = true
+        scope.launch {
+            try {
+                val response = apexApiRequest("/api/account")
+                val list = response.optJSONArray("balances") ?: JSONArray()
+                val found = mutableListOf<Pair<String, String>>()
+                var usdt = 0.0
+                for (i in 0 until list.length()) {
+                    val item = list.getJSONObject(i)
+                    val asset = item.optString("asset")
+                    val free = item.optString("free", "0").toDoubleOrNull() ?: 0.0
+                    val locked = item.optString("locked", "0").toDoubleOrNull() ?: 0.0
+                    if (free + locked > 0) found.add(asset to String.format(java.util.Locale.US, "%.8f", free + locked))
+                    if (asset == "USDT") usdt = free + locked
+                }
+                balances = found
+                totalUsdt = usdt
+                message = "Binance Spot Testnet · Live account data"
+            } catch (e: Exception) { message = e.localizedMessage ?: "Wallet could not be loaded." }
+            finally { busy = false }
+        }
+    }
+    LaunchedEffect(user?.uid) { refreshWallet() }
+
+    Column(Modifier.fillMaxSize()) {
         TopBar("Assets")
         Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(18.dp)) {
                 Text("Estimated total value", color = Muted, fontSize = 13.sp)
-                Text("0.00 USDT", color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("≈ $0.00", color = Muted)
+                Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("USDT balance only · other assets not converted", color = Muted, fontSize = 10.sp)
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionButton("Refresh", Modifier.weight(1f)) { refreshWallet() }
             ActionButton("Deposit", Modifier.weight(1f)) { onDetail("Deposit") }
             ActionButton("Withdraw", Modifier.weight(1f)) { onDetail("Withdraw") }
-            ActionButton("Transfer", Modifier.weight(1f)) { onDetail("Transfer") }
         }
-        SectionTitle("My Assets")
-        sampleMarkets.forEach { coin ->
+        Text(message, color = if (message.startsWith("Binance")) Green else Muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+        if (busy) CircularProgressIndicator(color = Yellow, modifier = Modifier.padding(18.dp))
+        SectionTitle("My Testnet Assets")
+        if (balances.isEmpty() && !busy) Text("No funded assets returned.", color = Muted, modifier = Modifier.padding(18.dp))
+        balances.forEach { coin ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)) {
-                Text(coin.symbol, color = White, modifier = Modifier.weight(1f))
-                Text("0.00", color = White)
+                Text(coin.first, color = White, modifier = Modifier.weight(1f))
+                Text(coin.second, color = White)
             }
             HorizontalDivider(color = Panel)
         }
+        Text("Testnet funds have no real monetary value. Deposits and withdrawals are not enabled here.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
     }
 }
 
