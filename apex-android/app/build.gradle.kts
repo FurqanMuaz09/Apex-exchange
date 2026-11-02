@@ -1,11 +1,11 @@
-val apexApiBaseUrl = providers.gradleProperty("APEX_API_BASE_URL").orElse("").get()
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
     id("com.google.gms.google-services")
 }
+
+val apexApiBaseUrl = providers.gradleProperty("APEX_API_BASE_URL").orElse("").get()
 
 android {
     namespace = "com.apex.exchange"
