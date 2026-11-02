@@ -11,6 +11,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -272,6 +275,37 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
 }
 private data class Coin(val symbol: String, val name: String, val price: String, val change: String, val up: Boolean)
 
+private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float)
+
+private data class PairMarketData(val price: String, val candles: List<Candle>)
+
+private suspend fun fetchPairMarketData(symbol: String, interval: String): PairMarketData = withContext(Dispatchers.IO) {
+    val pair = symbol.replace("/", "")
+    fun getJson(path: String) : String {
+        val connection = (URL("https://api.binance.com$path").openConnection() as java.net.HttpURLConnection)
+        try {
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+            connection.requestMethod = "GET"
+            if (connection.responseCode !in 200..299) throw IllegalStateException("Market API HTTP ${connection.responseCode}")
+            return connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
+    }
+    val ticker = org.json.JSONObject(getJson("/api/v3/ticker/price?symbol=$pair"))
+    val klines = JSONArray(getJson("/api/v3/klines?symbol=$pair&interval=$interval&limit=48"))
+    val candles = (0 until klines.length()).mapNotNull { index ->
+        val row = klines.getJSONArray(index)
+        val open = row.getString(1).toFloatOrNull() ?: return@mapNotNull null
+        val high = row.getString(2).toFloatOrNull() ?: return@mapNotNull null
+        val low = row.getString(3).toFloatOrNull() ?: return@mapNotNull null
+        val close = row.getString(4).toFloatOrNull() ?: return@mapNotNull null
+        Candle(open, high, low, close)
+    }
+    PairMarketData(ticker.getString("price"), candles)
+}
+
 private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO) {
     val symbols = listOf("BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT")
     val encoded = URLEncoder.encode(JSONArray(symbols).toString(), "UTF-8")
@@ -493,6 +527,22 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     val amountValue = amount.toDoubleOrNull() ?: 0.0
+    var marketPrice by remember { mutableStateOf("—") }
+    var candles by remember { mutableStateOf(emptyList<Candle>()) }
+    var marketError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pair, chartInterval) {
+        while (true) {
+            try {
+                val data = fetchPairMarketData(pair, chartInterval.lowercase())
+                marketPrice = data.price
+                candles = data.candles
+                marketError = null
+            } catch (e: Exception) {
+                marketError = e.message ?: "Unable to load market data"
+            }
+            delay(5000)
+        }
+    }
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
@@ -522,7 +572,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
                     Text("LIVE PRICE", color = Muted, fontSize = 9.sp)
-                    Text("—", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(marketPrice, color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -550,15 +600,37 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     Box(
-                        Modifier.fillMaxWidth().height(145.dp).padding(top = 8.dp)
+                        Modifier.fillMaxWidth().height(165.dp).padding(top = 8.dp)
                             .background(Bg, RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.ShowChart, null, tint = Yellow, modifier = Modifier.size(29.dp))
-                            Text("Chart data connecting soon", color = Muted, fontSize = 11.sp)
-                            Text("Live $chartInterval candles · $pair", color = Muted, fontSize = 9.sp)
+                        if (candles.size > 1) {
+                            Canvas(Modifier.fillMaxSize().padding(8.dp)) {
+                                val minPrice = candles.minOf { it.low }
+                                val maxPrice = candles.maxOf { it.high }
+                                val range = (maxPrice - minPrice).coerceAtLeast(0.000001f)
+                                val slot = size.width / candles.size
+                                candles.forEachIndexed { index, candle ->
+                                    val x = slot * index + slot / 2f
+                                    val yHigh = size.height - ((candle.high - minPrice) / range) * size.height
+                                    val yLow = size.height - ((candle.low - minPrice) / range) * size.height
+                                    val yOpen = size.height - ((candle.open - minPrice) / range) * size.height
+                                    val yClose = size.height - ((candle.close - minPrice) / range) * size.height
+                                    val color = if (candle.close >= candle.open) Green else Red
+                                    drawLine(color, Offset(x, yHigh), Offset(x, yLow), strokeWidth = 1.5f)
+                                    drawLine(color, Offset(x, yOpen), Offset(x, yClose), strokeWidth = (slot * 0.58f).coerceAtLeast(2f))
+                                }
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = Yellow, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                Text(marketError ?: "Loading live candles…", color = Muted, fontSize = 10.sp)
+                            }
                         }
+                    }
+                    Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Live Binance public data · 5 sec refresh", color = Muted, fontSize = 9.sp)
+                        Text(marketError?.let { "Reconnecting" } ?: "${candles.size} candles", color = if (marketError == null) Green else Red, fontSize = 9.sp)
                     }
                 }
             }
