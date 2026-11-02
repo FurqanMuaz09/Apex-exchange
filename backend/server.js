@@ -43,6 +43,28 @@ const orderLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const adminNotificationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const ADMIN_UIDS = new Set(
+  (process.env.APEX_ADMIN_UIDS || '')
+    .split(',')
+    .map(uid => uid.trim())
+    .filter(Boolean)
+);
+
+function requireApexAdmin(req, res, next) {
+  if (!ADMIN_UIDS.has(req.user.uid)) {
+    return res.status(403).json({ error: 'APEX admin access required.' });
+  }
+  next();
+}
+
+
 async function requireFirebaseAuth(req, res, next) {
   try {
     const header = req.headers.authorization || '';
@@ -109,6 +131,43 @@ app.get('/', (_req, res) => res.json({
 }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+app.post('/api/admin/notifications', requireFirebaseAuth, requireApexAdmin, adminNotificationLimiter, async (req, res) => {
+  try {
+    const uid = String(req.body.uid || '').trim();
+    const title = String(req.body.title || '').trim();
+    const message = String(req.body.message || '').trim();
+
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
+      return res.status(400).json({ error: 'A valid recipient Firebase UID is required.' });
+    }
+    if (!title || title.length > 80) {
+      return res.status(400).json({ error: 'Title is required and must be 80 characters or fewer.' });
+    }
+    if (!message || message.length > 1000) {
+      return res.status(400).json({ error: 'Message is required and must be 1000 characters or fewer.' });
+    }
+
+    const userRef = db.collection('users').doc(uid);
+    const userSnapshot = await userRef.get();
+    if (!userSnapshot.exists) {
+      return res.status(404).json({ error: 'Recipient account was not found.' });
+    }
+
+    const notificationRef = userRef.collection('notifications').doc();
+    await notificationRef.set({
+      title,
+      message,
+      createdAt: FieldValue.serverTimestamp(),
+      read: false,
+      type: 'admin'
+    });
+
+    res.status(201).json({ ok: true, notificationId: notificationRef.id });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
 
 app.get('/api/account', requireFirebaseAuth, async (_req, res) => {
   try {
