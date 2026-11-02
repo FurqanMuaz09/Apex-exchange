@@ -277,6 +277,35 @@ private data class Coin(val symbol: String, val name: String, val price: String,
 
 private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float)
 
+private data class BookLevel(val price: String, val quantity: String)
+private data class RecentTrade(val price: String, val quantity: String, val time: String, val buyerIsMaker: Boolean)
+private suspend fun fetchDepthAndTrades(symbol: String): Triple<List<BookLevel>, List<BookLevel>, List<RecentTrade>> = withContext(Dispatchers.IO) {
+    val pair = symbol.replace("/", "")
+    fun request(path: String): String {
+        val connection = (URL("https://api.binance.com$path").openConnection() as java.net.HttpURLConnection)
+        try {
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+            if (connection.responseCode !in 200..299) throw IllegalStateException("Market API HTTP ${connection.responseCode}")
+            return connection.inputStream.bufferedReader().use { it.readText() }
+        } finally { connection.disconnect() }
+    }
+    val depth = org.json.JSONObject(request("/api/v3/depth?symbol=$pair&limit=5"))
+    fun levels(key: String): List<BookLevel> {
+        val array = depth.getJSONArray(key)
+        return (0 until array.length()).map { i ->
+            val row = array.getJSONArray(i)
+            BookLevel(row.getString(0), row.getString(1))
+        }
+    }
+    val rows = JSONArray(request("/api/v3/trades?symbol=$pair&limit=8"))
+    val trades = (0 until rows.length()).map { i ->
+        val row = rows.getJSONObject(i)
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(row.getLong("time")))
+        RecentTrade(row.getString("price"), row.getString("qty"), time, row.getBoolean("isBuyerMaker"))
+    }
+    Triple(levels("bids"), levels("asks"), trades)
+}
 private data class PairMarketData(val price: String, val candles: List<Candle>)
 
 private suspend fun fetchPairMarketData(symbol: String, interval: String): PairMarketData = withContext(Dispatchers.IO) {
@@ -530,6 +559,10 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var marketPrice by remember { mutableStateOf("—") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var marketError by remember { mutableStateOf<String?>(null) }
+    var bids by remember { mutableStateOf(emptyList<BookLevel>()) }
+    var asks by remember { mutableStateOf(emptyList<BookLevel>()) }
+    var recentTrades by remember { mutableStateOf(emptyList<RecentTrade>()) }
+    var depthError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pair, chartInterval) {
         while (true) {
             try {
@@ -541,6 +574,20 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 marketError = e.message ?: "Unable to load market data"
             }
             delay(5000)
+        }
+    }
+    LaunchedEffect(pair) {
+        while (true) {
+            try {
+                val data = fetchDepthAndTrades(pair)
+                bids = data.first
+                asks = data.second
+                recentTrades = data.third
+                depthError = null
+            } catch (e: Exception) {
+                depthError = e.message ?: "Order book unavailable"
+            }
+            delay(3000)
         }
     }
 
