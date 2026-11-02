@@ -790,23 +790,24 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         Text("Amount ($base)", color = Muted, fontSize = 10.sp)
                     }
                     Spacer(Modifier.height(8.dp))
-                    repeat(3) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("—", color = Red, fontSize = 11.sp)
-                            Text("—", color = White, fontSize = 11.sp)
+                    asks.asReversed().forEach { level ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(level.price, color = Red, fontSize = 11.sp)
+                            Text(level.quantity, color = White, fontSize = 11.sp)
                         }
                     }
                     HorizontalDivider(color = Color(0xFF292D35))
                     Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Market price", color = Muted, fontSize = 10.sp)
-                        Text("—", color = Yellow, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(marketPrice, color = Yellow, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
-                    repeat(3) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("—", color = Green, fontSize = 11.sp)
-                            Text("—", color = White, fontSize = 11.sp)
+                    bids.forEach { level ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(level.price, color = Green, fontSize = 11.sp)
+                            Text(level.quantity, color = White, fontSize = 11.sp)
                         }
                     }
+                    if (depthError != null) Text("Order book reconnecting…", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(vertical = 5.dp))
                     HorizontalDivider(color = Color(0xFF292D35))
                     Spacer(Modifier.height(8.dp))
                     Text("Recent Trades", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -816,7 +817,15 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         Text("Amount", color = Muted, fontSize = 10.sp)
                         Text("Time", color = Muted, fontSize = 10.sp)
                     }
-                    Text("Waiting for public market data connection", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(vertical = 14.dp))
+                    recentTrades.forEach { trade ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(trade.price, color = if (trade.buyerIsMaker) Red else Green, fontSize = 10.sp)
+                            Text(trade.quantity, color = White, fontSize = 10.sp)
+                            Text(trade.time, color = Muted, fontSize = 10.sp)
+                        }
+                    }
+                    if (recentTrades.isEmpty()) Text("Loading recent trades…", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(vertical = 10.dp))
+                    Text("Public market feed · refreshes every 3 seconds", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             }
         }
