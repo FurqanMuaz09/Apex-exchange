@@ -14,6 +14,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,33 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+private const val APEX_API_BASE_URL = BuildConfig.APEX_API_BASE_URL
+
+private suspend fun apexApiRequest(path: String, method: String = "GET", body: JSONObject? = null): JSONObject =
+    withContext(Dispatchers.IO) {
+        require(APEX_API_BASE_URL.isNotBlank()) { "APEX backend URL is not configured. Hosting is required first." }
+        val user = FirebaseAuth.getInstance().currentUser ?: throw IllegalStateException("Please login first.")
+        val token = user.getIdToken(false).await().token ?: throw IllegalStateException("Could not get login token.")
+        val connection = (URL(APEX_API_BASE_URL.trimEnd('/') + path).openConnection() as java.net.HttpURLConnection)
+        try {
+            connection.requestMethod = method
+            connection.connectTimeout = 15000
+            connection.readTimeout = 20000
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.setRequestProperty("Content-Type", "application/json")
+            if (body != null) {
+                connection.doOutput = true
+                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            }
+            val code = connection.responseCode
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val raw = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val result = if (raw.isBlank()) JSONObject() else JSONObject(raw)
+            if (code !in 200..299) throw IllegalStateException(result.optString("error", "API request failed ($code)."))
+            result
+        } finally { connection.disconnect() }
+    }
 
 private val Bg = Color(0xFF0B0E11)
 private val Panel = Color(0xFF181A20)
