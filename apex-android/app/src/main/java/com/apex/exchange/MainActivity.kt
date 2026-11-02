@@ -1193,7 +1193,7 @@ private fun OrderHistoryScreen(title: String, onBack: () -> Unit) {
             Text(title, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         if (user == null) Text("Login to view your orders.", color = Muted, modifier = Modifier.padding(20.dp))
-        else if (rows.isEmpty()) Text(message ?: "No orders saved yet. Trading is not connected in this APK until the backend is hosted.", color = Muted, modifier = Modifier.padding(20.dp))
+        else if (rows.isEmpty()) Text(message ?: "No orders saved yet. Place a Binance Testnet order to see it here.", color = Muted, modifier = Modifier.padding(20.dp))
         else LazyColumn { items(rows) { row ->
             Text(row, color = White, modifier = Modifier.fillMaxWidth().padding(16.dp))
             HorizontalDivider(color = Panel)
