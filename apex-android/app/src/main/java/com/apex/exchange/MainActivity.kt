@@ -1,6 +1,8 @@
 package com.apex.exchange
 
 import android.os.Bundle
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.FirebaseAuth
 import org.json.JSONArray
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -869,21 +871,34 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
 
 @Composable
 private fun ProfileScreen(onDetail: (String) -> Unit) {
+    val user = FirebaseAuth.getInstance().currentUser
     Column {
         TopBar("Profile") { onDetail("Notifications") }
         Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
             Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.AccountCircle, null, tint = Yellow, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("Welcome to APEX", color = White, fontWeight = FontWeight.Bold)
-                    Text("Login or create your account", color = Muted, fontSize = 12.sp)
+                Column(Modifier.weight(1f)) {
+                    Text(user?.displayName ?: if (user == null) "Welcome to APEX" else "APEX Member", color = White, fontWeight = FontWeight.Bold)
+                    Text(user?.email ?: "Login or create your account", color = Muted, fontSize = 12.sp)
+                    if (user != null) Text("UID: ${user.uid}", color = Muted, fontSize = 9.sp, maxLines = 1)
                 }
-                Spacer(Modifier.weight(1f))
                 Icon(Icons.Filled.ChevronRight, null, tint = Muted)
             }
         }
-        listOf("Login / Sign up", "Identity Verification (KYC)", "Security", "Payment Methods", "Notifications", "Help & Support", "About APEX").forEach { item ->
+        if (user == null) {
+            Button(
+                onClick = { onDetail("Login / Sign up") },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)
+            ) { Text("Login / Create Account", fontWeight = FontWeight.Bold) }
+        } else {
+            OutlinedButton(
+                onClick = { FirebaseAuth.getInstance().signOut() },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            ) { Text("Sign Out", color = White) }
+        }
+        listOf("Identity Verification (KYC)", "Security", "Payment Methods", "Notifications", "Help & Support", "About APEX").forEach { item ->
             Row(Modifier.fillMaxWidth().clickable { onDetail(item) }.padding(horizontal = 18.dp, vertical = 17.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(item, color = White, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.ChevronRight, null, tint = Muted)
@@ -895,18 +910,111 @@ private fun ProfileScreen(onDetail: (String) -> Unit) {
 
 @Composable
 private fun NativeDetail(title: String, onBack: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
-            Text(title, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        }
-        Box(Modifier.fillMaxWidth().weight(1f).padding(20.dp), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(title, color = White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                Text("Native screen foundation is ready. Secure service integration is next.", color = Muted, fontSize = 13.sp)
+    if (title == "Login / Sign up" || title == "Account Login") {
+        AuthScreen(onBack)
+    } else {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+                Text(title, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
+            Box(Modifier.fillMaxWidth().weight(1f).padding(20.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(title, color = White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("This native section will be connected next.", color = Muted, fontSize = 13.sp)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun AuthScreen(onSuccess: () -> Unit) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    var isSignUp by remember { mutableStateOf(false) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    Column(Modifier.fillMaxSize().padding(20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onSuccess) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("APEX Account", color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(28.dp))
+        Text(if (isSignUp) "Create your account" else "Welcome back", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text("Secure sign in with Firebase Authentication", color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(22.dp))
+        OutlinedTextField(
+            value = email, onValueChange = { email = it.trim(); error = null },
+            modifier = Modifier.fillMaxWidth(), label = { Text("Email address") },
+            singleLine = true, colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
+            )
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = password, onValueChange = { password = it; error = null },
+            modifier = Modifier.fillMaxWidth(), label = { Text("Password") },
+            singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
+            )
+        )
+        if (isSignUp) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = confirmPassword, onValueChange = { confirmPassword = it; error = null },
+                modifier = Modifier.fillMaxWidth(), label = { Text("Confirm password") },
+                singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                    focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
+                )
+            )
+        }
+        if (error != null) {
+            Spacer(Modifier.height(10.dp))
+            Text(error!!, color = Red, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = {
+                val cleanEmail = email.trim()
+                when {
+                    cleanEmail.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> error = "Enter a valid email address."
+                    password.length < 6 -> error = "Password must be at least 6 characters."
+                    isSignUp && password != confirmPassword -> error = "Passwords do not match."
+                    else -> {
+                        busy = true
+                        error = null
+                        val task = if (isSignUp) auth.createUserWithEmailAndPassword(cleanEmail, password)
+                                   else auth.signInWithEmailAndPassword(cleanEmail, password)
+                        task.addOnCompleteListener { result ->
+                            busy = false
+                            if (result.isSuccessful) onSuccess()
+                            else error = result.exception?.localizedMessage ?: "Authentication failed. Try again."
+                        }
+                    }
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)
+        ) {
+            if (busy) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Bg, strokeWidth = 2.dp)
+            else Text(if (isSignUp) "Create Account" else "Login", fontWeight = FontWeight.Bold)
+        }
+        TextButton(onClick = { isSignUp = !isSignUp; error = null; confirmPassword = "" }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (isSignUp) "Already have an account? Login" else "New to APEX? Create account", color = Yellow)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text("Email/password sign-in. Google sign-in will be added in the next auth step.", color = Muted, fontSize = 10.sp)
     }
 }
 
