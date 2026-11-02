@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1067881983186-ckl9mm97cek6h5nghaob0bmj01ijqpij.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.apex.exchange",
+            "certificate_hash": "5020d4389af54d12ca8e531b701b79e0df854bae"
+          }
+        },
+        {
           "client_id": "1067881983186-fcv31ae2ogfmqj5f67ed8qrum18upqtl.apps.googleusercontent.com",
           "client_type": 3
         }
