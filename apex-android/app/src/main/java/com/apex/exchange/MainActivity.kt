@@ -896,7 +896,7 @@ private fun ProfileScreen(onDetail: (String) -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text(currentUser?.displayName ?: if (currentUser == null) "Welcome to APEX" else "APEX Member", color = White, fontWeight = FontWeight.Bold)
                     Text(currentUser?.email ?: "Login or create your account", color = Muted, fontSize = 12.sp)
-                    if (user != null) Text("UID: ${currentUser.uid}", color = Muted, fontSize = 9.sp, maxLines = 1)
+                    if (currentUser != null) Text("UID: ${currentUser.uid}", color = Muted, fontSize = 9.sp, maxLines = 1)
                 }
                 Icon(Icons.Filled.ChevronRight, null, tint = Muted)
             }
