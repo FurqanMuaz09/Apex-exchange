@@ -774,7 +774,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         percent = 0f
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Amount ($quote)") },
+                    label = { Text("Amount (${if (side == "Buy") quote else base})") },
                     placeholder = { Text("0.00") },
                     singleLine = true,
                     trailingIcon = { Text(quote, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(end = 12.dp)) },
@@ -817,7 +817,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             orderMessage = null
                             orderScope.launch {
                                 try {
-                                    val quantity = enteredAmount / priceValue
+                                    val quantity = if (side == "Buy") enteredAmount / priceValue else enteredAmount
                                     val payload = JSONObject().put("symbol", pair.replace("/", "")).put("side", side.uppercase()).put("type", orderType.uppercase()).put("quantity", quantity)
                                     if (orderType == "Limit") payload.put("price", priceValue)
                                     val result = apexApiRequest("/api/order", "POST", payload)
