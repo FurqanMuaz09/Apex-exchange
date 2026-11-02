@@ -426,51 +426,230 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Market") }
     var pair by remember { mutableStateOf("BTC/USDT") }
+    var pairMenu by remember { mutableStateOf(false) }
     var amount by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize()) {
-        TopBar("Spot Trading") { onDetail("Trading pairs") }
-        Row(Modifier.fillMaxWidth().clickable { onDetail("Trading pairs") }.padding(horizontal = 18.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(pair, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Icon(Icons.Filled.ArrowDropDown, null, tint = Yellow)
-            Spacer(Modifier.weight(1f))
-            Text("Price: —", color = Muted)
+    var limitPrice by remember { mutableStateOf("") }
+    var percent by remember { mutableFloatStateOf(0f) }
+    var chartInterval by remember { mutableStateOf("1H") }
+    val base = pair.substringBefore("/")
+    val quote = pair.substringAfter("/")
+    val amountValue = amount.toDoubleOrNull() ?: 0.0
+
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            TopBar("Spot Trading") { onDetail("Notifications") }
         }
-        Card(Modifier.fillMaxWidth().padding(14.dp).height(170.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.ShowChart, null, tint = Yellow, modifier = Modifier.size(32.dp))
-                    Text("Market chart", color = White, fontWeight = FontWeight.SemiBold)
-                    Text("Live chart connection pending", color = Muted, fontSize = 11.sp)
+        item {
+            Row(
+                Modifier.fillMaxWidth().clickable { pairMenu = true }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(pair, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Filled.ArrowDropDown, null, tint = Yellow)
+                    }
+                    Text("Spot · Binance Testnet", color = Muted, fontSize = 10.sp)
+                }
+                DropdownMenu(expanded = pairMenu, onDismissRequest = { pairMenu = false }) {
+                    listOf("BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT").forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option, color = White) },
+                            onClick = { pair = option; pairMenu = false; amount = ""; percent = 0f }
+                        )
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("LIVE PRICE", color = Muted, fontSize = 9.sp)
+                    Text("—", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("Buy", "Sell").forEach { label ->
+        item {
+            Card(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Price chart", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { onDetail("Professional Chart · $pair") }, contentPadding = PaddingValues(0.dp)) {
+                            Text("Expand ↗", color = Yellow, fontSize = 11.sp)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        listOf("15m", "1H", "4H", "1D", "1W").forEach { interval ->
+                            FilterChip(
+                                selected = chartInterval == interval,
+                                onClick = { chartInterval = interval },
+                                label = { Text(interval, fontSize = 9.sp) }
+                            )
+                        }
+                    }
+                    Box(
+                        Modifier.fillMaxWidth().height(145.dp).padding(top = 8.dp)
+                            .background(Bg, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Filled.ShowChart, null, tint = Yellow, modifier = Modifier.size(29.dp))
+                            Text("Chart data connecting soon", color = Muted, fontSize = 11.sp)
+                            Text("Live $chartInterval candles · $pair", color = Muted, fontSize = 9.sp)
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf("Buy", "Sell").forEach { label ->
+                    Button(
+                        onClick = { side = label },
+                        modifier = Modifier.weight(1f).height(43.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (side == label) (if (label == "Buy") Green else Red) else Panel,
+                            contentColor = if (side == label) Bg else Muted
+                        )
+                    ) { Text(label, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("Market", "Limit").forEach { type ->
+                    FilterChip(
+                        selected = orderType == type,
+                        onClick = { orderType = type },
+                        label = { Text(type, fontSize = 11.sp) }
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                Text("Advanced", color = Muted, fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterVertically))
+            }
+        }
+        item {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)) {
+                if (orderType == "Limit") {
+                    OutlinedTextField(
+                        value = limitPrice, onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Limit price ($quote)") }, singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                            focusedTextColor = White, unfocusedTextColor = White
+                        )
+                    )
+                    Spacer(Modifier.height(9.dp))
+                }
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = {
+                        amount = it.filter { ch -> ch.isDigit() || ch == '.' }
+                        percent = 0f
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Amount ($quote)") },
+                    placeholder = { Text("0.00") },
+                    singleLine = true,
+                    trailingIcon = { Text(quote, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(end = 12.dp)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                        focusedTextColor = White, unfocusedTextColor = White
+                    )
+                )
+                Spacer(Modifier.height(7.dp))
+                Slider(
+                    value = percent, onValueChange = {
+                        percent = it
+                        amount = if (it == 0f) "" else String.format(java.util.Locale.US, "%.2f", it * 100.0)
+                    },
+                    valueRange = 0f..1f,
+                    colors = SliderDefaults.colors(thumbColor = Yellow, activeTrackColor = Yellow)
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    listOf("0%", "25%", "50%", "75%", "100%").forEach { Text(it, color = Muted, fontSize = 9.sp) }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Available balance", color = Muted, fontSize = 11.sp)
+                    Text("— $quote", color = White, fontSize = 11.sp)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Estimated total", color = Muted, fontSize = 11.sp)
+                    Text(if (amountValue > 0) String.format(java.util.Locale.US, "%.2f %s", amountValue, quote) else "— $quote", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = { side = label }, modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (side == label) (if (label == "Buy") Green else Red) else Panel)
-                ) { Text(label, color = White) }
+                    onClick = { onDetail("Login required · Testnet order") },
+                    modifier = Modifier.fillMaxWidth().height(47.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg)
+                ) { Text("$side $base", fontWeight = FontWeight.Bold) }
+                Text("Orders are restricted to authenticated Binance Spot Testnet accounts.", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Market", "Limit", "Stop-limit").forEach {
-                FilterChip(selected = orderType == it, onClick = { orderType = it }, label = { Text(it) })
+        item {
+            Card(
+                Modifier.fillMaxWidth().padding(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(Modifier.padding(13.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Order Book", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Spacer(Modifier.weight(1f))
+                        Text("$base / $quote", color = Muted, fontSize = 10.sp)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Price ($quote)", color = Muted, fontSize = 10.sp)
+                        Text("Amount ($base)", color = Muted, fontSize = 10.sp)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    repeat(3) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("—", color = Red, fontSize = 11.sp)
+                            Text("—", color = White, fontSize = 11.sp)
+                        }
+                    }
+                    HorizontalDivider(color = Color(0xFF292D35))
+                    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Market price", color = Muted, fontSize = 10.sp)
+                        Text("—", color = Yellow, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                    repeat(3) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("—", color = Green, fontSize = 11.sp)
+                            Text("—", color = White, fontSize = 11.sp)
+                        }
+                    }
+                    HorizontalDivider(color = Color(0xFF292D35))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Recent Trades", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Spacer(Modifier.height(9.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Price", color = Muted, fontSize = 10.sp)
+                        Text("Amount", color = Muted, fontSize = 10.sp)
+                        Text("Time", color = Muted, fontSize = 10.sp)
+                    }
+                    Text("Waiting for public market data connection", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(vertical = 14.dp))
+                }
             }
         }
-        OutlinedTextField(
-            value = amount, onValueChange = { amount = it },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            label = { Text("Amount (USDT)") }, singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, focusedTextColor = White, unfocusedTextColor = White)
-        )
-        Text("Available balance: —", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(18.dp))
-        Button(
-            onClick = { onDetail("Testnet connection required") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red)
-        ) { Text("$side ${pair.substringBefore('/')}") }
-        Text("Order book and recent trades", color = White, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(18.dp))
-        Text("Connect secure Testnet data to load live depth and trades.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp))
+        item {
+            SectionTitle("Orders", "View history") { onDetail("Order History") }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickTile("Open Orders", Icons.Filled.List, Modifier.weight(1f)) { onDetail("Open Orders") }
+                QuickTile("Order History", Icons.Filled.History, Modifier.weight(1f)) { onDetail("Order History") }
+            }
+            Spacer(Modifier.height(20.dp))
+        }
     }
 }
 
