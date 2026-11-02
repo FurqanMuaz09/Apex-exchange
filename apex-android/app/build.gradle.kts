@@ -1,3 +1,5 @@
+val apexApiBaseUrl = providers.gradleProperty("APEX_API_BASE_URL").orElse("").get()
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -21,7 +23,7 @@ android {
     buildFeatures { buildConfig = true }
 
     defaultConfig {
-        buildConfigField("String", "APEX_API_BASE_URL", "\"\"")
+        buildConfigField("String", "APEX_API_BASE_URL", "\"$apexApiBaseUrl\"")
         applicationId = "com.apex.exchange"
         minSdk = 24
         targetSdk = 35
@@ -43,7 +45,6 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.android.gms:play-services-auth:21.3.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
