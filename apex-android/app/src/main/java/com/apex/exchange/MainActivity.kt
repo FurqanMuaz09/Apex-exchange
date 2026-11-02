@@ -871,7 +871,13 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
 
 @Composable
 private fun ProfileScreen(onDetail: (String) -> Unit) {
-    val user = FirebaseAuth.getInstance().currentUser
+    val auth = remember { FirebaseAuth.getInstance() }
+    var user by remember { mutableStateOf(auth.currentUser) }
+    DisposableEffect(auth) {
+        val listener = FirebaseAuth.AuthStateListener { state -> user = state.currentUser }
+        auth.addAuthStateListener(listener)
+        onDispose { auth.removeAuthStateListener(listener) }
+    }
     Column {
         TopBar("Profile") { onDetail("Notifications") }
         Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
