@@ -963,7 +963,6 @@ private fun KycScreen(onBack: () -> Unit) {
     val user = FirebaseAuth.getInstance().currentUser
     val db = remember { FirebaseFirestore.getInstance() }
     var documentType by remember { mutableStateOf("National ID / CNIC") }
-    var documentNumber by remember { mutableStateOf("") }
     var legalName by remember { mutableStateOf(user?.displayName.orEmpty()) }
     var status by remember { mutableStateOf("Not submitted") }
     var busy by remember { mutableStateOf(false) }
@@ -973,7 +972,6 @@ private fun KycScreen(onBack: () -> Unit) {
             .addOnSuccessListener { doc ->
                 legalName = doc.getString("legalName") ?: legalName
                 documentType = doc.getString("documentType") ?: documentType
-                documentNumber = doc.getString("documentNumber") ?: ""
                 status = doc.getString("status") ?: "Not submitted"
             }
     }
@@ -998,16 +996,15 @@ private fun KycScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            item { OutlinedTextField(value = documentNumber, onValueChange = { documentNumber = it }, label = { Text("Document number") }, modifier = Modifier.fillMaxWidth()) }
             item {
                 Text("Document image upload is not enabled yet because Firebase Storage is not configured. This form does not verify identity.", color = Red, fontSize = 12.sp)
                 if (message != null) Text(message!!, color = Green, fontSize = 12.sp)
                 Button(onClick = {
-                    if (legalName.isBlank() || documentNumber.isBlank()) message = "Please complete all fields."
+                    if (legalName.isBlank()) message = "Please enter your legal name."
                     else {
                         busy = true; message = null
                         db.collection("users").document(user.uid).collection("kyc").document("application").set(
-                            mapOf("legalName" to legalName.trim(), "documentType" to documentType, "documentNumber" to documentNumber.trim(), "status" to "Details saved - documents pending", "submittedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp())
+                            mapOf("legalName" to legalName.trim(), "documentType" to documentType, "status" to "Details saved - documents pending", "submittedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp())
                         ).addOnSuccessListener { busy = false; status = "Details saved - documents pending"; message = "Details saved. Identity is NOT verified." }
                             .addOnFailureListener { e -> busy = false; message = e.localizedMessage ?: "Could not save KYC details." }
                     }
