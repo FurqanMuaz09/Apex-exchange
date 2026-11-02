@@ -1,6 +1,12 @@
 package com.apex.exchange
 
 import android.os.Bundle
+import org.json.JSONArray
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import java.net.URLEncoder
+import java.net.URL
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -265,6 +271,39 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
     }
 }
 private data class Coin(val symbol: String, val name: String, val price: String, val change: String, val up: Boolean)
+
+private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO) {
+    val symbols = listOf("BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT")
+    val encoded = URLEncoder.encode(JSONArray(symbols).toString(), "UTF-8")
+    val connection = (URL("https://api.binance.com/api/v3/ticker/24hr?symbols=$encoded").openConnection() as java.net.HttpURLConnection)
+    try {
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
+        connection.requestMethod = "GET"
+        if (connection.responseCode !in 200..299) throw IllegalStateException("Market API HTTP ${connection.responseCode}")
+        val body = connection.inputStream.bufferedReader().use { it.readText() }
+        val rows = JSONArray(body)
+        val names = mapOf(
+            "BTC" to "Bitcoin", "ETH" to "Ethereum", "BNB" to "BNB",
+            "SOL" to "Solana", "XRP" to "XRP", "DOGE" to "Dogecoin", "ADA" to "Cardano"
+        )
+        (0 until rows.length()).mapNotNull { index ->
+            val row = rows.getJSONObject(index)
+            val symbol = row.getString("symbol").removeSuffix("USDT")
+            val price = row.getString("lastPrice").toDoubleOrNull() ?: return@mapNotNull null
+            val change = row.getString("priceChangePercent").toDoubleOrNull() ?: 0.0
+            Coin(
+                symbol = symbol,
+                name = names[symbol] ?: symbol,
+                price = String.format(java.util.Locale.US, "%,.6f", price).trimEnd('0').trimEnd('.'),
+                change = String.format(java.util.Locale.US, "%+.2f%%", change),
+                up = change >= 0
+            )
+        }
+    } finally {
+        connection.disconnect()
+    }
+}
 private val sampleMarkets = listOf(
     Coin("BTC", "Bitcoin", "—", "—", true),
     Coin("ETH", "Ethereum", "—", "—", true),
@@ -279,9 +318,30 @@ private val sampleMarkets = listOf(
 private fun MarketsScreen(onCoin: (String) -> Unit) {
     var filter by remember { mutableStateOf("All") }
     var query by remember { mutableStateOf("") }
+    var liveMarkets by remember { mutableStateOf(sampleMarkets) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
     val favorites = remember { mutableStateListOf("BTC", "ETH") }
     val hotCoins = setOf("BTC", "ETH", "BNB", "SOL")
-    val filtered = sampleMarkets.filter { coin ->
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val latest = fetchLiveMarkets()
+                if (latest.isNotEmpty()) {
+                    liveMarkets = latest
+                    error = null
+                }
+            } catch (e: Exception) {
+                error = e.message ?: "Market data unavailable"
+            } finally {
+                loading = false
+            }
+            delay(10000)
+        }
+    }
+
+    val filtered = liveMarkets.filter { coin ->
         val matchesSearch = coin.symbol.contains(query, true) || coin.name.contains(query, true)
         val matchesFilter = when (filter) {
             "Favorite" -> coin.symbol in favorites
@@ -296,8 +356,7 @@ private fun MarketsScreen(onCoin: (String) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         TopBar("Markets")
         OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
+            value = query, onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
             placeholder = { Text("Search coins or trading pairs", color = Muted, fontSize = 13.sp) },
             leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted) },
@@ -306,12 +365,10 @@ private fun MarketsScreen(onCoin: (String) -> Unit) {
                     Icon(Icons.Filled.Close, "Clear search", tint = Muted)
                 }
             },
-            singleLine = true,
-            shape = RoundedCornerShape(10.dp),
+            singleLine = true, shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                focusedTextColor = White, unfocusedTextColor = White,
-                cursorColor = Yellow
+                focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
             )
         )
         Row(
@@ -320,13 +377,11 @@ private fun MarketsScreen(onCoin: (String) -> Unit) {
         ) {
             listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach { option ->
                 FilterChip(
-                    selected = filter == option,
-                    onClick = { filter = option },
+                    selected = filter == option, onClick = { filter = option },
                     label = { Text(option, fontSize = 10.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF383019),
-                        selectedLabelColor = Yellow,
-                        labelColor = Muted
+                        selectedLabelColor = Yellow, labelColor = Muted
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         enabled = true, selected = filter == option,
@@ -345,7 +400,11 @@ private fun MarketsScreen(onCoin: (String) -> Unit) {
             Text("24h", color = Muted, fontSize = 11.sp)
         }
         HorizontalDivider(color = Panel)
-        if (filtered.isEmpty()) {
+        if (loading && liveMarkets.all { it.price == "—" }) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Yellow)
+            }
+        } else if (filtered.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Filled.SearchOff, null, tint = Muted, modifier = Modifier.size(34.dp))
@@ -371,16 +430,11 @@ private fun MarketsScreen(onCoin: (String) -> Unit) {
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(coin.price, color = White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                            Text("— USDT", color = Muted, fontSize = 9.sp)
+                            Text("USDT", color = Muted, fontSize = 9.sp)
                         }
                         Spacer(Modifier.width(12.dp))
                         Box(Modifier.width(72.dp), contentAlignment = Alignment.CenterEnd) {
-                            Text(
-                                coin.change,
-                                color = if (coin.up) Green else Red,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Text(coin.change, color = if (coin.up) Green else Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                         IconButton(
                             onClick = {
@@ -400,6 +454,11 @@ private fun MarketsScreen(onCoin: (String) -> Unit) {
                     HorizontalDivider(color = Panel, thickness = 1.dp)
                 }
             }
+        }
+        if (error != null) {
+            Text("Live prices temporarily unavailable · retrying", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(8.dp))
+        } else {
+            Text("Public market data · refreshes every 10 seconds", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(8.dp))
         }
     }
 }
