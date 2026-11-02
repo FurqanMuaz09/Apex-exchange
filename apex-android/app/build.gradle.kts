@@ -18,7 +18,10 @@ android {
         jvmTarget = "17"
     }
 
+    buildFeatures { buildConfig = true }
+
     defaultConfig {
+        buildConfigField("String", "APEX_API_BASE_URL", "\"\"")
         applicationId = "com.apex.exchange"
         minSdk = 24
         targetSdk = 35
