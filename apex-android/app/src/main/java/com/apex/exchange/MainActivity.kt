@@ -135,30 +135,127 @@ private fun SectionTitle(title: String, action: String? = null, onClick: (() -> 
 
 @Composable
 private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (String) -> Unit) {
-    LazyColumn {
+    var filter by remember { mutableStateOf("Favorite") }
+    var search by remember { mutableStateOf("") }
+    val visibleMarkets = sampleMarkets.filter {
+        (it.symbol.contains(search, true) || it.name.contains(search, true)) &&
+        (filter == "All" || filter == "Favorite" || filter == "Hot" ||
+         (filter == "Gainer" && it.up) || (filter == "Loser" && !it.up))
+    }
+
+    LazyColumn(Modifier.fillMaxSize()) {
         item {
-            TopBar("APEX Exchange") { onDetail("Notifications") }
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                        Text("Estimated Balance", color = Muted, fontSize = 13.sp)
-                        Spacer(Modifier.height(8.dp))
-                        Text("0.00 USDT", color = White, fontSize = 29.sp, fontWeight = FontWeight.Bold)
-                        Text("≈ $0.00", color = Muted, fontSize = 12.sp)
-                        Spacer(Modifier.height(18.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ActionButton("Add Funds", Modifier.weight(1f)) { onDetail("Add Funds") }
-                            ActionButton("Trade", Modifier.weight(1f)) { onTrade() }
-                            ActionButton("Assets", Modifier.weight(1f)) { onDetail("Assets") }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(30.dp).background(Yellow, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                    Text("A", color = Bg, fontWeight = FontWeight.Black, fontSize = 19.sp)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text("APEX", color = White, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, letterSpacing = 1.5.sp)
+                Spacer(Modifier.width(12.dp))
+                OutlinedTextField(
+                    value = search, onValueChange = { search = it },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    placeholder = { Text("Search BTC/USDT", fontSize = 11.sp, color = Muted) },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted, modifier = Modifier.size(18.dp)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                        focusedTextColor = White, unfocusedTextColor = White
+                    )
+                )
+                IconButton(onClick = { onDetail("Help & Support") }) {
+                    Icon(Icons.Filled.HeadsetMic, "Help and Support", tint = White)
+                }
+                IconButton(onClick = { onDetail("Notifications") }) {
+                    Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White)
+                }
+            }
+        }
+        item {
+            Card(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(15.dp)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(17.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Est. Total Value (USD)", color = Muted, fontSize = 12.sp)
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { onDetail("Account Login") }, contentPadding = PaddingValues(0.dp)) {
+                            Text("◉ Hide", color = Muted, fontSize = 11.sp)
                         }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Connect account", color = White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Button(
+                            onClick = { onDetail("Add Funds") },
+                            colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg),
+                            contentPadding = PaddingValues(horizontal = 13.dp, vertical = 8.dp)
+                        ) { Text("Add Funds", fontWeight = FontWeight.Bold, fontSize = 11.sp) }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider(color = Color(0xFF292D35))
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Today's PNL", color = Muted, fontSize = 12.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("—", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
-        item { SectionTitle("Markets", "View all", onMarkets) }
-        items(sampleMarkets.take(5)) { MarketRow(it) { onDetail("Trade ${it.symbol}") } }
         item {
-            SectionTitle("Explore APEX")
+            Card(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF20242B)),
+                shape = RoundedCornerShape(13.dp)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("APEX EXCHANGE", color = Yellow, fontSize = 10.sp, letterSpacing = 1.2.sp)
+                        Spacer(Modifier.height(7.dp))
+                        Text("Trade Smarter with APEX", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text("Explore the crypto market", color = Muted, fontSize = 11.sp)
+                    }
+                    Text("◆", color = Yellow, fontSize = 37.sp)
+                }
+            }
+        }
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                listOf("Favorite", "Hot", "Gainer", "Loser", "All").forEach { option ->
+                    FilterChip(
+                        selected = filter == option,
+                        onClick = { filter = option },
+                        label = { Text(option, fontSize = 10.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF383019),
+                            selectedLabelColor = Yellow,
+                            labelColor = Muted
+                        )
+                    )
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
+                Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                Text("Last Price", color = Muted, fontSize = 11.sp)
+                Spacer(Modifier.width(28.dp))
+                Text("24h chg%", color = Muted, fontSize = 11.sp)
+            }
+        }
+        items(visibleMarkets) { MarketRow(it) { onDetail("Trade ${it.symbol}") } }
+        item {
+            TextButton(onClick = onMarkets, modifier = Modifier.fillMaxWidth()) {
+                Text("View More ↓", color = Yellow, fontSize = 12.sp)
+            }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 QuickTile("Spot Trading", Icons.Filled.SwapHoriz, Modifier.weight(1f)) { onTrade() }
                 QuickTile("My Profile", Icons.Filled.Person, Modifier.weight(1f)) { onDetail("Profile") }
@@ -167,7 +264,6 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
         }
     }
 }
-
 private data class Coin(val symbol: String, val name: String, val price: String, val change: String, val up: Boolean)
 private val sampleMarkets = listOf(
     Coin("BTC", "Bitcoin", "—", "—", true),
