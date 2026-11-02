@@ -931,6 +931,16 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
         AuthScreen(onBack)
     } else if (title == "Profile Details") {
         ProfileDetailsScreen(onBack)
+    } else if (title == "Identity Verification (KYC)") {
+        KycScreen(onBack)
+    } else if (title == "Notifications") {
+        NotificationsScreen(onBack)
+    } else if (title == "Security") {
+        SecurityScreen(onBack)
+    } else if (title == "Order History" || title == "Open Orders") {
+        OrderHistoryScreen(title, onBack)
+    } else if (title == "Help & Support") {
+        HelpScreen(onBack)
     } else {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -945,6 +955,181 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun KycScreen(onBack: () -> Unit) {
+    val user = FirebaseAuth.getInstance().currentUser
+    val db = remember { FirebaseFirestore.getInstance() }
+    var documentType by remember { mutableStateOf("National ID / CNIC") }
+    var documentNumber by remember { mutableStateOf("") }
+    var legalName by remember { mutableStateOf(user?.displayName.orEmpty()) }
+    var status by remember { mutableStateOf("Not submitted") }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(user?.uid) {
+        if (user != null) db.collection("users").document(user.uid).collection("kyc").document("application").get()
+            .addOnSuccessListener { doc ->
+                legalName = doc.getString("legalName") ?: legalName
+                documentType = doc.getString("documentType") ?: documentType
+                documentNumber = doc.getString("documentNumber") ?: ""
+                status = doc.getString("status") ?: "Not submitted"
+            }
+    }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("Identity Verification (KYC)", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+        if (user == null) Text("Please login first.", color = Muted, modifier = Modifier.padding(20.dp))
+        else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text("Current status: $status", color = Yellow, fontWeight = FontWeight.Bold) }
+            item { Text("Submit your identity details for review. Do not enter real document details until APEX has a secure document-upload channel.", color = Muted, fontSize = 12.sp) }
+            item { OutlinedTextField(value = legalName, onValueChange = { legalName = it }, label = { Text("Full legal name") }, modifier = Modifier.fillMaxWidth()) }
+            item {
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(documentType, color = White) }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        listOf("National ID / CNIC", "Passport", "Driving Licence").forEach { option ->
+                            DropdownMenuItem(text = { Text(option) }, onClick = { documentType = option; expanded = false })
+                        }
+                    }
+                }
+            }
+            item { OutlinedTextField(value = documentNumber, onValueChange = { documentNumber = it }, label = { Text("Document number") }, modifier = Modifier.fillMaxWidth()) }
+            item {
+                Text("Document image upload is not enabled yet because Firebase Storage is not configured. This form does not verify identity.", color = Red, fontSize = 12.sp)
+                if (message != null) Text(message!!, color = Green, fontSize = 12.sp)
+                Button(onClick = {
+                    if (legalName.isBlank() || documentNumber.isBlank()) message = "Please complete all fields."
+                    else {
+                        busy = true; message = null
+                        db.collection("users").document(user.uid).collection("kyc").document("application").set(
+                            mapOf("legalName" to legalName.trim(), "documentType" to documentType, "documentNumber" to documentNumber.trim(), "status" to "Details saved - documents pending", "submittedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp())
+                        ).addOnSuccessListener { busy = false; status = "Details saved - documents pending"; message = "Details saved. Identity is NOT verified." }
+                            .addOnFailureListener { e -> busy = false; message = e.localizedMessage ?: "Could not save KYC details." }
+                    }
+                }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)) {
+                    if (busy) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg) else Text("Save KYC Details")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationsScreen(onBack: () -> Unit) {
+    val user = FirebaseAuth.getInstance().currentUser
+    var notices by remember { mutableStateOf(listOf<Pair<String, String>>()) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(user?.uid) {
+        if (user != null) FirebaseFirestore.getInstance().collection("users").document(user.uid).collection("notifications")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(50)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) message = error.localizedMessage
+                else notices = snapshot?.documents?.map { doc -> (doc.getString("title") ?: "APEX Update") to (doc.getString("message") ?: "") } ?: emptyList()
+            }
+    }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("Notifications", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        if (user == null) Text("Login to view account notifications.", color = Muted, modifier = Modifier.padding(20.dp))
+        else if (notices.isEmpty()) Text(message ?: "No notifications yet.", color = Muted, modifier = Modifier.padding(20.dp))
+        else LazyColumn { items(notices) { item ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)) {
+                Text(item.first, color = White, fontWeight = FontWeight.SemiBold)
+                Text(item.second, color = Muted, fontSize = 12.sp)
+            }
+            HorizontalDivider(color = Panel)
+        } }
+    }
+}
+
+@Composable
+private fun SecurityScreen(onBack: () -> Unit) {
+    val auth = FirebaseAuth.getInstance()
+    val user = auth.currentUser
+    var message by remember { mutableStateOf<String?>(null) }
+    Column(Modifier.fillMaxSize().padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("Security", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(18.dp))
+        Text("Signed in as: ${user?.email ?: "Not signed in"}", color = Muted, fontSize = 13.sp)
+        Text("Email verified: ${if (user?.isEmailVerified == true) "Yes" else "No"}", color = Muted, fontSize = 13.sp)
+        Spacer(Modifier.height(14.dp))
+        Button(onClick = {
+            if (user?.email.isNullOrBlank()) message = "Login with email first."
+            else auth.sendPasswordResetEmail(user!!.email!!).addOnSuccessListener { message = "Password reset email sent." }
+                .addOnFailureListener { e -> message = e.localizedMessage ?: "Could not send reset email." }
+        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)) { Text("Send Password Reset Email") }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = {
+            user?.sendEmailVerification()?.addOnSuccessListener { message = "Verification email sent." }
+                ?.addOnFailureListener { e -> message = e.localizedMessage ?: "Could not send verification." }
+                ?: run { message = "Login first." }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Verify Email", color = White) }
+        if (message != null) Text(message!!, color = Green, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+@Composable
+private fun OrderHistoryScreen(title: String, onBack: () -> Unit) {
+    val user = FirebaseAuth.getInstance().currentUser
+    var rows by remember { mutableStateOf(listOf<String>()) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(user?.uid, title) {
+        if (user != null) FirebaseFirestore.getInstance().collection("users").document(user.uid).collection("orders")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(100)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) message = error.localizedMessage
+                else rows = snapshot?.documents?.map { doc ->
+                    val d = doc.data ?: emptyMap()
+                    "${d["symbol"] ?: "—"} · ${d["side"] ?: "—"} · ${d["status"] ?: "—"} · Qty ${d["executedQty"] ?: "0"}"
+                } ?: emptyList()
+            }
+    }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text(title, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        if (user == null) Text("Login to view your orders.", color = Muted, modifier = Modifier.padding(20.dp))
+        else if (rows.isEmpty()) Text(message ?: "No orders saved yet. Trading is not connected in this APK until the backend is hosted.", color = Muted, modifier = Modifier.padding(20.dp))
+        else LazyColumn { items(rows) { row ->
+            Text(row, color = White, modifier = Modifier.fillMaxWidth().padding(16.dp))
+            HorizontalDivider(color = Panel)
+        } }
+    }
+}
+
+@Composable
+private fun HelpScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    var subject by remember { mutableStateOf("APEX Exchange Support") }
+    var body by remember { mutableStateOf("") }
+    Column(Modifier.fillMaxSize().padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("Help & Support", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("For account, KYC or testnet issues, contact the APEX support team.", color = Muted, fontSize = 13.sp)
+        OutlinedTextField(value = body, onValueChange = { body = it }, label = { Text("Describe your issue") }, modifier = Modifier.fillMaxWidth(), minLines = 4)
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = android.net.Uri.parse("mailto:")
+                putExtra(Intent.EXTRA_SUBJECT, subject)
+                putExtra(Intent.EXTRA_TEXT, body)
+            }
+            try { context.startActivity(intent) } catch (_: Exception) { }
+        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)) { Text("Open Email App") }
     }
 }
 
@@ -1206,6 +1391,19 @@ private fun AuthScreen(onSuccess: () -> Unit) {
         ) {
             if (busy) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Bg, strokeWidth = 2.dp)
             else Text(if (isSignUp) "Create Account" else "Login", fontWeight = FontWeight.Bold)
+        }
+        if (!isSignUp) {
+            TextButton(onClick = {
+                val cleanEmail = email.trim()
+                if (cleanEmail.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) error = "Enter your email above first."
+                else {
+                    busy = true
+                    auth.sendPasswordResetEmail(cleanEmail).addOnCompleteListener { task ->
+                        busy = false
+                        error = if (task.isSuccessful) "Password reset email sent." else task.exception?.localizedMessage ?: "Reset email failed."
+                    }
+                }
+            }, modifier = Modifier.fillMaxWidth()) { Text("Forgot Password?", color = Yellow) }
         }
         TextButton(onClick = { isSignUp = !isSignUp; error = null; confirmPassword = "" }, modifier = Modifier.fillMaxWidth()) {
             Text(if (isSignUp) "Already have an account? Login" else "New to APEX? Create account", color = Yellow)
