@@ -586,6 +586,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
     HorizontalDivider(color = Panel, thickness = 1.dp)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TradeScreen(onDetail: (String) -> Unit) {
     var side by remember { mutableStateOf("Buy") }
