@@ -669,65 +669,6 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             }
         }
         item {
-            Card(
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Price chart", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { onDetail("Professional Chart · $pair") }, contentPadding = PaddingValues(0.dp)) {
-                            Text("Expand ↗", color = Yellow, fontSize = 11.sp)
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        listOf("15m", "1H", "4H", "1D", "1W").forEach { interval ->
-                            FilterChip(
-                                selected = chartInterval == interval,
-                                onClick = { chartInterval = interval },
-                                label = { Text(interval, fontSize = 9.sp) }
-                            )
-                        }
-                    }
-                    Box(
-                        Modifier.fillMaxWidth().height(165.dp).padding(top = 8.dp)
-                            .background(Bg, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (candles.size > 1) {
-                            Canvas(Modifier.fillMaxSize().padding(8.dp)) {
-                                val minPrice = candles.minOf { it.low }
-                                val maxPrice = candles.maxOf { it.high }
-                                val range = (maxPrice - minPrice).coerceAtLeast(0.000001f)
-                                val slot = size.width / candles.size
-                                candles.forEachIndexed { index, candle ->
-                                    val x = slot * index + slot / 2f
-                                    val yHigh = size.height - ((candle.high - minPrice) / range) * size.height
-                                    val yLow = size.height - ((candle.low - minPrice) / range) * size.height
-                                    val yOpen = size.height - ((candle.open - minPrice) / range) * size.height
-                                    val yClose = size.height - ((candle.close - minPrice) / range) * size.height
-                                    val color = if (candle.close >= candle.open) Green else Red
-                                    drawLine(color, Offset(x, yHigh), Offset(x, yLow), strokeWidth = 1.5f)
-                                    drawLine(color, Offset(x, yOpen), Offset(x, yClose), strokeWidth = (slot * 0.58f).coerceAtLeast(2f))
-                                }
-                            }
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(color = Yellow, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                                Text(marketError ?: "Loading live candles…", color = Muted, fontSize = 10.sp)
-                            }
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Live Binance public data · 5 sec refresh", color = Muted, fontSize = 9.sp)
-                        Text(marketError?.let { "Reconnecting" } ?: "${candles.size} candles", color = if (marketError == null) Green else Red, fontSize = 9.sp)
-                    }
-                }
-            }
-        }
-        item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf("Buy", "Sell").forEach { label ->
                     Button(
@@ -897,6 +838,65 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
                     if (recentTrades.isEmpty()) Text("Loading recent trades…", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(vertical = 10.dp))
                     Text("Public market feed · refreshes every 3 seconds", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+        }
+        item {
+            Card(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Price chart", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { onDetail("Professional Chart · $pair") }, contentPadding = PaddingValues(0.dp)) {
+                            Text("Expand ↗", color = Yellow, fontSize = 11.sp)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        listOf("15m", "1H", "4H", "1D", "1W").forEach { interval ->
+                            FilterChip(
+                                selected = chartInterval == interval,
+                                onClick = { chartInterval = interval },
+                                label = { Text(interval, fontSize = 9.sp) }
+                            )
+                        }
+                    }
+                    Box(
+                        Modifier.fillMaxWidth().height(165.dp).padding(top = 8.dp)
+                            .background(Bg, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (candles.size > 1) {
+                            Canvas(Modifier.fillMaxSize().padding(8.dp)) {
+                                val minPrice = candles.minOf { it.low }
+                                val maxPrice = candles.maxOf { it.high }
+                                val range = (maxPrice - minPrice).coerceAtLeast(0.000001f)
+                                val slot = size.width / candles.size
+                                candles.forEachIndexed { index, candle ->
+                                    val x = slot * index + slot / 2f
+                                    val yHigh = size.height - ((candle.high - minPrice) / range) * size.height
+                                    val yLow = size.height - ((candle.low - minPrice) / range) * size.height
+                                    val yOpen = size.height - ((candle.open - minPrice) / range) * size.height
+                                    val yClose = size.height - ((candle.close - minPrice) / range) * size.height
+                                    val color = if (candle.close >= candle.open) Green else Red
+                                    drawLine(color, Offset(x, yHigh), Offset(x, yLow), strokeWidth = 1.5f)
+                                    drawLine(color, Offset(x, yOpen), Offset(x, yClose), strokeWidth = (slot * 0.58f).coerceAtLeast(2f))
+                                }
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = Yellow, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                Text(marketError ?: "Loading live candles…", color = Muted, fontSize = 10.sp)
+                            }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Live Binance public data · 5 sec refresh", color = Muted, fontSize = 9.sp)
+                        Text(marketError?.let { "Reconnecting" } ?: "${candles.size} candles", color = if (marketError == null) Green else Red, fontSize = 9.sp)
+                    }
                 }
             }
         }
