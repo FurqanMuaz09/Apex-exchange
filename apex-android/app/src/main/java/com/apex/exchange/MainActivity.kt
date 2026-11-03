@@ -758,15 +758,20 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
                     if (orderType == "Limit") {
                         Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = limitPrice,
-                            onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            modifier = Modifier.fillMaxWidth().height(66.dp),
-                            label = { Text("Price ($quote)", fontSize = 10.sp) },
-                            singleLine = true,
-                            textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
-                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = limitPrice,
+                                onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                                modifier = Modifier.weight(1f).height(66.dp),
+                                label = { Text("Price ($quote)", fontSize = 10.sp) },
+                                singleLine = true,
+                                textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
+                            )
+                            Box(Modifier.width(82.dp).height(66.dp).background(Panel, RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
+                                Text(quote, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
