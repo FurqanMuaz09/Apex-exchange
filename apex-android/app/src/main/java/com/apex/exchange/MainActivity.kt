@@ -723,7 +723,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Column(
                     Modifier.weight(1.18f).padding(start = 8.dp, end = 5.dp, top = 8.dp, bottom = 8.dp)
                 ) {
-                    Row(Modifier.fillMaxWidth().height(32.dp).background(Panel, RoundedCornerShape(9.dp)).padding(3.dp)) {
+                    Row(Modifier.fillMaxWidth().height(27.dp).background(Panel, RoundedCornerShape(9.dp)).padding(3.dp)) {
                         listOf("Buy", "Sell").forEach { label ->
                             Box(
                                 Modifier.weight(1f).fillMaxHeight()
@@ -733,9 +733,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             ) { Text(label, color = if (side == label) Bg else Muted, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
                         }
                     }
-                    Spacer(Modifier.height(7.dp))
+                    Spacer(Modifier.height(4.dp))
                     Row(
-                        Modifier.fillMaxWidth().height(34.dp).background(Panel, RoundedCornerShape(7.dp))
+                        Modifier.fillMaxWidth().height(29.dp).background(Panel, RoundedCornerShape(7.dp))
                             .clickable { orderType = if (orderType == "Limit") "Market" else "Limit" }
                             .padding(horizontal = 9.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -749,7 +749,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         OutlinedTextField(
                             value = limitPrice,
                             onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            modifier = Modifier.fillMaxWidth().height(54.dp),
+                            modifier = .Modifier.fillMaxWidth().height(47.dp),
                             label = { Text("Price ($quote)", fontSize = 10.sp) },
                             singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
@@ -760,7 +760,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
-                        modifier = Modifier.fillMaxWidth().height(62.dp),
+                        modifier = Modifier.fillMaxWidth().height(47.dp),
                         label = { Text("Amount ($base)", fontSize = 10.sp) },
                         placeholder = { Text("Enter amount", fontSize = 11.sp) },
                         singleLine = true,
@@ -784,15 +784,16 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             })
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(8.dp)) {
+                    Spacer(Modifier.height(5.dp))
+                    Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(6.dp)) {
                         Text("TOTAL ($quote)", color = Muted, fontSize = 11.sp)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             Text("≈ ${if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00"}", color = Muted, fontSize = 11.sp)
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Text("Est fee: ${String.format(java.util.Locale.US, "%.4f", estimatedTotal * 0.001)} $quote", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 3.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text("AVAL  $availableUsdt $quote   ⊕", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Button(
@@ -816,8 +817,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                 }
                             }
                         },
-                        Modifier.fillMaxWidth().height(36.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        Modifier.fillMaxWidth().height(30.dp),
+                        contentPadding = PaddingValues(vertical = 0.dp, horizontal = 8.dp),
+                        shape = RoundedCornerShape(7.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg),
                         enabled = !orderBusy
                     ) {
