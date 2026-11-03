@@ -749,7 +749,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         OutlinedTextField(
                             value = limitPrice,
                             onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            modifier = .Modifier.fillMaxWidth().height(47.dp),
+                            modifier = Modifier.fillMaxWidth().height(29.dp),
                             label = { Text("Price ($quote)", fontSize = 10.sp) },
                             singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
@@ -760,7 +760,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
-                        modifier = Modifier.fillMaxWidth().height(47.dp),
+                        modifier = Modifier.fillMaxWidth().height(29.dp),
                         label = { Text("Amount ($base)", fontSize = 10.sp) },
                         placeholder = { Text("Enter amount", fontSize = 11.sp) },
                         singleLine = true,
@@ -785,12 +785,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     Spacer(Modifier.height(5.dp))
-                    Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(6.dp)) {
-                        Text("TOTAL ($quote)", color = Muted, fontSize = 11.sp)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                            Text("≈ ${if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00"}", color = Muted, fontSize = 11.sp)
-                        }
+                    Row(Modifier.fillMaxWidth().height(29.dp).background(Panel, RoundedCornerShape(7.dp)).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("TOTAL ($quote)", color = Muted, fontSize = 10.sp)
+                        Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Text("Est fee: ${String.format(java.util.Locale.US, "%.4f", estimatedTotal * 0.001)} $quote", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 3.dp))
                     Spacer(Modifier.height(4.dp))
