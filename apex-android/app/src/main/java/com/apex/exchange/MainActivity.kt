@@ -594,7 +594,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var amount by remember { mutableStateOf("") }
     var limitPrice by remember { mutableStateOf("") }
     var percent by remember { mutableFloatStateOf(0f) }
-    var chartInterval by remember { mutableStateOf("1H") }
+    var chartInterval by remember { mutableStateOf("15m") }
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     val amountValue = amount.toDoubleOrNull() ?: 0.0
@@ -842,6 +842,13 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             }
         }
         item {
+            SectionTitle("Orders", "View history") { onDetail("Order History") }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickTile("Open Orders", Icons.Filled.List, Modifier.weight(1f)) { onDetail("Open Orders") }
+                QuickTile("Order History", Icons.Filled.History, Modifier.weight(1f)) { onDetail("Order History") }
+            }
+            Spacer(Modifier.height(20.dp))
+        }        item {
             Card(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
                 colors = CardDefaults.cardColors(containerColor = Panel),
@@ -900,14 +907,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 }
             }
         }
-        item {
-            SectionTitle("Orders", "View history") { onDetail("Order History") }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                QuickTile("Open Orders", Icons.Filled.List, Modifier.weight(1f)) { onDetail("Open Orders") }
-                QuickTile("Order History", Icons.Filled.History, Modifier.weight(1f)) { onDetail("Order History") }
-            }
-            Spacer(Modifier.height(20.dp))
-        }
+
     }
 }
 
