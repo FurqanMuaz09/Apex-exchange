@@ -598,11 +598,11 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var chartInterval by remember { mutableStateOf("15m") }
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
+    var marketPrice by remember { mutableStateOf("—") }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
     val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
     val effectivePrice = if (orderType == "Limit") limitPrice.toDoubleOrNull() ?: livePriceValue else livePriceValue
-    val estimatedTotal = if (side == "Buy") amountValue else amountValue * effectivePrice
-    var marketPrice by remember { mutableStateOf("—") }
+    val estimatedTotal = if (side == "Buy") amountValue * effectivePrice else amountValue
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var marketError by remember { mutableStateOf<String?>(null) }
     var bids by remember { mutableStateOf(emptyList<BookLevel>()) }
