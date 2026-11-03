@@ -109,8 +109,8 @@ private fun ApexNativeApp() {
                         Triple("Home", Icons.Filled.Home, "Home"),
                         Triple("Markets", Icons.Filled.ShowChart, "Markets"),
                         Triple("Trade", Icons.Filled.SwapHoriz, "Trade"),
-                        Triple("Assets", Icons.Filled.AccountBalanceWallet, "Assets"),
-                        Triple("Profile", Icons.Filled.Person, "Profile")
+                        Triple("Futures", Icons.Filled.ShowChart, "Futures"),
+                        Triple("Assets", Icons.Filled.AccountBalanceWallet, "Assets")
                     )
                     destinations.forEach { (label, icon, route) ->
                         NavigationBarItem(
@@ -144,6 +144,7 @@ private fun ApexNativeApp() {
                         )
                         "Markets" -> MarketsScreen { detail = it }
                         "Trade" -> TradeScreen { detail = it }
+                        "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> AssetsScreen { detail = it }
                         else -> ProfileScreen { detail = it }
                     }
@@ -864,14 +865,14 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             ) {
                 Column(Modifier.padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Price chart", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("$pair Chart", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         Spacer(Modifier.weight(1f))
                         TextButton(onClick = { onDetail("Professional Chart · $pair") }, contentPadding = PaddingValues(0.dp)) {
-                            Text("Expand ↗", color = Yellow, fontSize = 11.sp)
+                            Text("⛶", color = Yellow, fontSize = 18.sp)
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        listOf("15m", "1H", "4H", "1D", "1W").forEach { interval ->
+                        listOf("1m", "5m", "15m", "1h", "1D").forEach { interval ->
                             FilterChip(
                                 selected = chartInterval == interval,
                                 onClick = { chartInterval = interval },
