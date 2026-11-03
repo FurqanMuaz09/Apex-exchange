@@ -759,32 +759,42 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
                     if (orderType == "Limit") {
                         Spacer(Modifier.height(10.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = limitPrice,
-                                onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                                modifier = Modifier.weight(1.65f).height(58.dp),
-                                label = { Text("Price ($quote)", fontSize = 11.sp) },
-                                singleLine = true,
-                                textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
-                            )
-                            Box(Modifier.weight(0.85f).height(58.dp).background(Panel, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                                Text(quote, color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(
+                                Modifier.weight(1f).height(38.dp).background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 9.dp, vertical = 3.dp),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text("Price ($quote)", color = Muted, fontSize = 9.sp, lineHeight = 10.sp)
+                                androidx.compose.foundation.text.BasicTextField(
+                                    value = limitPrice,
+                                    onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 12.sp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            Box(
+                                Modifier.width(54.dp).height(32.dp).background(Panel, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(quote, color = White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = amount,
-                        onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
-                        modifier = Modifier.fillMaxWidth().height(60.dp),
-                        label = { Text("Amount ($base)", fontSize = 11.sp) },
-                        placeholder = { Text("Enter amount", fontSize = 12.sp) },
-                        singleLine = true,
-                        textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
-                    )
+                    Column(
+                        Modifier.fillMaxWidth().height(38.dp).background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 9.dp, vertical = 3.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("Amount ($base)", color = Muted, fontSize = 9.sp, lineHeight = 10.sp)
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = amount,
+                            onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 12.sp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     Slider(
                         value = percent,
                         onValueChange = {
