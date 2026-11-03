@@ -774,7 +774,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                 )
                             }
                             Box(
-                                Modifier.width(54.dp).height(32.dp).background(Panel, RoundedCornerShape(8.dp)),
+                                Modifier.width(54.dp).height(38.dp).background(Panel, RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(quote, color = White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -795,6 +795,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+                    Spacer(Modifier.height(5.dp))
                     Slider(
                         value = percent,
                         onValueChange = {
