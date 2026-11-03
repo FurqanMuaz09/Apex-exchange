@@ -380,9 +380,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
 }
 
 private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO) {
-    val symbols = listOf("BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT")
-    val encoded = URLEncoder.encode(JSONArray(symbols).toString(), "UTF-8")
-    val connection = (URL("https://api.binance.com/api/v3/ticker/24hr?symbols=$encoded").openConnection() as java.net.HttpURLConnection)
+    val connection = (URL("https://api.binance.com/api/v3/ticker/24hr").openConnection() as java.net.HttpURLConnection)
     try {
         connection.connectTimeout = 10000
         connection.readTimeout = 10000
@@ -396,7 +394,9 @@ private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO)
         )
         (0 until rows.length()).mapNotNull { index ->
             val row = rows.getJSONObject(index)
-            val symbol = row.getString("symbol").removeSuffix("USDT")
+            val fullSymbol = row.getString("symbol")
+            if (!fullSymbol.endsWith("USDT") || fullSymbol.endsWith("UPUSDT") || fullSymbol.endsWith("DOWNUSDT")) return@mapNotNull null
+            val symbol = fullSymbol.removeSuffix("USDT")
             val price = row.getString("lastPrice").toDoubleOrNull() ?: return@mapNotNull null
             val change = row.getString("priceChangePercent").toDoubleOrNull() ?: 0.0
             Coin(
@@ -406,6 +406,8 @@ private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO)
                 change = String.format(java.util.Locale.US, "%+.2f%%", change),
                 up = change >= 0
             )
+        }.sortedByDescending { coin ->
+            rows.let { arr -> (0 until arr.length()).firstOrNull { arr.getJSONObject(it).optString("symbol") == coin.symbol + "USDT" }?.let { arr.getJSONObject(it).optString("quoteVolume").toDoubleOrNull() } ?: 0.0 }
         }
     } finally {
         connection.disconnect()
@@ -593,7 +595,11 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
     var pair by remember { mutableStateOf("BTC/USDT") }
-    var pairMenu by remember { mutableStateOf(false) }
+    var showPairSheet by remember { mutableStateOf(false) }
+    var pairSearch by remember { mutableStateOf("") }
+    var allPairMarkets by remember { mutableStateOf(emptyList<Coin>()) }
+    var pairLoading by remember { mutableStateOf(false) }
+    var pairLoadError by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableStateOf("") }
     var limitPrice by remember { mutableStateOf("") }
     var percent by remember { mutableFloatStateOf(0f) }
@@ -704,7 +710,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
         }
         item {
             Row(
-                Modifier.fillMaxWidth().clickable { pairMenu = true }.padding(horizontal = 16.dp, vertical = 9.dp),
+                Modifier.fillMaxWidth().clickable { showPairSheet = true }.padding(horizontal = 16.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
@@ -714,13 +720,6 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
                     val changeValue = marketChangePercent.toDoubleOrNull() ?: 0.0
                     Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = when { changeValue > 0.0 -> Green; changeValue < 0.0 -> Red; else -> White }, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-                DropdownMenu(expanded = pairMenu, onDismissRequest = { pairMenu = false }) {
-                    listOf("BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT").forEach { option ->
-                        DropdownMenuItem(text = { Text(option, color = White) }, onClick = {
-                            pair = option; pairMenu = false; amount = ""; percent = 0f
-                        })
-                    }
                 }
                 Spacer(Modifier.weight(1f))
                 Icon(Icons.Filled.CandlestickChart, null, tint = White, modifier = Modifier.size(25.dp))
@@ -954,6 +953,46 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
         }
     }
     if (showDecimalSheet) {
+        if (showPairSheet) {
+            LaunchedEffect(showPairSheet) {
+                pairLoading = true
+                pairLoadError = null
+                try { allPairMarkets = fetchLiveMarkets() } catch (e: Exception) { pairLoadError = e.message ?: "Markets unavailable" }
+                pairLoading = false
+            }
+            ModalBottomSheet(onDismissRequest = { showPairSheet = false }, containerColor = Panel, contentColor = White) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Text("Select Market Pair", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(value = pairSearch, onValueChange = { pairSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("Search coin or pair") })
+                    Spacer(Modifier.height(8.dp))
+                    when {
+                        pairLoading -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Yellow) }
+                        pairLoadError != null -> Text(pairLoadError ?: "Markets unavailable", color = Red, modifier = Modifier.padding(12.dp))
+                        else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+                            items(allPairMarkets.filter { (it.symbol + "/USDT " + it.name).contains(pairSearch.trim(), ignoreCase = true) }) { coin ->
+                                Row(Modifier.fillMaxWidth().clickable {
+                                    pair = coin.symbol + "/USDT"
+                                    amount = ""; limitPrice = ""; percent = 0f
+                                    showPairSheet = false; pairSearch = ""
+                                }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(coin.symbol + "/USDT", color = White, fontWeight = FontWeight.SemiBold)
+                                        Text(coin.name, color = Muted, fontSize = 11.sp)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(coin.price, color = White, fontSize = 13.sp)
+                                        Text(coin.change, color = if (coin.up) Green else Red, fontSize = 11.sp)
+                                    }
+                                }
+                                HorizontalDivider(color = Color(0xFF30343B))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                }
+            }
+        }
         ModalBottomSheet(onDismissRequest = { showDecimalSheet = false }, containerColor = Panel, contentColor = White) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
                 Text("Order Book Decimal Precision", fontSize = 17.sp, fontWeight = FontWeight.Bold)
