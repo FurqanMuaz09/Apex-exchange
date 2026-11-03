@@ -827,22 +827,22 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 }
 
                 Column(
-                    Modifier.weight(0.92f).fillMaxHeight().background(Panel).padding(horizontal = 8.dp, vertical = 10.dp)
+                    Modifier.weight(0.92f).fillMaxHeight().background(Panel).padding(horizontal = 5.dp, vertical = 6.dp)
                 ) {
                     Text("ORDER BOOK", color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(5.dp))
+                    Spacer(Modifier.height(2.dp))
                     Row(Modifier.fillMaxWidth()) {
                         Text("Price ($quote)", color = Muted, fontSize = 9.sp, modifier = Modifier.weight(0.58f))
                         Text("Amt ($base)", color = Muted, fontSize = 9.sp, modifier = Modifier.weight(0.42f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                     asks.asReversed().take(5).forEach { level ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 10.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
-                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 10.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
+                        Row(Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 9.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 9.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
                     HorizontalDivider(color = Color(0xFF30343B))
-                    Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = Green, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     bids.take(5).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
                             Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Green, fontSize = 10.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
@@ -850,7 +850,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     if (depthError != null) Text("Reconnecting…", color = Muted, fontSize = 9.sp)
-                    OutlinedButton(onClick = { showDecimalSheet = true }, modifier = Modifier.fillMaxWidth().height(30.dp), contentPadding = PaddingValues(2.dp)) { Text("Decimals: $bookDecimals ▾", fontSize = 10.sp) }
+                    OutlinedButton(onClick = { showDecimalSheet = true }, modifier = Modifier.fillMaxWidth().height(25.dp), contentPadding = PaddingValues(1.dp)) { Text("Decimals: $bookDecimals ▾", fontSize = 9.sp) }
                 }
             }
             HorizontalDivider(color = Color(0xFF252A32))
