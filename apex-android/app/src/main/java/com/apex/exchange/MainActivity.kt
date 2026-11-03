@@ -944,7 +944,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Text("Order Book Decimal Precision", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth().clickable { bookDecimalsOverride = null; showDecimalSheet = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Auto (${" + "bookDecimals" + "} decimals)", modifier = Modifier.weight(1f), fontSize = 15.sp)
+                    Text("Auto ($bookDecimals decimals)", modifier = Modifier.weight(1f), fontSize = 15.sp)
                     if (bookDecimalsOverride == null) Icon(Icons.Filled.Check, null, tint = Yellow)
                 }
                 HorizontalDivider(color = Color(0xFF30343B))
