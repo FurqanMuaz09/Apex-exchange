@@ -873,25 +873,27 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     IconButton(onClick = { showDecimalSheet = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Filled.Tune, contentDescription = "Decimal precision", tint = Muted, modifier = Modifier.size(15.dp)) }
                 }
             }
-            HorizontalDivider(color = Color(0xFF252A32))
         }
         item {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 18.dp, top = 8.dp, bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                listOf("Open Orders", "Holdings", "Order History").forEach { tab ->
+                listOf("Open Orders", "Holdings").forEach { tab ->
                     Column(
-                        Modifier.clickable { selectedOrdersTab = tab; onDetail(tab) }.padding(vertical = 4.dp),
+                        Modifier.clickable { selectedOrdersTab = tab }.padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(if (tab == "Open Orders") "Open Orders (0)" else tab, color = if (selectedOrdersTab == tab) White else Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(5.dp))
-                        Box(Modifier.width(62.dp).height(2.dp).background(if (selectedOrdersTab == tab) Yellow else Color.Transparent, RoundedCornerShape(2.dp)))
+                        Text(if (tab == "Open Orders") "Open Orders (0)" else "Holdings", color = if (selectedOrdersTab == tab) White else Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(7.dp))
+                        Box(Modifier.width(92.dp).height(3.dp).background(if (selectedOrdersTab == tab) Yellow else Color.Transparent, RoundedCornerShape(2.dp)))
                     }
                 }
-                Icon(Icons.Filled.Menu, null, tint = Muted, modifier = Modifier.clickable { onDetail("Order History") })
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { selectedOrdersTab = "Order History"; onDetail("Order History") }, modifier = Modifier.size(42.dp)) {
+                    Icon(Icons.Filled.History, contentDescription = "Order History", tint = White, modifier = Modifier.size(30.dp))
+                }
             }
             HorizontalDivider(color = Color(0xFF252A32))
         }
