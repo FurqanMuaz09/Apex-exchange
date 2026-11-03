@@ -601,6 +601,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     var marketPrice by remember { mutableStateOf("—") }
+    var availableUsdt by remember { mutableStateOf("0.00") }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
     val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
     val effectivePrice = if (orderType == "Limit") limitPrice.toDoubleOrNull() ?: livePriceValue else livePriceValue
@@ -625,6 +626,26 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             delay(5000)
         }
     }
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                if (FirebaseAuth.getInstance().currentUser != null) {
+                    val wallet = apexApiRequest("/api/account")
+                    val rows = wallet.optJSONArray("balances") ?: JSONArray()
+                    for (i in 0 until rows.length()) {
+                        val row = rows.getJSONObject(i)
+                        if (row.optString("asset") == "USDT") {
+                            val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
+                            availableUsdt = String.format(java.util.Locale.US, "%.2f", free)
+                            break
+                        }
+                    }
+                }
+            } catch (_: Exception) { }
+            delay(15000)
+        }
+    }
+
     LaunchedEffect(pair) {
         while (true) {
             try {
@@ -762,11 +783,15 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
                     Spacer(Modifier.height(8.dp))
                     Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(8.dp)) {
-                        Text("Total ($quote)", color = Muted, fontSize = 10.sp)
-                        Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("TOTAL ($quote)", color = Muted, fontSize = 11.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            Text("≈ ${if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00"}", color = Muted, fontSize = 11.sp)
+                        }
+                        Text("Estimated Fee (0.1%): " + String.format(java.util.Locale.US, "%.4f", estimatedTotal * 0.001) + " $quote", color = Muted, fontSize = 9.sp)
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text("Available: — $quote", color = Muted, fontSize = 10.sp)
+                    Text("AVAL  $availableUsdt $quote   ⊕", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
@@ -803,11 +828,11 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Column(
                     Modifier.weight(0.92f).fillMaxHeight().background(Panel).padding(horizontal = 8.dp, vertical = 10.dp)
                 ) {
-                    Text("Order Book", color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("ORDER BOOK", color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(9.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Price", color = Muted, fontSize = 9.sp)
-                        Text("Amount", color = Muted, fontSize = 9.sp)
+                        Text("Amd", color = Muted, fontSize = 9.sp)
                     }
                     Spacer(Modifier.height(5.dp))
                     asks.asReversed().take(5).forEach { level ->
