@@ -602,6 +602,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     var marketPrice by remember { mutableStateOf("—") }
+    var marketPriceColor by remember { mutableStateOf(White) }
     var bookDecimalsOverride by remember { mutableStateOf<Int?>(null) }
     val liveBookPrice = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
     val autoBookDecimals = when {
@@ -631,6 +632,13 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
         while (true) {
             try {
                 val data = fetchPairMarketData(pair, chartInterval.lowercase())
+                val previousPrice = marketPrice.replace(",", "").toDoubleOrNull()
+                val updatedPrice = data.price.replace(",", "").toDoubleOrNull()
+                marketPriceColor = when {
+                    previousPrice == null || updatedPrice == null || updatedPrice == previousPrice -> White
+                    updatedPrice > previousPrice -> Green
+                    else -> Red
+                }
                 marketPrice = data.price
                 candles = data.candles
                 marketError = null
@@ -707,7 +715,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         Text(pair, color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                         Icon(Icons.Filled.ArrowDropDown, null, tint = White)
                     }
-                    Text("▲  +1.20%     " + marketPrice, color = Green, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(marketPrice, color = marketPriceColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
                 DropdownMenu(expanded = pairMenu, onDismissRequest = { pairMenu = false }) {
                     listOf("BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT").forEach { option ->
@@ -851,7 +859,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     HorizontalDivider(color = Color(0xFF30343B))
-                    Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = marketPriceColor, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     bids.take(5).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
                             Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Green, fontSize = 10.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
