@@ -602,7 +602,16 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     var marketPrice by remember { mutableStateOf("—") }
-    var bookDecimals by remember { mutableIntStateOf(0) }
+    var bookDecimalsOverride by remember { mutableStateOf<Int?>(null) }
+    val liveBookPrice = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
+    val autoBookDecimals = when {
+        liveBookPrice >= 1000.0 -> 2
+        liveBookPrice >= 100.0 -> 3
+        liveBookPrice >= 1.0 -> 4
+        liveBookPrice > 0.0 -> (4 + kotlin.math.ceil(-kotlin.math.log10(liveBookPrice)).toInt()).coerceIn(4, 8)
+        else -> 4
+    }
+    val bookDecimals = bookDecimalsOverride ?: autoBookDecimals
     var showDecimalSheet by remember { mutableStateOf(false) }
     var availableUsdt by remember { mutableStateOf("0.00") }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
@@ -838,7 +847,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     asks.asReversed().take(5).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
                             Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 9.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
-                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 9.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
+                            Text(String.format(java.util.Locale.US, "%,.4f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 9.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
                     HorizontalDivider(color = Color(0xFF30343B))
@@ -934,10 +943,15 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
                 Text("Order Book Decimal Precision", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().clickable { bookDecimalsOverride = null; showDecimalSheet = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Auto (${" + "bookDecimals" + "} decimals)", modifier = Modifier.weight(1f), fontSize = 15.sp)
+                    if (bookDecimalsOverride == null) Icon(Icons.Filled.Check, null, tint = Yellow)
+                }
+                HorizontalDivider(color = Color(0xFF30343B))
                 (0..8).forEach { digits ->
-                    Row(Modifier.fillMaxWidth().clickable { bookDecimals = digits; showDecimalSheet = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clickable { bookDecimalsOverride = digits; showDecimalSheet = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("0." + "0".repeat(digits), modifier = Modifier.weight(1f), fontSize = 15.sp)
-                        if (bookDecimals == digits) Icon(Icons.Filled.Check, null, tint = Yellow)
+                        if (bookDecimalsOverride == digits) Icon(Icons.Filled.Check, null, tint = Yellow)
                     }
                     HorizontalDivider(color = Color(0xFF30343B))
                 }
