@@ -672,175 +672,179 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf("Buy", "Sell").forEach { label ->
-                    Button(
-                        onClick = { side = label },
-                        modifier = Modifier.weight(1f).height(43.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (side == label) (if (label == "Buy") Green else Red) else Panel,
-                            contentColor = if (side == label) Bg else Muted
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(Modifier.weight(0.54f)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf("Buy", "Sell").forEach { label ->
+                        Button(
+                            onClick = { side = label },
+                            modifier = Modifier.weight(1f).height(43.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (side == label) (if (label == "Buy") Green else Red) else Panel,
+                                contentColor = if (side == label) Bg else Muted
+                            )
+                        ) { Text(label, fontWeight = FontWeight.Bold) }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Market", "Limit").forEach { type ->
+                        FilterChip(
+                            selected = orderType == type,
+                            onClick = { orderType = type },
+                            label = { Text(type, fontSize = 11.sp) }
                         )
-                    ) { Text(label, fontWeight = FontWeight.Bold) }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text("Advanced", color = Muted, fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterVertically))
                 }
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("Market", "Limit").forEach { type ->
-                    FilterChip(
-                        selected = orderType == type,
-                        onClick = { orderType = type },
-                        label = { Text(type, fontSize = 11.sp) }
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                Text("Advanced", color = Muted, fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterVertically))
-            }
-        }
-        item {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)) {
-                if (orderType == "Limit") {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)) {
+                    if (orderType == "Limit") {
+                        OutlinedTextField(
+                            value = limitPrice, onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Limit price ($quote)") }, singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                                focusedTextColor = White, unfocusedTextColor = White
+                            )
+                        )
+                        Spacer(Modifier.height(9.dp))
+                    }
                     OutlinedTextField(
-                        value = limitPrice, onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                        value = amount,
+                        onValueChange = {
+                            amount = it.filter { ch -> ch.isDigit() || ch == '.' }
+                            percent = 0f
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Limit price ($quote)") }, singleLine = true,
+                        label = { Text("Amount ($base)") },
+                        placeholder = { Text("0.00") },
+                        singleLine = true,
+                        trailingIcon = { Text(base, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(end = 12.dp)) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
                             focusedTextColor = White, unfocusedTextColor = White
                         )
                     )
-                    Spacer(Modifier.height(9.dp))
-                }
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = {
-                        amount = it.filter { ch -> ch.isDigit() || ch == '.' }
-                        percent = 0f
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Amount ($base)") },
-                    placeholder = { Text("0.00") },
-                    singleLine = true,
-                    trailingIcon = { Text(base, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(end = 12.dp)) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                        focusedTextColor = White, unfocusedTextColor = White
+                    Spacer(Modifier.height(7.dp))
+                    Slider(
+                        value = percent, onValueChange = {
+                            percent = it
+                            amount = if (it == 0f) "" else String.format(java.util.Locale.US, "%.2f", it * 100.0)
+                        },
+                        valueRange = 0f..1f,
+                        colors = SliderDefaults.colors(thumbColor = Yellow, activeTrackColor = Yellow)
                     )
-                )
-                Spacer(Modifier.height(7.dp))
-                Slider(
-                    value = percent, onValueChange = {
-                        percent = it
-                        amount = if (it == 0f) "" else String.format(java.util.Locale.US, "%.2f", it * 100.0)
-                    },
-                    valueRange = 0f..1f,
-                    colors = SliderDefaults.colors(thumbColor = Yellow, activeTrackColor = Yellow)
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    listOf("0%", "25%", "50%", "75%", "100%").forEach { Text(it, color = Muted, fontSize = 9.sp) }
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Available balance", color = Muted, fontSize = 11.sp)
-                    Text("— $quote", color = White, fontSize = 11.sp)
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Estimated total", color = Muted, fontSize = 11.sp)
-                    Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f %s", estimatedTotal, quote) else "— $quote", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        val priceValue = if (orderType == "Limit") limitPrice.toDoubleOrNull() else marketPrice.replace(",", "").toDoubleOrNull()
-                        val enteredAmount = amount.toDoubleOrNull()
-                        if (FirebaseAuth.getInstance().currentUser == null) orderMessage = "Login first to place a Testnet order."
-                        else if (enteredAmount == null || enteredAmount <= 0 || priceValue == null || priceValue <= 0) orderMessage = "Enter a valid amount and price."
-                        else {
-                            orderBusy = true
-                            orderMessage = null
-                            orderScope.launch {
-                                try {
-                                    val quantity = enteredAmount
-                                    val payload = JSONObject().put("symbol", pair.replace("/", "")).put("side", side.uppercase()).put("type", orderType.uppercase()).put("quantity", quantity)
-                                    if (orderType == "Limit") payload.put("price", priceValue)
-                                    val result = apexApiRequest("/api/order", "POST", payload)
-                                    val order = result.optJSONObject("order")
-                                    orderMessage = "Testnet order: ${order?.optString("status", "accepted") ?: "accepted"}"
-                                    amount = ""
-                                    percent = 0f
-                                } catch (e: Exception) { orderMessage = e.localizedMessage ?: "Order failed." }
-                                finally { orderBusy = false }
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(47.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg),
-                    enabled = !orderBusy) {
-                    if (orderBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
-                    else Text("$side $base", fontWeight = FontWeight.Bold)
-                }
-                if (orderMessage != null) Text(orderMessage!!, color = if (orderMessage!!.startsWith("Testnet order")) Green else Red, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
-                Text("TESTNET ONLY · Secure backend connection required.", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
-            }
-        }
-        item {
-            Card(
-                Modifier.fillMaxWidth().padding(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(Modifier.padding(13.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Order Book", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Spacer(Modifier.weight(1f))
-                        Text("$base / $quote", color = Muted, fontSize = 10.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        listOf("0%", "25%", "50%", "75%", "100%").forEach { Text(it, color = Muted, fontSize = 9.sp) }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Available balance", color = Muted, fontSize = 11.sp)
+                        Text("— $quote", color = White, fontSize = 11.sp)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Estimated total", color = Muted, fontSize = 11.sp)
+                        Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f %s", estimatedTotal, quote) else "— $quote", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Price ($quote)", color = Muted, fontSize = 10.sp)
-                        Text("Amount ($base)", color = Muted, fontSize = 10.sp)
+                    Button(
+                        onClick = {
+                            val priceValue = if (orderType == "Limit") limitPrice.toDoubleOrNull() else marketPrice.replace(",", "").toDoubleOrNull()
+                            val enteredAmount = amount.toDoubleOrNull()
+                            if (FirebaseAuth.getInstance().currentUser == null) orderMessage = "Login first to place a Testnet order."
+                            else if (enteredAmount == null || enteredAmount <= 0 || priceValue == null || priceValue <= 0) orderMessage = "Enter a valid amount and price."
+                            else {
+                                orderBusy = true
+                                orderMessage = null
+                                orderScope.launch {
+                                    try {
+                                        val quantity = enteredAmount
+                                        val payload = JSONObject().put("symbol", pair.replace("/", "")).put("side", side.uppercase()).put("type", orderType.uppercase()).put("quantity", quantity)
+                                        if (orderType == "Limit") payload.put("price", priceValue)
+                                        val result = apexApiRequest("/api/order", "POST", payload)
+                                        val order = result.optJSONObject("order")
+                                        orderMessage = "Testnet order: ${order?.optString("status", "accepted") ?: "accepted"}"
+                                        amount = ""
+                                        percent = 0f
+                                    } catch (e: Exception) { orderMessage = e.localizedMessage ?: "Order failed." }
+                                    finally { orderBusy = false }
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(47.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg),
+                        enabled = !orderBusy) {
+                        if (orderBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
+                        else Text("$side $base", fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    asks.asReversed().forEach { level ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(level.price, color = Red, fontSize = 11.sp)
-                            Text(level.quantity, color = White, fontSize = 11.sp)
+                    if (orderMessage != null) Text(orderMessage!!, color = if (orderMessage!!.startsWith("Testnet order")) Green else Red, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
+                    Text("TESTNET ONLY · Secure backend connection required.", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
+                }
+                }
+                Column(Modifier.weight(0.46f)) {
+                Card(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Panel),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(Modifier.padding(13.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Order Book", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Spacer(Modifier.weight(1f))
+                            Text("$base / $quote", color = Muted, fontSize = 10.sp)
                         }
-                    }
-                    HorizontalDivider(color = Color(0xFF292D35))
-                    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Market price", color = Muted, fontSize = 10.sp)
-                        Text(marketPrice, color = Yellow, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    }
-                    bids.forEach { level ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(level.price, color = Green, fontSize = 11.sp)
-                            Text(level.quantity, color = White, fontSize = 11.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Price ($quote)", color = Muted, fontSize = 10.sp)
+                            Text("Amount ($base)", color = Muted, fontSize = 10.sp)
                         }
-                    }
-                    if (depthError != null) Text("Order book reconnecting…", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(vertical = 5.dp))
-                    HorizontalDivider(color = Color(0xFF292D35))
-                    Spacer(Modifier.height(8.dp))
-                    Text("Recent Trades", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    Spacer(Modifier.height(9.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Price", color = Muted, fontSize = 10.sp)
-                        Text("Amount", color = Muted, fontSize = 10.sp)
-                        Text("Time", color = Muted, fontSize = 10.sp)
-                    }
-                    recentTrades.forEach { trade ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(trade.price, color = if (trade.buyerIsMaker) Red else Green, fontSize = 10.sp)
-                            Text(trade.quantity, color = White, fontSize = 10.sp)
-                            Text(trade.time, color = Muted, fontSize = 10.sp)
+                        Spacer(Modifier.height(8.dp))
+                        asks.asReversed().forEach { level ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(level.price, color = Red, fontSize = 11.sp)
+                                Text(level.quantity, color = White, fontSize = 11.sp)
+                            }
                         }
+                        HorizontalDivider(color = Color(0xFF292D35))
+                        Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Market price", color = Muted, fontSize = 10.sp)
+                            Text(marketPrice, color = Yellow, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+                        bids.forEach { level ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(level.price, color = Green, fontSize = 11.sp)
+                                Text(level.quantity, color = White, fontSize = 11.sp)
+                            }
+                        }
+                        if (depthError != null) Text("Order book reconnecting…", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(vertical = 5.dp))
+                        HorizontalDivider(color = Color(0xFF292D35))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Recent Trades", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Spacer(Modifier.height(9.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Price", color = Muted, fontSize = 10.sp)
+                            Text("Amount", color = Muted, fontSize = 10.sp)
+                            Text("Time", color = Muted, fontSize = 10.sp)
+                        }
+                        recentTrades.forEach { trade ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(trade.price, color = if (trade.buyerIsMaker) Red else Green, fontSize = 10.sp)
+                                Text(trade.quantity, color = White, fontSize = 10.sp)
+                                Text(trade.time, color = Muted, fontSize = 10.sp)
+                            }
+                        }
+                        if (recentTrades.isEmpty()) Text("Loading recent trades…", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(vertical = 10.dp))
+                        Text("Public market feed · refreshes every 3 seconds", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
                     }
-                    if (recentTrades.isEmpty()) Text("Loading recent trades…", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(vertical = 10.dp))
-                    Text("Public market feed · refreshes every 3 seconds", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
+                }
                 }
             }
         }
