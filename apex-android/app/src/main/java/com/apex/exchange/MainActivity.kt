@@ -850,7 +850,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     if (depthError != null) Text("Reconnecting…", color = Muted, fontSize = 9.sp)
-                    OutlinedButton(onClick = { showDecimalSheet = true }, modifier = Modifier.fillMaxWidth().height(25.dp), contentPadding = PaddingValues(1.dp)) { Text("Decimals: $bookDecimals ▾", fontSize = 9.sp) }
+                    IconButton(onClick = { showDecimalSheet = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Filled.Tune, contentDescription = "Decimal precision", tint = Muted, modifier = Modifier.size(15.dp)) }
                 }
             }
             HorizontalDivider(color = Color(0xFF252A32))
