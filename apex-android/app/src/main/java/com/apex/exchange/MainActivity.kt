@@ -736,7 +736,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Column(
                     Modifier.weight(1.18f).padding(start = 12.dp, end = 0.dp, top = 8.dp, bottom = 8.dp)
                 ) {
-                    Row(Modifier.fillMaxWidth().height(29.dp).background(Panel, RoundedCornerShape(9.dp)).padding(3.dp)) {
+                    Row(Modifier.fillMaxWidth().height(29.dp).background(Panel, RoundedCornerShape(9.dp))) {
                         listOf("Buy", "Sell").forEach { label ->
                             Box(
                                 Modifier.weight(1f).fillMaxHeight()
