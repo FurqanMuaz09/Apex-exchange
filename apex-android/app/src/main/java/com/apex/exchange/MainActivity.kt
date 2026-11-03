@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -888,26 +890,30 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
         }
         item {
             Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 18.dp, top = 8.dp, bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 18.dp, top = 4.dp, bottom = 0.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                listOf("Open Orders", "Holdings").forEach { tab ->
-                    Column(
-                        Modifier.clickable { selectedOrdersTab = tab }.padding(vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(if (tab == "Open Orders") "Open Orders (0)" else "Holdings", color = if (selectedOrdersTab == tab) White else Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(7.dp))
-                        Box(Modifier.width(92.dp).height(3.dp).background(if (selectedOrdersTab == tab) Yellow else Color.Transparent, RoundedCornerShape(2.dp)))
+                Row(
+                    Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(22.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf("Open Orders", "Holdings").forEach { tab ->
+                        Column(
+                            Modifier.clickable { selectedOrdersTab = tab }.padding(top = 2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(if (tab == "Open Orders") "Open Orders (0)" else "Holdings", color = if (selectedOrdersTab == tab) White else Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Box(Modifier.width(92.dp).height(3.dp).background(if (selectedOrdersTab == tab) Yellow else Color.Transparent, RoundedCornerShape(2.dp)))
+                        }
                     }
                 }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { selectedOrdersTab = "Order History"; onDetail("Order History") }, modifier = Modifier.size(42.dp)) {
-                    Icon(Icons.Filled.History, contentDescription = "Order History", tint = White, modifier = Modifier.size(30.dp))
+                IconButton(onClick = { selectedOrdersTab = "Order History"; onDetail("Order History") }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Filled.History, contentDescription = "Order History", tint = White, modifier = Modifier.size(28.dp))
                 }
             }
-            HorizontalDivider(color = Color(0xFF252A32))
+            HorizontalDivider(color = Color(0xFF252A32), thickness = 1.dp)
         }
         item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
