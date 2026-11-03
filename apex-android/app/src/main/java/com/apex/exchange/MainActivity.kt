@@ -857,7 +857,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 QuickTile("History", Icons.Filled.History, Modifier.weight(1f)) { onDetail("Order History") }
             }
             Spacer(Modifier.height(20.dp))
-        }        item {
+        }
+        item {
             Card(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
                 colors = CardDefaults.cardColors(containerColor = Panel),
