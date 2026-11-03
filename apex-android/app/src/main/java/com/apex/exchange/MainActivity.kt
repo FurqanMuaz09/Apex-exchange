@@ -596,6 +596,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var limitPrice by remember { mutableStateOf("") }
     var percent by remember { mutableFloatStateOf(0f) }
     var chartInterval by remember { mutableStateOf("15m") }
+    var chartExpanded by remember { mutableStateOf(true) }
+    var selectedOrdersTab by remember { mutableStateOf("Open Orders") }
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     var marketPrice by remember { mutableStateOf("—") }
@@ -607,11 +609,11 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var marketError by remember { mutableStateOf<String?>(null) }
     var bids by remember { mutableStateOf(emptyList<BookLevel>()) }
     var asks by remember { mutableStateOf(emptyList<BookLevel>()) }
-    var recentTrades by remember { mutableStateOf(emptyList<RecentTrade>()) }
     var depthError by remember { mutableStateOf<String?>(null) }
     val orderScope = rememberCoroutineScope()
     var orderBusy by remember { mutableStateOf(false) }
     var orderMessage by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(pair, chartInterval) {
         while (true) {
             try {
@@ -619,9 +621,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 marketPrice = data.price
                 candles = data.candles
                 marketError = null
-            } catch (e: Exception) {
-                marketError = e.message ?: "Unable to load market data"
-            }
+            } catch (e: Exception) { marketError = e.message ?: "Market data unavailable" }
             delay(5000)
         }
     }
@@ -631,133 +631,146 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 val data = fetchDepthAndTrades(pair)
                 bids = data.first
                 asks = data.second
-                recentTrades = data.third
                 depthError = null
-            } catch (e: Exception) {
-                depthError = e.message ?: "Order book unavailable"
-            }
+            } catch (e: Exception) { depthError = e.message ?: "Order book unavailable" }
             delay(3000)
         }
     }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 8.dp)
+    ) {
         item {
-            TopBar("Spot Trading") { onDetail("Notifications") }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(32.dp).background(Yellow, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                    Text("A", color = Bg, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text("APEX", color = White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Exchange", color = Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { onDetail("Notifications") }) {
+                    Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White)
+                }
+                IconButton(onClick = { onDetail("Profile") }) {
+                    Icon(Icons.Filled.AccountCircle, "Profile", tint = White)
+                }
+            }
+            HorizontalDivider(color = Color(0xFF252A32))
         }
         item {
             Row(
-                Modifier.fillMaxWidth().clickable { pairMenu = true }
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().clickable { pairMenu = true }.padding(horizontal = 16.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(pair, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Filled.ArrowDropDown, null, tint = Yellow)
+                        Text(pair, color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Filled.ArrowDropDown, null, tint = White)
                     }
-                    Text("Spot · Binance Testnet", color = Muted, fontSize = 10.sp)
+                    Text("▲  +1.20%     " + marketPrice, color = Green, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 DropdownMenu(expanded = pairMenu, onDismissRequest = { pairMenu = false }) {
                     listOf("BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT").forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option, color = White) },
-                            onClick = { pair = option; pairMenu = false; amount = ""; percent = 0f }
-                        )
+                        DropdownMenuItem(text = { Text(option, color = White) }, onClick = {
+                            pair = option; pairMenu = false; amount = ""; percent = 0f
+                        })
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("LIVE PRICE", color = Muted, fontSize = 9.sp)
-                    Text(marketPrice, color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                }
+                Icon(Icons.Filled.CandlestickChart, null, tint = White, modifier = Modifier.size(25.dp))
+                Spacer(Modifier.width(15.dp))
+                Icon(Icons.Filled.MoreHoriz, null, tint = White)
             }
+            HorizontalDivider(color = Color(0xFF252A32))
         }
         item {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(1.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Column(Modifier.weight(0.54f)) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf("Buy", "Sell").forEach { label ->
-                        Button(
-                            onClick = { side = label },
-                            modifier = Modifier.weight(1f).height(43.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (side == label) (if (label == "Buy") Green else Red) else Panel,
-                                contentColor = if (side == label) Bg else Muted
-                            )
-                        ) { Text(label, fontWeight = FontWeight.Bold) }
+                Column(
+                    Modifier.weight(1.18f).padding(start = 8.dp, end = 5.dp, top = 8.dp, bottom = 8.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth().height(38.dp).background(Panel, RoundedCornerShape(9.dp)).padding(3.dp)) {
+                        listOf("Buy", "Sell").forEach { label ->
+                            Box(
+                                Modifier.weight(1f).fillMaxHeight()
+                                    .background(if (side == label) (if (label == "Buy") Green else Red) else Color.Transparent, RoundedCornerShape(7.dp))
+                                    .clickable { side = label },
+                                contentAlignment = Alignment.Center
+                            ) { Text(label, color = if (side == label) Bg else Muted, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+                        }
                     }
-                }
-                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("Market", "Limit").forEach { type ->
-                        FilterChip(
-                            selected = orderType == type,
-                            onClick = { orderType = type },
-                            label = { Text(type, fontSize = 11.sp) }
-                        )
+                    Spacer(Modifier.height(7.dp))
+                    Row(
+                        Modifier.fillMaxWidth().height(34.dp).background(Panel, RoundedCornerShape(7.dp))
+                            .clickable { orderType = if (orderType == "Limit") "Market" else "Limit" }
+                            .padding(horizontal = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(orderType, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        Icon(Icons.Filled.ArrowDropDown, null, tint = White)
                     }
-                    Spacer(Modifier.weight(1f))
-                    Text("Advanced", color = Muted, fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterVertically))
-                }
-                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)) {
                     if (orderType == "Limit") {
+                        Spacer(Modifier.height(7.dp))
                         OutlinedTextField(
-                            value = limitPrice, onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Limit price ($quote)") }, singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                                focusedTextColor = White, unfocusedTextColor = White
-                            )
+                            value = limitPrice,
+                            onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                            modifier = Modifier.fillMaxWidth().height(62.dp),
+                            label = { Text("Price ($quote)", fontSize = 10.sp) },
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
                         )
-                        Spacer(Modifier.height(9.dp))
                     }
+                    Spacer(Modifier.height(7.dp))
                     OutlinedTextField(
                         value = amount,
-                        onValueChange = {
-                            amount = it.filter { ch -> ch.isDigit() || ch == '.' }
-                            percent = 0f
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Amount ($base)") },
-                        placeholder = { Text("0.00") },
+                        onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
+                        modifier = Modifier.fillMaxWidth().height(62.dp),
+                        label = { Text("Amount ($base)", fontSize = 10.sp) },
+                        placeholder = { Text("Enter amount", fontSize = 11.sp) },
                         singleLine = true,
-                        trailingIcon = { Text(base, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(end = 12.dp)) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                            focusedTextColor = White, unfocusedTextColor = White
-                        )
+                        textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
                     )
-                    Spacer(Modifier.height(7.dp))
                     Slider(
-                        value = percent, onValueChange = {
+                        value = percent,
+                        onValueChange = {
                             percent = it
-                            amount = if (it == 0f) "" else String.format(java.util.Locale.US, "%.2f", it * 100.0)
+                            amount = if (it == 0f) "" else String.format(java.util.Locale.US, "%.4f", it * 0.01)
                         },
                         valueRange = 0f..1f,
-                        colors = SliderDefaults.colors(thumbColor = Yellow, activeTrackColor = Yellow)
+                        modifier = Modifier.height(30.dp),
+                        colors = SliderDefaults.colors(thumbColor = Green, activeTrackColor = Green)
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        listOf("0%", "25%", "50%", "75%", "100%").forEach { Text(it, color = Muted, fontSize = 9.sp) }
+                        listOf("25%", "50%", "75%", "100%").forEachIndexed { index, label ->
+                            Text(label, color = Muted, fontSize = 9.sp, modifier = Modifier.clickable {
+                                percent = (index + 1) / 4f
+                            })
+                        }
                     }
-                    Spacer(Modifier.height(10.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Available balance", color = Muted, fontSize = 11.sp)
-                        Text("— $quote", color = White, fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Column(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(8.dp)) {
+                        Text("Total ($quote)", color = Muted, fontSize = 10.sp)
+                        Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Estimated total", color = Muted, fontSize = 11.sp)
-                        Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f %s", estimatedTotal, quote) else "— $quote", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Available: — $quote", color = Muted, fontSize = 10.sp)
+                    Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
-                            val priceValue = if (orderType == "Limit") limitPrice.toDoubleOrNull() else marketPrice.replace(",", "").toDoubleOrNull()
+                            val priceValue = if (orderType == "Limit") limitPrice.toDoubleOrNull() else livePriceValue
                             val enteredAmount = amount.toDoubleOrNull()
                             if (FirebaseAuth.getInstance().currentUser == null) orderMessage = "Login first to place a Testnet order."
                             else if (enteredAmount == null || enteredAmount <= 0 || priceValue == null || priceValue <= 0) orderMessage = "Enter a valid amount and price."
@@ -766,128 +779,106 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                 orderMessage = null
                                 orderScope.launch {
                                     try {
-                                        val quantity = enteredAmount
-                                        val payload = JSONObject().put("symbol", pair.replace("/", "")).put("side", side.uppercase()).put("type", orderType.uppercase()).put("quantity", quantity)
+                                        val payload = JSONObject().put("symbol", pair.replace("/", "")).put("side", side.uppercase()).put("type", orderType.uppercase()).put("quantity", enteredAmount)
                                         if (orderType == "Limit") payload.put("price", priceValue)
                                         val result = apexApiRequest("/api/order", "POST", payload)
-                                        val order = result.optJSONObject("order")
-                                        orderMessage = "Testnet order: ${order?.optString("status", "accepted") ?: "accepted"}"
-                                        amount = ""
-                                        percent = 0f
+                                        orderMessage = "Testnet order: " + (result.optJSONObject("order")?.optString("status", "accepted") ?: "accepted")
+                                        amount = ""; percent = 0f
                                     } catch (e: Exception) { orderMessage = e.localizedMessage ?: "Order failed." }
                                     finally { orderBusy = false }
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().height(47.dp),
+                        Modifier.fillMaxWidth().height(42.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg),
-                        enabled = !orderBusy) {
-                        if (orderBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
-                        else Text("$side $base", fontWeight = FontWeight.Bold)
+                        enabled = !orderBusy
+                    ) {
+                        if (orderBusy) CircularProgressIndicator(Modifier.size(17.dp), color = Bg, strokeWidth = 2.dp)
+                        else Text("$side $base", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
-                    if (orderMessage != null) Text(orderMessage!!, color = if (orderMessage!!.startsWith("Testnet order")) Green else Red, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
-                    Text("TESTNET ONLY · Secure backend connection required.", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
+                    if (orderMessage != null) Text(orderMessage!!, color = if (orderMessage!!.startsWith("Testnet order")) Green else Red, fontSize = 9.sp)
                 }
-                }
-                Column(Modifier.weight(0.46f)) {
-                Card(
-                    Modifier.fillMaxWidth().padding(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Panel),
-                    shape = RoundedCornerShape(12.dp)
+
+                Column(
+                    Modifier.weight(0.92f).fillMaxHeight().background(Panel).padding(horizontal = 8.dp, vertical = 10.dp)
                 ) {
-                    Column(Modifier.padding(13.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Order Book", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Spacer(Modifier.weight(1f))
-                            Text("$base / $quote", color = Muted, fontSize = 10.sp)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Price ($quote)", color = Muted, fontSize = 10.sp)
-                            Text("Amount ($base)", color = Muted, fontSize = 10.sp)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        asks.asReversed().forEach { level ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(level.price, color = Red, fontSize = 11.sp)
-                                Text(level.quantity, color = White, fontSize = 11.sp)
-                            }
-                        }
-                        HorizontalDivider(color = Color(0xFF292D35))
-                        Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Market price", color = Muted, fontSize = 10.sp)
-                            Text(marketPrice, color = Yellow, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        }
-                        bids.forEach { level ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(level.price, color = Green, fontSize = 11.sp)
-                                Text(level.quantity, color = White, fontSize = 11.sp)
-                            }
-                        }
-                        if (depthError != null) Text("Order book reconnecting…", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(vertical = 5.dp))
-                        HorizontalDivider(color = Color(0xFF292D35))
-                        Spacer(Modifier.height(8.dp))
-                        Text("Recent Trades", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Spacer(Modifier.height(9.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Price", color = Muted, fontSize = 10.sp)
-                            Text("Amount", color = Muted, fontSize = 10.sp)
-                            Text("Time", color = Muted, fontSize = 10.sp)
-                        }
-                        recentTrades.forEach { trade ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(trade.price, color = if (trade.buyerIsMaker) Red else Green, fontSize = 10.sp)
-                                Text(trade.quantity, color = White, fontSize = 10.sp)
-                                Text(trade.time, color = Muted, fontSize = 10.sp)
-                            }
-                        }
-                        if (recentTrades.isEmpty()) Text("Loading recent trades…", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(vertical = 10.dp))
-                        Text("Public market feed · refreshes every 3 seconds", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
+                    Text("Order Book", color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(9.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Price", color = Muted, fontSize = 9.sp)
+                        Text("Amount", color = Muted, fontSize = 9.sp)
                     }
-                }
+                    Spacer(Modifier.height(5.dp))
+                    asks.asReversed().take(5).forEach { level ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(level.price, color = Red, fontSize = 10.sp, maxLines = 1)
+                            Text(level.quantity, color = White, fontSize = 10.sp, maxLines = 1)
+                        }
+                    }
+                    HorizontalDivider(color = Color(0xFF30343B))
+                    Spacer(Modifier.height(7.dp))
+                    Text(marketPrice, color = Green, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("≈ $quote", color = Muted, fontSize = 9.sp)
+                    Spacer(Modifier.height(7.dp))
+                    bids.take(5).forEach { level ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(level.price, color = Green, fontSize = 10.sp, maxLines = 1)
+                            Text(level.quantity, color = White, fontSize = 10.sp, maxLines = 1)
+                        }
+                    }
+                    if (depthError != null) Text("Reconnecting…", color = Muted, fontSize = 9.sp)
                 }
             }
+            HorizontalDivider(color = Color(0xFF252A32))
         }
         item {
-            SectionTitle("Orders", "View history") { onDetail("Order History") }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                QuickTile("Open Orders", Icons.Filled.List, Modifier.weight(1f)) { onDetail("Open Orders") }
-                QuickTile("Holdings", Icons.Filled.AccountBalanceWallet, Modifier.weight(1f)) { onDetail("Holdings") }
-                QuickTile("History", Icons.Filled.History, Modifier.weight(1f)) { onDetail("Order History") }
-            }
-            Spacer(Modifier.height(20.dp))
-        }
-        item {
-            Card(
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("$pair Chart", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { onDetail("Professional Chart · $pair") }, contentPadding = PaddingValues(0.dp)) {
-                            Text("⛶", color = Yellow, fontSize = 18.sp)
-                        }
+                listOf("Open Orders", "Holdings", "Order History").forEach { tab ->
+                    Column(
+                        Modifier.clickable { selectedOrdersTab = tab; onDetail(tab) }.padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(if (tab == "Open Orders") "Open Orders (0)" else tab, color = if (selectedOrdersTab == tab) White else Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(5.dp))
+                        Box(Modifier.width(62.dp).height(2.dp).background(if (selectedOrdersTab == tab) Yellow else Color.Transparent, RoundedCornerShape(2.dp)))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                }
+                Icon(Icons.Filled.Menu, null, tint = Muted, modifier = Modifier.clickable { onDetail("Order History") })
+            }
+            HorizontalDivider(color = Color(0xFF252A32))
+        }
+        item {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().clickable { chartExpanded = !chartExpanded },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("$pair Chart", color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Icon(if (chartExpanded) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess, null, tint = White)
+                    Spacer(Modifier.weight(1f))
+                    if (chartExpanded) {
                         listOf("1m", "5m", "15m", "1h", "1D").forEach { interval ->
-                            FilterChip(
-                                selected = chartInterval == interval,
-                                onClick = { chartInterval = interval },
-                                label = { Text(interval, fontSize = 9.sp) }
+                            Text(
+                                interval,
+                                color = if (chartInterval == interval) Bg else Muted,
+                                fontSize = 10.sp,
+                                modifier = Modifier.padding(horizontal = 4.dp).background(if (chartInterval == interval) Yellow else Color.Transparent, RoundedCornerShape(10.dp)).clickable { chartInterval = interval }.padding(horizontal = 5.dp, vertical = 4.dp)
                             )
                         }
                     }
+                }
+                if (chartExpanded) {
                     Box(
-                        Modifier.fillMaxWidth().height(165.dp).padding(top = 8.dp)
-                            .background(Bg, RoundedCornerShape(8.dp)),
+                        Modifier.fillMaxWidth().height(145.dp).padding(top = 8.dp).background(Panel, RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         if (candles.size > 1) {
-                            Canvas(Modifier.fillMaxSize().padding(8.dp)) {
+                            Canvas(Modifier.fillMaxSize().padding(7.dp)) {
                                 val minPrice = candles.minOf { it.low }
                                 val maxPrice = candles.maxOf { it.high }
                                 val range = (maxPrice - minPrice).coerceAtLeast(0.000001f)
@@ -899,27 +890,24 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                     val yOpen = size.height - ((candle.open - minPrice) / range) * size.height
                                     val yClose = size.height - ((candle.close - minPrice) / range) * size.height
                                     val color = if (candle.close >= candle.open) Green else Red
-                                    drawLine(color, Offset(x, yHigh), Offset(x, yLow), strokeWidth = 1.5f)
+                                    drawLine(color, Offset(x, yHigh), Offset(x, yLow), strokeWidth = 1.4f)
                                     drawLine(color, Offset(x, yOpen), Offset(x, yClose), strokeWidth = (slot * 0.58f).coerceAtLeast(2f))
                                 }
                             }
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(color = Yellow, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                                Text(marketError ?: "Loading live candles…", color = Muted, fontSize = 10.sp)
+                                CircularProgressIndicator(color = Yellow, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Text(marketError ?: "Loading chart…", color = Muted, fontSize = 9.sp)
                             }
                         }
                     }
-                    Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Live Binance public data · 5 sec refresh", color = Muted, fontSize = 9.sp)
-                        Text(marketError?.let { "Reconnecting" } ?: "${candles.size} candles", color = if (marketError == null) Green else Red, fontSize = 9.sp)
-                    }
+                    Text("Live Binance market data", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
                 }
             }
         }
-
     }
 }
+
 
 @Composable
 private fun AssetsScreen(onDetail: (String) -> Unit) {
