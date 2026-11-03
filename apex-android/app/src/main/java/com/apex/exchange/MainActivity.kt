@@ -763,14 +763,14 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             OutlinedTextField(
                                 value = limitPrice,
                                 onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                                modifier = Modifier.weight(1f).height(66.dp),
-                                label = { Text("Price ($quote)", fontSize = 12.sp) },
+                                modifier = Modifier.weight(1.65f).height(58.dp),
+                                label = { Text("Price ($quote)", fontSize = 11.sp) },
                                 singleLine = true,
                                 textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
                                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
                             )
-                            Box(Modifier.width(76.dp).height(66.dp).background(Panel, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                                Text(quote, color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Box(Modifier.weight(0.85f).height(58.dp).background(Panel, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                Text(quote, color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                     }
@@ -778,8 +778,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
-                        modifier = Modifier.fillMaxWidth().height(70.dp),
-                        label = { Text("Amount ($base)", fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        label = { Text("Amount ($base)", fontSize = 11.sp) },
                         placeholder = { Text("Enter amount", fontSize = 12.sp) },
                         singleLine = true,
                         textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
@@ -792,7 +792,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             amount = if (it == 0f) "" else String.format(java.util.Locale.US, "%.4f", it * 0.01)
                         },
                         valueRange = 0f..1f,
-                        modifier = Modifier.fillMaxWidth().height(24.dp),
+                        modifier = Modifier.fillMaxWidth().height(20.dp),
                         colors = SliderDefaults.colors(thumbColor = Green, activeTrackColor = Green)
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
