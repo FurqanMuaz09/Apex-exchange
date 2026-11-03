@@ -107,7 +107,7 @@ private fun ApexNativeApp() {
         Scaffold(
             containerColor = Bg,
             bottomBar = {
-                NavigationBar(containerColor = Panel, contentColor = White) {
+                NavigationBar(modifier = Modifier.height(58.dp), containerColor = Panel, contentColor = White) {
                     val destinations = listOf(
                         Triple("Home", Icons.Filled.Home, "Home"),
                         Triple("Markets", Icons.Filled.ShowChart, "Markets"),
@@ -119,8 +119,8 @@ private fun ApexNativeApp() {
                         NavigationBarItem(
                             selected = tab == route && detail == null,
                             onClick = { tab = route; detail = null },
-                            icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label, fontSize = 10.sp) },
+                            icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp)) },
+                            label = { Text(label, fontSize = 9.sp, lineHeight = 10.sp) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Yellow,
                                 selectedTextColor = Yellow,
