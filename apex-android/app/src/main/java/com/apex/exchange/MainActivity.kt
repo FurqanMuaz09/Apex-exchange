@@ -268,7 +268,7 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                 Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("APEX EXCHANGE", color = Yellow, fontSize = 10.sp, letterSpacing = 1.2.sp)
-                        Spacer(Modifier.height(7.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text("Trade Smarter with APEX", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         Text("Explore the crypto market", color = Muted, fontSize = 11.sp)
                     }
@@ -514,7 +514,7 @@ private fun MarketsScreen(onCoin: (String) -> Unit) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Filled.SearchOff, null, tint = Muted, modifier = Modifier.size(34.dp))
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(5.dp))
                     Text(if (filter == "Favorite") "No favorite coins yet" else "No coins found", color = Muted)
                     Text("Try another filter or search", color = Muted, fontSize = 11.sp)
                 }
@@ -722,7 +722,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Column(
                     Modifier.weight(1.18f).padding(start = 8.dp, end = 5.dp, top = 8.dp, bottom = 8.dp)
                 ) {
-                    Row(Modifier.fillMaxWidth().height(38.dp).background(Panel, RoundedCornerShape(9.dp)).padding(3.dp)) {
+                    Row(Modifier.fillMaxWidth().height(32.dp).background(Panel, RoundedCornerShape(9.dp)).padding(3.dp)) {
                         listOf("Buy", "Sell").forEach { label ->
                             Box(
                                 Modifier.weight(1f).fillMaxHeight()
@@ -748,7 +748,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         OutlinedTextField(
                             value = limitPrice,
                             onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            modifier = Modifier.fillMaxWidth().height(62.dp),
+                            modifier = Modifier.fillMaxWidth().height(54.dp),
                             label = { Text("Price ($quote)", fontSize = 10.sp) },
                             singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
@@ -790,7 +790,6 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             Text("≈ ${if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00"}", color = Muted, fontSize = 11.sp)
                         }
-                        Text("Estimated Fee (0.1%): " + String.format(java.util.Locale.US, "%.4f", estimatedTotal * 0.001) + " $quote", color = Muted, fontSize = 9.sp)
                     }
                     Spacer(Modifier.height(8.dp))
                     Text("AVAL  $availableUsdt $quote   ⊕", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
@@ -816,7 +815,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                 }
                             }
                         },
-                        Modifier.fillMaxWidth().height(42.dp),
+                        Modifier.fillMaxWidth().height(36.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = if (side == "Buy") Green else Red, contentColor = Bg),
                         enabled = !orderBusy
