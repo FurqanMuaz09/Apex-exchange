@@ -733,7 +733,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 verticalAlignment = Alignment.Top
             ) {
                 Column(
-                    Modifier.weight(1.18f).padding(start = 8.dp, end = 5.dp, top = 8.dp, bottom = 8.dp)
+                    Modifier.weight(1.08f).padding(start = 8.dp, end = 7.dp, top = 8.dp, bottom = 8.dp)
                 ) {
                     Row(Modifier.fillMaxWidth().height(29.dp).background(Panel, RoundedCornerShape(9.dp)).padding(3.dp)) {
                         listOf("Buy", "Sell").forEach { label ->
@@ -761,18 +761,18 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         OutlinedTextField(
                             value = limitPrice,
                             onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            modifier = Modifier.fillMaxWidth().height(29.dp),
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
                             label = { Text("Price ($quote)", fontSize = 10.sp) },
                             singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Yellow, unfocusedBorderColor = Panel, focusedTextColor = White, unfocusedTextColor = White)
                         )
                     }
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
-                        modifier = Modifier.fillMaxWidth().height(29.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         label = { Text("Amount ($base)", fontSize = 10.sp) },
                         placeholder = { Text("Enter amount", fontSize = 11.sp) },
                         singleLine = true,
@@ -841,9 +841,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 }
 
                 Column(
-                    Modifier.weight(0.92f).fillMaxHeight().background(Panel).padding(horizontal = 5.dp, vertical = 6.dp)
+                    Modifier.weight(1.0f).fillMaxHeight().background(Panel).padding(horizontal = 7.dp, vertical = 6.dp)
                 ) {
-                    Text("ORDER BOOK", color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("ORDER BOOK", color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(2.dp))
                     Row(Modifier.fillMaxWidth()) {
                         Text("Price ($quote)", color = Muted, fontSize = 9.sp, modifier = Modifier.weight(0.58f))
@@ -851,13 +851,13 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
                     asks.asReversed().take(5).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
-                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
                             Text(String.format(java.util.Locale.US, "%,.4f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
                     HorizontalDivider(color = Color(0xFF30343B))
                     Box(Modifier.fillMaxWidth().padding(vertical = 5.dp), contentAlignment = Alignment.Center) {
-                        Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = marketPriceColor, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = marketPriceColor, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                     bids.take(5).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
