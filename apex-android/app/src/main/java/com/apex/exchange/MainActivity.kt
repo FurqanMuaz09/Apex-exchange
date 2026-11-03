@@ -601,6 +601,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     var marketPrice by remember { mutableStateOf("—") }
+    var bookDecimals by remember { mutableIntStateOf(0) }
+    var showDecimalSheet by remember { mutableStateOf(false) }
     var availableUsdt by remember { mutableStateOf("0.00") }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
     val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
@@ -828,31 +830,28 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Column(
                     Modifier.weight(0.92f).fillMaxHeight().background(Panel).padding(horizontal = 8.dp, vertical = 10.dp)
                 ) {
-                    Text("ORDER BOOK", color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(9.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Price", color = Muted, fontSize = 9.sp)
-                        Text("Amd", color = Muted, fontSize = 9.sp)
-                    }
+                    Text("ORDER BOOK", color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(5.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        Text("Price ($quote)", color = Muted, fontSize = 9.sp, modifier = Modifier.weight(0.58f))
+                        Text("Amt ($base)", color = Muted, fontSize = 9.sp, modifier = Modifier.weight(0.42f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    }
                     asks.asReversed().take(5).forEach { level ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(level.price, color = Red, fontSize = 10.sp, maxLines = 1)
-                            Text(level.quantity, color = White, fontSize = 10.sp, maxLines = 1)
+                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 10.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 10.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
                     HorizontalDivider(color = Color(0xFF30343B))
-                    Spacer(Modifier.height(7.dp))
-                    Text(marketPrice, color = Green, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Text("≈ $quote", color = Muted, fontSize = 9.sp)
-                    Spacer(Modifier.height(7.dp))
+                    Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = Green, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     bids.take(5).forEach { level ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(level.price, color = Green, fontSize = 10.sp, maxLines = 1)
-                            Text(level.quantity, color = White, fontSize = 10.sp, maxLines = 1)
+                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Green, fontSize = 10.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 10.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
                     if (depthError != null) Text("Reconnecting…", color = Muted, fontSize = 9.sp)
+                    OutlinedButton(onClick = { showDecimalSheet = true }, modifier = Modifier.fillMaxWidth().height(30.dp), contentPadding = PaddingValues(2.dp)) { Text("Decimals: $bookDecimals ▾", fontSize = 10.sp) }
                 }
             }
             HorizontalDivider(color = Color(0xFF252A32))
@@ -931,6 +930,22 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             }
         }
     }
+    if (showDecimalSheet) {
+        ModalBottomSheet(onDismissRequest = { showDecimalSheet = false }, containerColor = Panel, contentColor = White) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+                Text("Order Book Decimal Precision", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                (0..8).forEach { digits ->
+                    Row(Modifier.fillMaxWidth().clickable { bookDecimals = digits; showDecimalSheet = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("0." + "0".repeat(digits), modifier = Modifier.weight(1f), fontSize = 15.sp)
+                        if (bookDecimals == digits) Icon(Icons.Filled.Check, null, tint = Yellow)
+                    }
+                    HorizontalDivider(color = Color(0xFF30343B))
+                }
+            }
+        }
+    }
+
 }
 
 
