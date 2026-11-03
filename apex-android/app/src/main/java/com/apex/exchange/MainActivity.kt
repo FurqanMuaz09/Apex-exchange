@@ -850,9 +850,10 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
         }
         item {
             SectionTitle("Orders", "View history") { onDetail("Order History") }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 QuickTile("Open Orders", Icons.Filled.List, Modifier.weight(1f)) { onDetail("Open Orders") }
-                QuickTile("Order History", Icons.Filled.History, Modifier.weight(1f)) { onDetail("Order History") }
+                QuickTile("Holdings", Icons.Filled.AccountBalanceWallet, Modifier.weight(1f)) { onDetail("Holdings") }
+                QuickTile("History", Icons.Filled.History, Modifier.weight(1f)) { onDetail("Order History") }
             }
             Spacer(Modifier.height(20.dp))
         }        item {
