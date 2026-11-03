@@ -588,7 +588,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 @Composable
 private fun TradeScreen(onDetail: (String) -> Unit) {
     var side by remember { mutableStateOf("Buy") }
-    var orderType by remember { mutableStateOf("Market") }
+    var orderType by remember { mutableStateOf("Limit") }
     var pair by remember { mutableStateOf("BTC/USDT") }
     var pairMenu by remember { mutableStateOf(false) }
     var amount by remember { mutableStateOf("") }
@@ -598,6 +598,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     val amountValue = amount.toDoubleOrNull() ?: 0.0
+    val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
+    val effectivePrice = if (orderType == "Limit") limitPrice.toDoubleOrNull() ?: livePriceValue else livePriceValue
+    val estimatedTotal = if (side == "Buy") amountValue else amountValue * effectivePrice
     var marketPrice by remember { mutableStateOf("—") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var marketError by remember { mutableStateOf<String?>(null) }
@@ -717,10 +720,10 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         percent = 0f
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Amount (${if (side == "Buy") quote else base})") },
+                    label = { Text("Amount ($base)") },
                     placeholder = { Text("0.00") },
                     singleLine = true,
-                    trailingIcon = { Text(quote, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(end = 12.dp)) },
+                    trailingIcon = { Text(base, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(end = 12.dp)) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
                         focusedTextColor = White, unfocusedTextColor = White
@@ -746,7 +749,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Estimated total", color = Muted, fontSize = 11.sp)
-                    Text(if (amountValue > 0) String.format(java.util.Locale.US, "%.2f %s", amountValue, quote) else "— $quote", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f %s", estimatedTotal, quote) else "— $quote", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(12.dp))
                 Button(
@@ -760,7 +763,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             orderMessage = null
                             orderScope.launch {
                                 try {
-                                    val quantity = if (side == "Buy") enteredAmount / priceValue else enteredAmount
+                                    val quantity = enteredAmount
                                     val payload = JSONObject().put("symbol", pair.replace("/", "")).put("side", side.uppercase()).put("type", orderType.uppercase()).put("quantity", quantity)
                                     if (orderType == "Limit") payload.put("price", priceValue)
                                     val result = apexApiRequest("/api/order", "POST", payload)
