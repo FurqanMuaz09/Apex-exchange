@@ -350,7 +350,7 @@ private suspend fun fetchDepthAndTrades(symbol: String): Triple<List<BookLevel>,
     }
     Triple(levels("bids"), levels("asks"), trades)
 }
-private data class PairMarketData(val price: String, val candles: List<Candle>)
+private data class PairMarketData(val price: String, val changePercent: String, val candles: List<Candle>)
 
 private suspend fun fetchPairMarketData(symbol: String, interval: String): PairMarketData = withContext(Dispatchers.IO) {
     val pair = symbol.replace("/", "")
@@ -366,7 +366,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
             connection.disconnect()
         }
     }
-    val ticker = org.json.JSONObject(getJson("/api/v3/ticker/price?symbol=$pair"))
+    val ticker = org.json.JSONObject(getJson("/api/v3/ticker/24hr?symbol=$pair"))
     val klines = JSONArray(getJson("/api/v3/klines?symbol=$pair&interval=$interval&limit=48"))
     val candles = (0 until klines.length()).mapNotNull { index ->
         val row = klines.getJSONArray(index)
@@ -376,7 +376,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
         val close = row.getString(4).toFloatOrNull() ?: return@mapNotNull null
         Candle(open, high, low, close)
     }
-    PairMarketData(ticker.getString("price"), candles)
+    PairMarketData(ticker.getString("lastPrice"), ticker.optString("priceChangePercent", "0"), candles)
 }
 
 private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO) {
@@ -603,6 +603,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val base = pair.substringBefore("/")
     val quote = pair.substringAfter("/")
     var marketPrice by remember { mutableStateOf("—") }
+    var marketChangePercent by remember { mutableStateOf("0.00") }
     var marketPriceColor by remember { mutableStateOf(White) }
     var bookDecimalsOverride by remember { mutableStateOf<Int?>(null) }
     val liveBookPrice = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
@@ -635,6 +636,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     else -> Red
                 }
                 marketPrice = data.price
+                marketChangePercent = data.changePercent
                 candles = data.candles
                 marketError = null
             } catch (e: Exception) { marketError = e.message ?: "Market data unavailable" }
@@ -710,7 +712,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         Text(pair, color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
                         Icon(Icons.Filled.ArrowDropDown, null, tint = White)
                     }
-                    Text(marketPrice, color = marketPriceColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    val changeValue = marketChangePercent.toDoubleOrNull() ?: 0.0
+                    Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = when { changeValue > 0.0 -> Green; changeValue < 0.0 -> Red; else -> White }, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
                 DropdownMenu(expanded = pairMenu, onDismissRequest = { pairMenu = false }) {
                     listOf("BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT").forEach { option ->
@@ -724,7 +727,6 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 Spacer(Modifier.width(15.dp))
                 Icon(Icons.Filled.MoreHoriz, null, tint = White)
             }
-            HorizontalDivider(color = Color(0xFF252A32))
         }
         item {
             Row(
