@@ -916,6 +916,40 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             HorizontalDivider(color = Color(0xFF252A32), thickness = 1.dp)
         }
         item {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                if (selectedOrdersTab == "Open Orders") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("☐  Show current", color = Muted, fontSize = 12.sp)
+                        Spacer(Modifier.width(18.dp))
+                        Text("All types  ▾", color = Muted, fontSize = 12.sp)
+                        Spacer(Modifier.weight(1f))
+                        Text("Cancel all", color = Muted, fontSize = 12.sp,
+                            modifier = Modifier.background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 7.dp))
+                    }
+                    Column(
+                        Modifier.fillMaxWidth().height(190.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Filled.ReceiptLong, contentDescription = null, tint = Muted, modifier = Modifier.size(42.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("No open orders", color = Muted, fontSize = 14.sp)
+                    }
+                } else {
+                    Column(
+                        Modifier.fillMaxWidth().height(190.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = Muted, modifier = Modifier.size(42.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("No holdings yet", color = Muted, fontSize = 14.sp)
+                    }
+                }
+            }
+            HorizontalDivider(color = Color(0xFF252A32), thickness = 1.dp)
+        }
+        item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Row(
                     Modifier.fillMaxWidth().clickable { chartExpanded = !chartExpanded },
