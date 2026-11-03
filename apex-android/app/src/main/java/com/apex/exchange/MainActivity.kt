@@ -855,7 +855,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     HorizontalDivider(color = Color(0xFF30343B))
-                    Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = marketPriceColor, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Box(Modifier.fillMaxWidth().padding(vertical = 5.dp), contentAlignment = Alignment.Center) {
+                        Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = marketPriceColor, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
                     bids.take(5).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
                             Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Green, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
