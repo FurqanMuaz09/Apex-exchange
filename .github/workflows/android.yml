@@ -2,6 +2,11 @@ name: Build APEX Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apex-android/**'
+      - '.github/workflows/android.yml'
 
 # Keep only one APEX APK build queued/running at a time.
 concurrency:
