@@ -1818,48 +1818,54 @@ private fun AuthScreen(onSuccess: () -> Unit) {
         Text(if (isSignUp) "Create your account" else "Welcome back", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(22.dp))
 
-        Spacer(Modifier.height(18.dp))
-        Spacer(Modifier.height(18.dp))
-        OutlinedTextField(
-            value = email, onValueChange = { email = it.trim(); error = null },
-            modifier = Modifier.fillMaxWidth(), label = { Text("Email address") },
-            singleLine = true, colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
-            )
-        )
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = password, onValueChange = { password = it; error = null },
-            modifier = Modifier.fillMaxWidth(), label = { Text("Password") },
-            singleLine = true,
-            visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                        contentDescription = if (passwordVisible) "Hide password" else "Show password", tint = Muted)
-                }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
-            )
-        )
-        if (isSignUp) {
-            Spacer(Modifier.height(12.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(14.dp)) {
             OutlinedTextField(
-                value = confirmPassword, onValueChange = { confirmPassword = it; error = null },
-                modifier = Modifier.fillMaxWidth(), label = { Text("Confirm password") },
-                singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                value = email, onValueChange = { email = it.trim(); error = null },
+                modifier = Modifier.fillMaxWidth(), label = { Text("Email address") },
+                singleLine = true, colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                    focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
+                )
+            )
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = password, onValueChange = { password = it; error = null },
+                modifier = Modifier.fillMaxWidth(), label = { Text("Password") },
+                singleLine = true,
+                visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (passwordVisible) "Hide password" else "Show password", tint = Muted)
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
                     focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
                 )
             )
-        }
-        if (error != null) {
-            Spacer(Modifier.height(10.dp))
-            Text(error!!, color = Red, fontSize = 12.sp)
+            if (isSignUp) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = confirmPassword, onValueChange = { confirmPassword = it; error = null },
+                    modifier = Modifier.fillMaxWidth(), label = { Text("Confirm password") },
+                    singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
+                        focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
+                    )
+                )
+            }
+            if (error != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(error!!, color = Red, fontSize = 12.sp)
+            }
+            }
         }
         Spacer(Modifier.height(20.dp))
         Button(
