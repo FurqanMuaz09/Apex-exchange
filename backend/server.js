@@ -204,6 +204,66 @@ app.post('/api/account/listen-key', requireFirebaseAuth, async (req, res) => {
   }
 });
 
+app.get('/api/pnl/today', requireFirebaseAuth, async (req, res) => {
+  try {
+    const snapshot = await userOrders(req.user.uid).limit(500).get();
+    const symbols = [...new Set(snapshot.docs.map(doc => String(doc.data().symbol || '').toUpperCase()).filter(symbol => /^[A-Z0-9]{5,20}USDT$/.test(symbol)))];
+
+    // Daily boundary is midnight in Pakistan Standard Time (UTC+05:00).
+    const pkNow = new Date(Date.now() + 5 * 60 * 60 * 1000);
+    const startTime = Date.UTC(pkNow.getUTCFullYear(), pkNow.getUTCMonth(), pkNow.getUTCDate()) - 5 * 60 * 60 * 1000;
+    let realizedPnl = 0;
+    let tradesChecked = 0;
+
+    for (const symbol of symbols) {
+      const trades = await binanceRequest('GET', '/api/v3/myTrades', { symbol, limit: 1000 });
+      trades.sort((a, b) => Number(a.time) - Number(b.time));
+      const lots = [];
+
+      for (const trade of trades) {
+        const qty = Number(trade.qty);
+        const quote = Number(trade.quoteQty);
+        if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(quote)) continue;
+        const unitCostOrProceeds = quote / qty;
+
+        if (trade.isBuyer) {
+          lots.push({ qty, unitCost: unitCostOrProceeds });
+          continue;
+        }
+
+        let remaining = qty;
+        let cost = 0;
+        while (remaining > 1e-12 && lots.length) {
+          const lot = lots[0];
+          const matched = Math.min(remaining, lot.qty);
+          cost += matched * lot.unitCost;
+          lot.qty -= matched;
+          remaining -= matched;
+          if (lot.qty <= 1e-12) lots.shift();
+        }
+
+        if (Number(trade.time) >= startTime && remaining < qty) {
+          const matchedQty = qty - remaining;
+          realizedPnl += matchedQty * unitCostOrProceeds - cost;
+          if (trade.commissionAsset === 'USDT') realizedPnl -= Number(trade.commission || 0);
+          tradesChecked++;
+        }
+      }
+    }
+
+    res.json({
+      mode: 'TESTNET ONLY',
+      period: 'TODAY_ASIA_KARACHI',
+      pnl: Number(realizedPnl.toFixed(8)),
+      currency: 'USDT',
+      type: 'REALIZED_FIFO',
+      trades: tradesChecked
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.get('/api/account', requireFirebaseAuth, async (_req, res) => {
   try {
     const account = await binanceRequest('GET', '/api/v3/account');
