@@ -904,10 +904,10 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     val buyPercent = if (totalDepth > 0.0) (buyDepth / totalDepth * 100.0).toInt().coerceIn(0, 100) else 50
                     val sellPercent = 100 - buyPercent
                     Row(Modifier.fillMaxWidth().padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("B $buyPercent%", color = Color(0xFF16B8CF), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        Text("B $buyPercent%", color = Color(0xFF0ECB81), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.width(4.dp))
                         Row(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(4.dp))) {
-                            Box(Modifier.weight(buyPercent.coerceAtLeast(1).toFloat()).fillMaxHeight().background(Color(0xFF16B8CF)))
+                            Box(Modifier.weight(buyPercent.coerceAtLeast(1).toFloat()).fillMaxHeight().background(Color(0xFF0ECB81)))
                             Box(Modifier.weight(sellPercent.coerceAtLeast(1).toFloat()).fillMaxHeight().background(Color(0xFFEA4778)))
                         }
                         Spacer(Modifier.width(4.dp))
