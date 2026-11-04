@@ -575,8 +575,9 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)) {
                         Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                        Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(96.dp).padding(end = 5.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                        Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(104.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Spacer(Modifier.width(10.dp))
+                        Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(100.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                     filtered.take(6).forEach { coin ->
                         Row(
@@ -591,12 +592,13 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 Text(coin.name, color = Muted, fontSize = 11.sp)
                             }
                             Column(
-                                modifier = Modifier.width(96.dp).padding(end = 5.dp),
+                                modifier = Modifier.width(104.dp),
                                 horizontalAlignment = Alignment.End
                             ) {
-                                Text(coin.price, color = White, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                Text(coin.price, color = White, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                             }
-                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.width(100.dp), horizontalAlignment = Alignment.End) {
                                 MarketChangeBadge(coin.change)
                             }
                         }
@@ -667,8 +669,9 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(96.dp).padding(end = 5.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(104.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Spacer(Modifier.width(10.dp))
+                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(100.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                         }
                     }
                     items(allPairResults) { coin ->
@@ -685,10 +688,11 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold)
                                 Text(coin.name, color = Muted, fontSize = 11.sp)
                             }
-                            Column(Modifier.width(96.dp).padding(end = 5.dp), horizontalAlignment = Alignment.End) {
-                                Text(coin.price, color = White, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Column(Modifier.width(104.dp), horizontalAlignment = Alignment.End) {
+                                Text(coin.price, color = White, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                             }
-                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.width(100.dp), horizontalAlignment = Alignment.End) {
                                 MarketChangeBadge(coin.change)
                             }
                         }
@@ -715,16 +719,22 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
         negative -> Red
         else -> Muted
     }
-    Text(
-        change,
-        color = White,
-        fontSize = fontSize,
-        fontWeight = FontWeight.Bold,
+    Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(tint)
-            .padding(horizontal = 9.dp, vertical = 5.dp)
-    )
+            .width(100.dp)
+            .height(38.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(tint),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            change,
+            color = White,
+            fontSize = maxOf(fontSize.value, 12f).sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
 }
 
 private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float)
