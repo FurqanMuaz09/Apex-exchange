@@ -68,11 +68,20 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
     val context = LocalContext.current
     val sources = remember(ticker) {
         listOf(
+            // Primary independent logo providers
             "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/$ticker.png",
             "https://assets.coincap.io/assets/icons/${ticker}@2x.png",
             "https://coinicons-api.vercel.app/api/icon/$ticker",
+            "https://cryptoicons.org/api/icon/$ticker/200",
+            // GitHub / CDN mirrors used as additional fallbacks
             "https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/128/color/$ticker.png",
-            "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/$ticker.png"
+            "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/$ticker.png",
+            "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/$ticker.png",
+            "https://cdn.jsdelivr.net/gh/ErikThiart/cryptocurrency-icons@master/128/color/$ticker.png",
+            "https://raw.githack.com/spothq/cryptocurrency-icons/master/128/color/$ticker.png",
+            "https://raw.githack.com/atomiclabs/cryptocurrency-icons/master/128/color/$ticker.png",
+            "https://cdn.statically.io/gh/spothq/cryptocurrency-icons/master/128/color/$ticker.png",
+            "https://cdn.statically.io/gh/ErikThiart/cryptocurrency-icons/master/128/color/$ticker.png"
         ).distinct()
     }
     var sourceIndex by remember(ticker) { mutableStateOf(0) }
