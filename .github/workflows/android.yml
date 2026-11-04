@@ -3,9 +3,16 @@ name: Build APEX Android APK
 on:
   workflow_dispatch:
 
+# Keep only one APEX APK build queued/running at a time.
+concurrency:
+  group: apex-android-apk
+  cancel-in-progress: true
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Use the stable Ubuntu 22.04 hosted image instead of the moving ubuntu-latest alias.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
