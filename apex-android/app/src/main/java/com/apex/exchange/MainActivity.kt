@@ -748,7 +748,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             ) { Text(label, color = if (side == label) Bg else Muted, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(8.dp))
                     Row(
                         Modifier.fillMaxWidth().height(29.dp).background(Panel, RoundedCornerShape(7.dp))
                             .clickable { orderType = if (orderType == "Limit") "Market" else "Limit" }
