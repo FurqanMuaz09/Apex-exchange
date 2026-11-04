@@ -286,13 +286,63 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(refreshKey) {
+        try {
+            val latest = fetchLiveMarkets()
+            if (latest.isNotEmpty()) liveMarkets = latest
+        } catch (_: Exception) { }
+        loading = false
+
+        val client = OkHttpClient()
         while (true) {
-            try {
-                val latest = fetchLiveMarkets()
-                if (latest.isNotEmpty()) liveMarkets = latest
-            } catch (_: Exception) { }
-            loading = false
-            delay(10000)
+            val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val request = Request.Builder()
+                .url("wss://stream.binance.com:9443/ws/!ticker@arr")
+                .build()
+            val socket = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val rows = JSONArray(text)
+                        val names = mapOf(
+                            "BTC" to "Bitcoin", "ETH" to "Ethereum", "BNB" to "BNB",
+                            "SOL" to "Solana", "XRP" to "XRP", "DOGE" to "Dogecoin",
+                            "ADA" to "Cardano", "TRX" to "TRON", "TON" to "Toncoin",
+                            "LTC" to "Litecoin", "BCH" to "Bitcoin Cash", "LINK" to "Chainlink",
+                            "DOT" to "Polkadot", "AVAX" to "Avalanche", "POL" to "POL",
+                            "SHIB" to "Shiba Inu", "ATOM" to "Cosmos", "ETC" to "Ethereum Classic",
+                            "UNI" to "Uniswap", "NEAR" to "NEAR Protocol"
+                        )
+                        val allowed = cachedUsdtSpotSymbols.orEmpty()
+                        val updated = (0 until rows.length()).mapNotNull { index ->
+                            val row = rows.getJSONObject(index)
+                            val full = row.optString("s")
+                            if (!full.endsWith("USDT") || (allowed.isNotEmpty() && full !in allowed)) return@mapNotNull null
+                            val base = full.removeSuffix("USDT")
+                            val price = row.optString("c").toDoubleOrNull() ?: return@mapNotNull null
+                            val change = row.optString("P").toDoubleOrNull() ?: 0.0
+                            Coin(
+                                symbol = base,
+                                name = names[base] ?: base,
+                                price = String.format(java.util.Locale.US, "%,.8f", price).trimEnd('0').trimEnd('.'),
+                                change = String.format(java.util.Locale.US, "%+.2f%%", change),
+                                up = change >= 0
+                            )
+                        }.sortedByDescending { coin ->
+                            val rowIndex = (0 until rows.length()).firstOrNull { rows.getJSONObject(it).optString("s") == coin.symbol + "USDT" }
+                            rowIndex?.let { rows.getJSONObject(it).optString("q").toDoubleOrNull() } ?: 0.0
+                        }
+                        if (updated.isNotEmpty()) liveMarkets = updated
+                    } catch (_: Exception) { }
+                }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    closed.complete(Unit)
+                }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    closed.complete(Unit)
+                }
+            })
+            closed.await()
+            socket.cancel()
+            delay(3000)
         }
     }
 
