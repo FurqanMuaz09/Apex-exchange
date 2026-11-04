@@ -865,8 +865,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     Text("ORDER BOOK", color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(2.dp))
                     Row(Modifier.fillMaxWidth()) {
-                        Text("Price ($quote)", color = Muted, fontSize = 10.sp, modifier = Modifier.weight(0.58f))
-                        Text("Amt ($base)", color = Muted, fontSize = 10.sp, modifier = Modifier.weight(0.42f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("Price\n($quote)", color = Muted, fontSize = 10.sp, lineHeight = 13.sp, modifier = Modifier.weight(0.58f))
+                        Text("Quantity\n($base)", color = Muted, fontSize = 10.sp, lineHeight = 13.sp, modifier = Modifier.weight(0.42f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                     if (asks.isEmpty()) {
                         repeat(9) {
