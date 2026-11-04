@@ -537,15 +537,15 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         )
                     }
                     Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)) {
                         Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                        Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                        Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(78.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(96.dp).padding(end = 5.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                     filtered.take(6).forEach { coin ->
                         Row(
                             Modifier.fillMaxWidth().clickable { onDetail("Trade ${coin.symbol}") }
-                                .padding(horizontal = 16.dp, vertical = 11.dp),
+                                .padding(start = 16.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             MarketCoinIcon(coin.symbol, 38.dp)
@@ -554,8 +554,15 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                                 Text(coin.name, color = Muted, fontSize = 11.sp)
                             }
-                            Text(coin.price, color = White, fontSize = 12.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            MarketChangeBadge(coin.change)
+                            Column(
+                                modifier = Modifier.width(96.dp).padding(end = 5.dp),
+                                horizontalAlignment = Alignment.End
+                            ) {
+                                Text(coin.price, color = White, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            }
+                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
+                                MarketChangeBadge(coin.change)
+                            }
                         }
                     }
                     TextButton(
@@ -616,12 +623,22 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         }
                     }
                 LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(96.dp).padding(end = 5.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        }
+                    }
                     items(allPairResults) { coin ->
                         Row(
                             Modifier.fillMaxWidth().clickable {
                                 showAllPairs = false
                                 onDetail("Trade ${coin.symbol}")
-                            }.padding(horizontal = 18.dp, vertical = 7.dp),
+                            }.padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             MarketCoinIcon(coin.symbol, 36.dp)
@@ -630,8 +647,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold)
                                 Text(coin.name, color = Muted, fontSize = 11.sp)
                             }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(coin.price, color = White, fontSize = 12.sp)
+                            Column(Modifier.width(96.dp).padding(end = 5.dp), horizontalAlignment = Alignment.End) {
+                                Text(coin.price, color = White, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            }
+                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
                                 MarketChangeBadge(coin.change)
                             }
                         }
@@ -660,13 +679,13 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
     }
     Text(
         change,
-        color = tint,
+        color = White,
         fontSize = fontSize,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(tint.copy(alpha = 0.14f))
-            .padding(horizontal = 7.dp, vertical = 3.dp)
+            .background(tint)
+            .padding(horizontal = 9.dp, vertical = 5.dp)
     )
 }
 
