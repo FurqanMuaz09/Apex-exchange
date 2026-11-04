@@ -498,7 +498,8 @@ private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO)
             if (!fullSymbol.endsWith("USDT") || fullSymbol.endsWith("UPUSDT") || fullSymbol.endsWith("DOWNUSDT")) return@mapNotNull null
             val symbol = fullSymbol.removeSuffix("USDT")
             val price = row.getString("lastPrice").toDoubleOrNull() ?: return@mapNotNull null
-            val change = row.getString("priceChangePercent").toDoubleOrNull() ?: 0.0            Coin(
+            val change = row.getString("priceChangePercent").toDoubleOrNull() ?: 0.0
+            Coin(
                 symbol = symbol,
                 name = names[symbol] ?: symbol,
                 price = String.format(java.util.Locale.US, "%,.6f", price).trimEnd('0').trimEnd('.'),
@@ -997,7 +998,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     IconButton(onClick = { showDecimalSheet = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Filled.Tune, contentDescription = "Decimal precision", tint = Muted, modifier = Modifier.size(15.dp)) }
                     val buyDepth = bids.sumOf { it.quantity.replace(",", "").toDoubleOrNull() ?: 0.0 }
                     val sellDepth = asks.sumOf { it.quantity.replace(",", "").toDoubleOrNull() ?: 0.0 }
-                    val totalDepth = buyDepth + sellDepth                    val buyPercent = if (totalDepth > 0.0) (buyDepth / totalDepth * 100.0).toInt().coerceIn(0, 100) else 50
+                    val totalDepth = buyDepth + sellDepth
+                    val buyPercent = if (totalDepth > 0.0) (buyDepth / totalDepth * 100.0).toInt().coerceIn(0, 100) else 50
                     val sellPercent = 100 - buyPercent
                     Row(Modifier.fillMaxWidth().padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("B $buyPercent%", color = Color(0xFF0ECB81), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
