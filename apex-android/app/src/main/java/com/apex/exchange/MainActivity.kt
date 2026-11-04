@@ -617,13 +617,26 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             contentColor = White,
             dragHandle = { BottomSheetDefaults.DragHandle(color = Muted) }
         ) {
-            Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f)) {
+            Column(Modifier.fillMaxWidth().fillMaxHeight(0.96f)) {
                 Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+                OutlinedTextField(
+                    value = sheetSearch, onValueChange = { sheetSearch = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).height(50.dp),
+                    placeholder = { Text("Search coin or pair", color = Muted, fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted) },
+                    singleLine = true, shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF292D35),
+                        focusedTextColor = White, unfocusedTextColor = White,
+                        unfocusedContainerColor = Color(0xFF111419),
+                        focusedContainerColor = Color(0xFF111419)
+                    )
+                )
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(22.dp)
+                        .padding(horizontal = 18.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     listOf("All", "Gainer", "Loser").forEach { category ->
                         Text(
@@ -631,21 +644,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             color = if (sheetFilter == category) Yellow else Muted,
                             fontSize = 14.sp,
                             fontWeight = if (sheetFilter == category) FontWeight.Bold else FontWeight.Medium,
-                            modifier = Modifier.clickable { sheetFilter = category }.padding(vertical = 8.dp)
+                            modifier = Modifier.clickable { sheetFilter = category }.padding(vertical = 7.dp)
                         )
                     }
                 }
-                OutlinedTextField(
-                    value = sheetSearch, onValueChange = { sheetSearch = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    placeholder = { Text("Search coin or pair", color = Muted) },
-                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted) },
-                    singleLine = true, shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Yellow, unfocusedBorderColor = Bg,
-                        focusedTextColor = White, unfocusedTextColor = White
-                    )
-                )
                 val allPairResults = liveMarkets
                     .filter { it.symbol.contains(sheetSearch, true) || it.name.contains(sheetSearch, true) }
                     .let { coins ->
