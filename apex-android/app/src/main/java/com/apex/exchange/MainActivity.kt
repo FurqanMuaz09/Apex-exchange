@@ -267,6 +267,9 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         auth.addAuthStateListener(listener)
         onDispose { auth.removeAuthStateListener(listener) }
     }
+    var walletBalance by remember { mutableStateOf<String?>(null) }
+    var balanceLoading by remember { mutableStateOf(false) }
+    var balanceHidden by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(sampleMarkets) }
@@ -285,6 +288,37 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             } catch (_: Exception) { }
             loading = false
             delay(10000)
+        }
+    }
+
+    LaunchedEffect(signedInUser?.uid, refreshKey) {
+        if (signedInUser == null) {
+            walletBalance = null
+            balanceLoading = false
+        } else {
+            while (signedInUser != null) {
+                balanceLoading = walletBalance == null
+                try {
+                    val wallet = apexApiRequest("/api/account")
+                    val rows = wallet.optJSONArray("balances") ?: JSONArray()
+                    var total = 0.0
+                    for (i in 0 until rows.length()) {
+                        val row = rows.getJSONObject(i)
+                        if (row.optString("asset") == "USDT") {
+                            val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
+                            val locked = row.optString("locked", "0").toDoubleOrNull() ?: 0.0
+                            total = free + locked
+                            break
+                        }
+                    }
+                    walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
+                } catch (_: Exception) {
+                    if (walletBalance == null) walletBalance = "—"
+                } finally {
+                    balanceLoading = false
+                }
+                delay(15000)
+            }
         }
     }
 
@@ -335,13 +369,18 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Est. Total Value (USD)", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { onDetail("Account Login") }, contentPadding = PaddingValues(0.dp)) {
-                            Text("◉ Hide", color = Muted, fontSize = 11.sp)
+                        TextButton(onClick = { balanceHidden = !balanceHidden }, contentPadding = PaddingValues(0.dp)) {
+                            Text(if (balanceHidden) "◎ Show" else "◉ Hide", color = Muted, fontSize = 11.sp)
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (signedInUser == null) "Connect account" else "Account connected",
+                            when {
+                                signedInUser == null -> "Connect account"
+                                balanceHidden -> "••••••••"
+                                balanceLoading && walletBalance == null -> "Loading balance…"
+                                else -> walletBalance ?: "—"
+                            },
                             color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
