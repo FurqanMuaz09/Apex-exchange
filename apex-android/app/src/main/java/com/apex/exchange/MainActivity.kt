@@ -204,12 +204,10 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(Modifier.size(30.dp).background(Yellow, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                    Text("A", color = Bg, fontWeight = FontWeight.Black, fontSize = 19.sp)
+                IconButton(onClick = { onDetail("Profile") }, modifier = Modifier.size(42.dp)) {
+                    Icon(Icons.Filled.AccountCircle, contentDescription = "Profile", tint = White, modifier = Modifier.size(30.dp))
                 }
-                Spacer(Modifier.width(8.dp))
-                Text("APEX", color = White, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, letterSpacing = 1.5.sp)
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(6.dp))
                 OutlinedTextField(
                     value = search, onValueChange = { search = it },
                     modifier = Modifier.weight(1f).height(50.dp),
@@ -310,10 +308,6 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
         item {
             TextButton(onClick = onMarkets, modifier = Modifier.fillMaxWidth()) {
                 Text("View More ↓", color = Yellow, fontSize = 12.sp)
-            }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickTile("Spot Trading", Icons.Filled.SwapHoriz, Modifier.weight(1f)) { onTrade() }
-                QuickTile("My Profile", Icons.Filled.Person, Modifier.weight(1f)) { onDetail("Profile") }
             }
             Spacer(Modifier.height(18.dp))
         }
