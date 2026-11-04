@@ -1816,15 +1816,9 @@ private fun AuthScreen(onSuccess: () -> Unit) {
         }
         Spacer(Modifier.height(28.dp))
         Text(if (isSignUp) "Create your account" else "Welcome back", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-        Text("Secure sign in with Firebase Authentication", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(22.dp))
 
         Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            HorizontalDivider(Modifier.weight(1f), color = Panel)
-            Text("  or use email  ", color = Muted, fontSize = 11.sp)
-            HorizontalDivider(Modifier.weight(1f), color = Panel)
-        }
         Spacer(Modifier.height(18.dp))
         OutlinedTextField(
             value = email, onValueChange = { email = it.trim(); error = null },
