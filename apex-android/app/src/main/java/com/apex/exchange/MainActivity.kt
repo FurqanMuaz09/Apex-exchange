@@ -274,6 +274,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         onDispose { auth.removeAuthStateListener(listener) }
     }
     var walletBalance by remember { mutableStateOf<String?>(null) }
+    var todayPnl by remember { mutableStateOf<Double?>(null) }
     var balanceHidden by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
@@ -343,6 +344,19 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             closed.await()
             socket.cancel()
             delay(3000)
+        }
+    }
+
+    LaunchedEffect(signedInUser?.uid, refreshKey) {
+        if (signedInUser == null) {
+            todayPnl = null
+        } else {
+            try {
+                val response = apexApiRequest("/api/pnl/today")
+                todayPnl = response.optDouble("pnl", 0.0)
+            } catch (_: Exception) {
+                todayPnl = null
+            }
         }
     }
 
@@ -479,7 +493,17 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Today's PNL", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.width(8.dp))
-                        Text("—", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            todayPnl?.let { String.format(java.util.Locale.US, "%+.2f USDT", it) } ?: "—",
+                            color = when {
+                                todayPnl == null -> Muted
+                                todayPnl!! > 0 -> Green
+                                todayPnl!! < 0 -> Color(0xFFF6465D)
+                                else -> White
+                            },
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
