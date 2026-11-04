@@ -67,7 +67,7 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
                 .crossfade(true)
                 .build(),
             contentDescription = "${symbol.uppercase()} coin logo",
-            modifier = Modifier.fillMaxSize().padding(2.dp),
+            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(50)),
             contentScale = ContentScale.Fit,
             loading = {
                 Text(symbol.take(1), color = Yellow, fontSize = (size.value * 0.43f).sp, fontWeight = FontWeight.Bold)
