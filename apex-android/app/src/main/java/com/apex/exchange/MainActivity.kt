@@ -525,10 +525,17 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 shape = RoundedCornerShape(15.dp)
             ) {
                 Column(Modifier.fillMaxWidth().padding(17.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(26.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text("Est. Total Value (USD)", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { balanceHidden = !balanceHidden }, contentPadding = PaddingValues(0.dp)) {
+                        TextButton(
+                            onClick = { balanceHidden = !balanceHidden },
+                            modifier = Modifier.height(26.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
                             Text(if (balanceHidden) "◎ Show" else "◉ Hide", color = Muted, fontSize = 11.sp)
                         }
                     }
