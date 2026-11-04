@@ -258,6 +258,15 @@ private fun SectionTitle(title: String, action: String? = null, onClick: (() -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (String) -> Unit) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    var signedInUser by remember { mutableStateOf(auth.currentUser) }
+    DisposableEffect(auth) {
+        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            signedInUser = firebaseAuth.currentUser
+        }
+        auth.addAuthStateListener(listener)
+        onDispose { auth.removeAuthStateListener(listener) }
+    }
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(sampleMarkets) }
@@ -331,12 +340,24 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Connect account", color = White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text(
+                            if (signedInUser == null) "Connect account" else "Account connected",
+                            color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
                         Button(
-                            onClick = { onDetail("Add Funds") },
+                            onClick = {
+                                if (signedInUser == null) onDetail("Account Login")
+                                else onDetail("Add Funds")
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg),
                             contentPadding = PaddingValues(horizontal = 13.dp, vertical = 8.dp)
-                        ) { Text("Add Funds", fontWeight = FontWeight.Bold, fontSize = 11.sp) }
+                        ) {
+                            Text(
+                                if (signedInUser == null) "Sign Up / Log In" else "Add Funds",
+                                fontWeight = FontWeight.Bold, fontSize = 11.sp
+                            )
+                        }
                     }
                     Spacer(Modifier.height(12.dp))
                     HorizontalDivider(color = Color(0xFF292D35))
