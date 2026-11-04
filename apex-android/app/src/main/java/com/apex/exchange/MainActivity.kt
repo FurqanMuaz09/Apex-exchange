@@ -1868,44 +1868,6 @@ private fun AuthScreen(onSuccess: () -> Unit) {
             Text(error!!, color = Red, fontSize = 12.sp)
         }
         Spacer(Modifier.height(20.dp))
-        Spacer(Modifier.height(14.dp))
-        OutlinedButton(
-            onClick = {
-                error = null
-                busy = true
-                try {
-                    googleLauncher.launch(googleClient.signInIntent)
-                } catch (e: Exception) {
-                    busy = false
-                    error = e.localizedMessage ?: "Unable to open Google sign-in."
-                }
-            },
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Color(0xFF202124)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDADCE0)),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            if (busy) {
-                CircularProgressIndicator(modifier = Modifier.size(19.dp), color = Color(0xFF4285F4), strokeWidth = 2.dp)
-            } else {
-                Canvas(Modifier.size(22.dp)) {
-                    val sw = 4.dp.toPx()
-                    val inset = sw / 2f
-                    val arcSize = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw)
-                    val origin = Offset(inset, inset)
-                    drawArc(Color(0xFF4285F4), -45f, 90f, false, origin, arcSize, style = Stroke(sw))
-                    drawArc(Color(0xFF34A853), 45f, 90f, false, origin, arcSize, style = Stroke(sw))
-                    drawArc(Color(0xFFFBBC05), 135f, 90f, false, origin, arcSize, style = Stroke(sw))
-                    drawArc(Color(0xFFEA4335), 225f, 90f, false, origin, arcSize, style = Stroke(sw))
-                    drawLine(Color(0xFF4285F4), Offset(size.width * 0.52f, size.height * 0.5f), Offset(size.width, size.height * 0.5f), sw)
-                }
-                Spacer(Modifier.width(12.dp))
-                Text("Continue with Google", color = Color(0xFF202124), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
         Button(
             onClick = {
                 val cleanEmail = email.trim()
@@ -1933,6 +1895,34 @@ private fun AuthScreen(onSuccess: () -> Unit) {
             if (busy) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Bg, strokeWidth = 2.dp)
             else Text(if (isSignUp) "Create Account" else "Login", fontWeight = FontWeight.Bold)
         }
+
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = {
+                error = null
+                busy = true
+                try {
+                    googleLauncher.launch(googleClient.signInIntent)
+                } catch (e: Exception) {
+                    busy = false
+                    error = e.localizedMessage ?: "Unable to open Google sign-in."
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Color(0xFF202124)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDADCE0)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (busy) {
+                CircularProgressIndicator(modifier = Modifier.size(19.dp), color = Color(0xFF4285F4), strokeWidth = 2.dp)
+            } else {
+                Text("G", color = Color(0xFF4285F4), fontSize = 25.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(12.dp))
+                Text("Continue with Google", color = Color(0xFF202124), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+
         if (!isSignUp) {
             TextButton(onClick = {
                 val cleanEmail = email.trim()
