@@ -47,6 +47,37 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+
+@Composable
+private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
+    val ticker = symbol.lowercase()
+    Box(
+        Modifier.size(size).background(Panel, RoundedCornerShape(50)),
+        contentAlignment = Alignment.Center
+    ) {
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data("https://assets.coincap.io/assets/icons/${ticker}@2x.png")
+                .crossfade(true)
+                .build(),
+            contentDescription = "${symbol.uppercase()} coin logo",
+            modifier = Modifier.fillMaxSize().padding(2.dp),
+            contentScale = ContentScale.Fit,
+            loading = {
+                Text(symbol.take(1), color = Yellow, fontSize = (size.value * 0.43f).sp, fontWeight = FontWeight.Bold)
+            },
+            error = {
+                Text(symbol.take(1), color = Yellow, fontSize = (size.value * 0.43f).sp, fontWeight = FontWeight.Bold)
+            },
+            success = { SubcomposeAsyncImageContent() }
+        )
+    }
+}
 
 private const val APEX_API_BASE_URL = BuildConfig.APEX_API_BASE_URL
 
@@ -316,12 +347,7 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                     .padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    Modifier.size(34.dp).background(Panel, RoundedCornerShape(50)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(coin.symbol.take(1), color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
+                MarketCoinIcon(coin.symbol, 34.dp)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
@@ -372,9 +398,7 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                             }.padding(horizontal = 18.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(Modifier.size(36.dp).background(Bg, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
-                                Text(coin.symbol.take(1), color = Yellow, fontWeight = FontWeight.Bold)
-                            }
+                            MarketCoinIcon(coin.symbol, 36.dp)
                             Spacer(Modifier.width(11.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold)
