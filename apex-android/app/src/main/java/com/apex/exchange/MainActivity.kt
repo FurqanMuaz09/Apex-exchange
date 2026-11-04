@@ -1159,10 +1159,26 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val bookDecimals = bookDecimalsOverride ?: autoBookDecimals
     var showDecimalSheet by remember { mutableStateOf(false) }
     var availableUsdt by remember { mutableStateOf("0.00") }
+    var availableBase by remember { mutableStateOf("0.00") }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
     val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
     val effectivePrice = if (orderType == "Limit") limitPrice.toDoubleOrNull() ?: livePriceValue else livePriceValue
-    val estimatedTotal = if (side == "Buy") amountValue * effectivePrice else amountValue
+    val estimatedTotal = if (side == "Buy") amountValue * effectivePrice else amountValue * effectivePrice
+    val sliderAvailable = if (side == "Buy") availableUsdt.toDoubleOrNull() ?: 0.0
+        else availableBase.toDoubleOrNull() ?: 0.0
+    fun applyTradePercent(value: Float) {
+        percent = value
+        val price = effectivePrice
+        if (value <= 0f || (side == "Buy" && price <= 0.0)) {
+            amount = ""
+            totalInput = ""
+        } else {
+            val selected = sliderAvailable * value
+            val quantity = if (side == "Buy") selected / price else selected
+            amount = String.format(java.util.Locale.US, "%.8f", quantity).trimEnd('0').trimEnd('.')
+            totalInput = String.format(java.util.Locale.US, "%.2f", quantity * price)
+        }
+    }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var marketError by remember { mutableStateOf<String?>(null) }
     var bids by remember { mutableStateOf(emptyList<BookLevel>()) }
@@ -1197,14 +1213,17 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 if (FirebaseAuth.getInstance().currentUser != null) {
                     val wallet = apexApiRequest("/api/account")
                     val rows = wallet.optJSONArray("balances") ?: JSONArray()
+                    var usdtFree = 0.0
+                    var baseFree = 0.0
                     for (i in 0 until rows.length()) {
                         val row = rows.getJSONObject(i)
-                        if (row.optString("asset") == "USDT") {
-                            val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
-                            availableUsdt = String.format(java.util.Locale.US, "%.2f", free)
-                            break
-                        }
+                        val asset = row.optString("asset")
+                        val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
+                        if (asset == "USDT") usdtFree = free
+                        if (asset == base) baseFree = free
                     }
+                    availableUsdt = String.format(java.util.Locale.US, "%.8f", usdtFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
+                    availableBase = String.format(java.util.Locale.US, "%.8f", baseFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
                 }
             } catch (_: Exception) { }
             delay(15000)
@@ -1283,7 +1302,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             Box(
                                 Modifier.weight(1f).fillMaxHeight()
                                     .background(if (side == label) (if (label == "Buy") Green else Red) else Color.Transparent, RoundedCornerShape(7.dp))
-                                    .clickable { side = label },
+                                    .clickable { side = label; applyTradePercent(percent) },
                                 contentAlignment = Alignment.Center
                             ) { Text(label, color = if (side == label) Bg else Muted, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
                         }
@@ -1357,10 +1376,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     Spacer(Modifier.height(5.dp))
                     Slider(
                         value = percent,
-                        onValueChange = {
-                            percent = it
-                            amount = if (it == 0f) "" else String.format(java.util.Locale.US, "%.4f", it * 0.01)
-                        },
+                        onValueChange = { applyTradePercent(it) },
                         valueRange = 0f..1f,
                         modifier = Modifier.fillMaxWidth().height(20.dp),
                         colors = SliderDefaults.colors(thumbColor = Green, activeTrackColor = Green)
@@ -1368,7 +1384,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         listOf("25%", "50%", "75%", "100%").forEachIndexed { index, label ->
                             Text(label, color = Muted, fontSize = 9.sp, modifier = Modifier.clickable {
-                                percent = (index + 1) / 4f
+                                applyTradePercent((index + 1) / 4f)
                             })
                         }
                     }
@@ -1401,7 +1417,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
                     Text("Est fee: ${String.format(java.util.Locale.US, "%.4f", estimatedTotal * 0.001)} $quote", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 3.dp))
                     Spacer(Modifier.height(4.dp))
-                    Text("AVAL  $availableUsdt $quote   ⊕", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("AVAL  ${if (side == "Buy") availableUsdt else availableBase} ${if (side == "Buy") quote else base}   ⊕", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
