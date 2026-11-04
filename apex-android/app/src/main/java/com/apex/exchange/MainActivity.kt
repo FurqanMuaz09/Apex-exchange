@@ -65,26 +65,52 @@ import androidx.compose.ui.layout.ContentScale
 
 @Composable
 private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
-    val ticker = symbol.lowercase()
+    val ticker = symbol.uppercase()
     val context = LocalContext.current
-    val sources = remember(ticker) {
-        listOf(
-            // Primary independent logo providers
-            "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/$ticker.png",
-            "https://assets.coincap.io/assets/icons/${ticker}@2x.png",
-            "https://coinicons-api.vercel.app/api/icon/$ticker",
-            "https://cryptoicons.org/api/icon/$ticker/200",
-            // GitHub / CDN mirrors used as additional fallbacks
-            "https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/128/color/$ticker.png",
-            "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/$ticker.png",
-            "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/$ticker.png",
-            "https://cdn.jsdelivr.net/gh/ErikThiart/cryptocurrency-icons@master/128/color/$ticker.png",
-            "https://raw.githack.com/spothq/cryptocurrency-icons/master/128/color/$ticker.png",
-            "https://raw.githack.com/atomiclabs/cryptocurrency-icons/master/128/color/$ticker.png",
-            "https://cdn.statically.io/gh/spothq/cryptocurrency-icons/master/128/color/$ticker.png",
-            "https://cdn.statically.io/gh/ErikThiart/cryptocurrency-icons/master/128/color/$ticker.png"
-        ).distinct()
+
+    // Local drawable logos take priority: add files as coin_btc, coin_eth, etc.
+    // This keeps the most-used logos available even without an internet connection.
+    val localLogo = remember(ticker) {
+        context.resources.getIdentifier("coin_${ticker.lowercase()}", "drawable", context.packageName)
     }
+
+    // Some exchanges use legacy or alternate tickers. Try the canonical symbol too.
+    val tickerCandidates = remember(ticker) {
+        val aliases = mapOf(
+            "XBT" to listOf("BTC"),
+            "BCC" to listOf("BCH"),
+            "BCHABC" to listOf("BCH"),
+            "MIOTA" to listOf("IOTA"),
+            "XRB" to listOf("NANO"),
+            "LUNA2" to listOf("LUNA"),
+            "USTC" to listOf("UST"),
+            "MATIC" to listOf("POL"),
+            "RNDR" to listOf("RENDER"),
+            "BTTOLD" to listOf("BTT")
+        )
+        (listOf(ticker) + aliases[ticker].orEmpty()).distinct()
+    }
+
+    val sources = remember(ticker) {
+        tickerCandidates.flatMap { candidate ->
+            val key = candidate.lowercase()
+            listOf(
+                "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/$key.png",
+                "https://assets.coincap.io/assets/icons/${key}@2x.png",
+                "https://coinicons-api.vercel.app/api/icon/$key",
+                "https://cryptoicons.org/api/icon/$key/200",
+                "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/$key.png",
+                "https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/$key.png",
+                "https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/128/color/$key.png",
+                "https://cdn.jsdelivr.net/gh/ErikThiart/cryptocurrency-icons@master/128/color/$key.png",
+                "https://raw.githack.com/spothq/cryptocurrency-icons/master/128/color/$key.png",
+                "https://raw.githack.com/atomiclabs/cryptocurrency-icons/master/128/color/$key.png",
+                "https://cdn.statically.io/gh/spothq/cryptocurrency-icons/master/128/color/$key.png",
+                "https://cdn.statically.io/gh/ErikThiart/cryptocurrency-icons/master/128/color/$key.png"
+            )
+        }.distinct()
+    }
+
     var sourceIndex by remember(ticker) { mutableStateOf(0) }
     Box(
         modifier = Modifier
@@ -94,21 +120,21 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
         contentAlignment = Alignment.Center
     ) {
         SubcomposeAsyncImage(
-            model = ImageRequest.Builder(context)
+            model = if (localLogo != 0) localLogo else ImageRequest.Builder(context)
                 .data(sources[sourceIndex])
                 .crossfade(true)
                 .build(),
-            contentDescription = "${symbol.uppercase()} coin logo",
+            contentDescription = "$ticker coin logo",
             modifier = Modifier
                 .size(size - 6.dp)
                 .clip(CircleShape),
             contentScale = ContentScale.Fit,
             onError = {
-                if (sourceIndex < sources.lastIndex) sourceIndex += 1
+                if (localLogo == 0 && sourceIndex < sources.lastIndex) sourceIndex += 1
             },
             loading = {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(symbol.take(1).uppercase(), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+                    Text(ticker.take(1), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
                 }
             },
             error = {
@@ -116,7 +142,7 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
                     Modifier.fillMaxSize().background(Color(0xFF303846), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(symbol.take(1).uppercase(), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+                    Text(ticker.take(1), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
                 }
             },
             success = { SubcomposeAsyncImageContent() }
