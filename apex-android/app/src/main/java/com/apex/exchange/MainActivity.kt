@@ -240,6 +240,7 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
     var liveMarkets by remember { mutableStateOf(sampleMarkets) }
     var loading by remember { mutableStateOf(true) }
     var sheetSearch by remember { mutableStateOf("") }
+    var sheetFilter by remember { mutableStateOf("All") }
     var showAllPairs by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -395,6 +396,21 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
             Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f)) {
                 Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(22.dp)
+                ) {
+                    listOf("All", "Gainer", "Loser").forEach { category ->
+                        Text(
+                            category,
+                            color = if (sheetFilter == category) Yellow else Muted,
+                            fontSize = 14.sp,
+                            fontWeight = if (sheetFilter == category) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.clickable { sheetFilter = category }.padding(vertical = 8.dp)
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value = sheetSearch, onValueChange = { sheetSearch = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
@@ -406,8 +422,19 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
                         focusedTextColor = White, unfocusedTextColor = White
                     )
                 )
+                val allPairResults = liveMarkets
+                    .filter { it.symbol.contains(sheetSearch, true) || it.name.contains(sheetSearch, true) }
+                    .let { coins ->
+                        when (sheetFilter) {
+                            "Gainer" -> coins.filter { it.change.removeSuffix("%").toDoubleOrNull()?.let { value -> value > 0.0 } == true }
+                                .sortedByDescending { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                            "Loser" -> coins.filter { it.change.removeSuffix("%").toDoubleOrNull()?.let { value -> value < 0.0 } == true }
+                                .sortedBy { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                            else -> coins
+                        }
+                    }
                 LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                    items(liveMarkets.filter { it.symbol.contains(sheetSearch, true) || it.name.contains(sheetSearch, true) }) { coin ->
+                    items(allPairResults) { coin ->
                         Row(
                             Modifier.fillMaxWidth().clickable {
                                 showAllPairs = false
