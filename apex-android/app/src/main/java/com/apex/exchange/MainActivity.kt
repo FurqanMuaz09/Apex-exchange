@@ -1823,7 +1823,7 @@ private fun AuthScreen(onSuccess: () -> Unit) {
             colors = CardDefaults.cardColors(containerColor = Panel),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             OutlinedTextField(
                 value = email, onValueChange = { email = it.trim(); error = null },
                 modifier = Modifier.fillMaxWidth(), label = { Text("Email address") },
@@ -1832,7 +1832,7 @@ private fun AuthScreen(onSuccess: () -> Unit) {
                     focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
                 )
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(7.dp))
             OutlinedTextField(
                 value = password, onValueChange = { password = it; error = null },
                 modifier = Modifier.fillMaxWidth(), label = { Text("Password") },
