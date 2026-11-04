@@ -358,9 +358,11 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     LaunchedEffect(refreshKey) {
         try {
             val latest = fetchLiveMarkets()
-            if (latest.isNotEmpty()) liveMarkets = latest
+            if (latest.isNotEmpty()) {
+                liveMarkets = latest
+                loading = false
+            }
         } catch (_: Exception) { }
-        loading = false
 
         val client = OkHttpClient()
         while (true) {
@@ -400,7 +402,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             val rowIndex = (0 until rows.length()).firstOrNull { rows.getJSONObject(it).optString("s") == coin.symbol + "USDT" }
                             rowIndex?.let { rows.getJSONObject(it).optString("q").toDoubleOrNull() } ?: 0.0
                         }
-                        if (updated.isNotEmpty()) liveMarkets = updated
+                        if (updated.isNotEmpty()) {
+                            liveMarkets = updated
+                            loading = false
+                        }
                     } catch (_: Exception) { }
                 }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -640,27 +645,31 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         Spacer(Modifier.width(10.dp))
                         Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(90.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
-                    filtered.take(6).forEach { coin ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { onDetail("Trade ${coin.symbol}") }
-                                .padding(start = 16.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            MarketCoinIcon(coin.symbol, 34.dp)
-                            Spacer(Modifier.width(8.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            }
-                            Column(
-                                modifier = Modifier.width(88.dp),
-                                horizontalAlignment = Alignment.End
+                    if (loading) {
+                        repeat(6) { MarketRowSkeleton() }
+                    } else {
+                        filtered.take(6).forEach { coin ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable { onDetail("Trade ${coin.symbol}") }
+                                    .padding(start = 16.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(coin.price, color = White, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
-                                MarketChangeBadge(coin.change)
+                                MarketCoinIcon(coin.symbol, 34.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                                Column(
+                                    modifier = Modifier.width(88.dp),
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    Text(coin.price, color = White, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
+                                    MarketChangeBadge(coin.change)
+                                }
                             }
                         }
                     }
@@ -1082,6 +1091,25 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
         } else {
             Text("Public market data · refreshes every 10 seconds", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(8.dp))
         }
+    }
+}
+
+@Composable
+private fun MarketRowSkeleton() {
+    val skeleton = Color(0xFF252A32)
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(34.dp).background(skeleton, CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Box(Modifier.width(82.dp).height(12.dp).background(skeleton, RoundedCornerShape(6.dp)))
+            Box(Modifier.width(52.dp).height(9.dp).background(skeleton, RoundedCornerShape(5.dp)))
+        }
+        Box(Modifier.width(54.dp).height(11.dp).background(skeleton, RoundedCornerShape(5.dp)))
+        Spacer(Modifier.width(42.dp))
+        Box(Modifier.width(50.dp).height(28.dp).background(skeleton, RoundedCornerShape(8.dp)))
     }
 }
 
