@@ -231,7 +231,7 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
     var showAllPairs by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val favorites = remember { mutableStateListOf("BTC", "ETH") }
+    val favorites = remember { mutableStateListOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE") }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -248,7 +248,7 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
         (coin.symbol.contains(search, true) || coin.name.contains(search, true)) &&
         when (filter) {
             "Favorite" -> coin.symbol in favorites
-            "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL")
+            "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE")
             "Gainer" -> coin.up
             "Loser" -> !coin.up
             else -> true
@@ -315,56 +315,61 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
             }
         }
         item {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            Card(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(18.dp)
             ) {
-                listOf("Favorite", "Hot", "Gainer", "Loser", "New", "All").forEach { option ->
-                    FilterChip(
-                        selected = filter == option,
-                        onClick = { filter = if (option == "New") "All" else option },
-                        label = { Text(option, fontSize = 11.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF383019),
-                            selectedLabelColor = Yellow, labelColor = Muted
+                Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(22.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf("Favorites", "Hot", "Gainer", "Loser", "New", "All").forEach { label ->
+                            val option = if (label == "Favorites") "Favorite" else label
+                            Text(
+                                label,
+                                color = if (filter == option) White else Muted,
+                                fontSize = 14.sp,
+                                fontWeight = if (filter == option) FontWeight.Bold else FontWeight.Medium,
+                                modifier = Modifier.clickable { filter = option }.padding(vertical = 9.dp)
+                            )
+                        }
+                        Text(
+                            "☰", color = Muted,
+                            modifier = Modifier.clickable { showAllPairs = true }.padding(vertical = 8.dp)
                         )
-                    )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(78.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    }
+                    filtered.take(6).forEach { coin ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onDetail("Trade ${coin.symbol}") }
+                                .padding(horizontal = 16.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            MarketCoinIcon(coin.symbol, 38.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Text(coin.name, color = Muted, fontSize = 11.sp)
+                            }
+                            Text(coin.price, color = White, fontSize = 12.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Text(coin.change, color = if (coin.up) Green else Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(78.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        }
+                    }
+                    TextButton(
+                        onClick = { showAllPairs = true },
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                    ) { Text("View More", color = Muted, fontSize = 14.sp) }
                 }
-                Text("☰", color = Muted, modifier = Modifier.align(Alignment.CenterVertically).clickable { showAllPairs = true }.padding(8.dp))
             }
-        }
-        item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
-                Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                Text("Last Price", color = Muted, fontSize = 11.sp)
-                Spacer(Modifier.width(28.dp))
-                Text("24h chg%", color = Muted, fontSize = 11.sp)
-            }
-        }
-        items(filtered) { coin ->
-            Row(
-                Modifier.fillMaxWidth().clickable { onDetail("Trade ${coin.symbol}") }
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MarketCoinIcon(coin.symbol, 34.dp)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text(coin.name, color = Muted, fontSize = 11.sp)
-                }
-                Text(coin.price, color = White, fontSize = 12.sp)
-                Spacer(Modifier.width(22.dp))
-                Text(coin.change, color = if (coin.up) Green else Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-        item {
-            TextButton(
-                onClick = { showAllPairs = true },
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-            ) { Text("View More ↓", color = Yellow, fontSize = 12.sp) }
-            Spacer(Modifier.height(12.dp))
         }
     }
 
