@@ -19,6 +19,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.awaitCancellation
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import okhttp3.Response
 import kotlinx.coroutines.tasks.await
 import java.net.URLEncoder
 import java.net.URL
@@ -268,7 +274,6 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         onDispose { auth.removeAuthStateListener(listener) }
     }
     var walletBalance by remember { mutableStateOf<String?>(null) }
-    var balanceLoading by remember { mutableStateOf(false) }
     var balanceHidden by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
@@ -292,32 +297,53 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     }
 
     LaunchedEffect(signedInUser?.uid, refreshKey) {
-        if (signedInUser == null) {
-            walletBalance = null
-            balanceLoading = false
-        } else {
-            while (signedInUser != null) {
-                balanceLoading = walletBalance == null
-                try {
-                    val wallet = apexApiRequest("/api/account")
-                    val rows = wallet.optJSONArray("balances") ?: JSONArray()
-                    var total = 0.0
-                    for (i in 0 until rows.length()) {
-                        val row = rows.getJSONObject(i)
-                        if (row.optString("asset") == "USDT") {
-                            val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
-                            val locked = row.optString("locked", "0").toDoubleOrNull() ?: 0.0
-                            total = free + locked
-                            break
-                        }
+        walletBalance = null
+        if (signedInUser != null) {
+            var walletSocket: WebSocket? = null
+            try {
+                val wallet = apexApiRequest("/api/account")
+                val rows = wallet.optJSONArray("balances") ?: JSONArray()
+                var total = 0.0
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    if (row.optString("asset") == "USDT") {
+                        val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
+                        val locked = row.optString("locked", "0").toDoubleOrNull() ?: 0.0
+                        total = free + locked
+                        break
                     }
-                    walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
-                } catch (_: Exception) {
-                    if (walletBalance == null) walletBalance = "—"
-                } finally {
-                    balanceLoading = false
                 }
-                delay(15000)
+                walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
+
+                val stream = apexApiRequest("/api/account/listen-key")
+                val listenKey = stream.getString("listenKey")
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url("wss://stream.testnet.binance.vision/ws/$listenKey")
+                    .build()
+                walletSocket = client.newWebSocket(request, object : WebSocketListener() {
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        try {
+                            val event = JSONObject(text)
+                            if (event.optString("e") != "outboundAccountPosition") return
+                            val changed = event.optJSONArray("B") ?: return
+                            for (i in 0 until changed.length()) {
+                                val row = changed.getJSONObject(i)
+                                if (row.optString("a") == "USDT") {
+                                    val free = row.optString("f", "0").toDoubleOrNull() ?: 0.0
+                                    val locked = row.optString("l", "0").toDoubleOrNull() ?: 0.0
+                                    walletBalance = String.format(java.util.Locale.US, "%.2f USDT", free + locked)
+                                    break
+                                }
+                            }
+                        } catch (_: Exception) { }
+                    }
+                })
+                awaitCancellation()
+            } catch (_: Exception) {
+                if (walletBalance == null) walletBalance = "—"
+            } finally {
+                walletSocket?.close(1000, "Wallet screen refreshed or closed")
             }
         }
     }
@@ -378,7 +404,6 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             when {
                                 signedInUser == null -> "Connect account"
                                 balanceHidden -> "••••••••"
-                                balanceLoading && walletBalance == null -> "Loading balance…"
                                 else -> walletBalance ?: "—"
                             },
                             color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold,
