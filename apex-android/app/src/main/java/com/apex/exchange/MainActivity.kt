@@ -501,38 +501,73 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
     PairMarketData(ticker.getString("lastPrice"), ticker.optString("priceChangePercent", "0"), candles)
 }
 
+@Volatile
+private var cachedUsdtSpotSymbols: Set<String>? = null
+
 private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO) {
-    val connection = (URL("https://api.binance.com/api/v3/ticker/24hr").openConnection() as java.net.HttpURLConnection)
-    try {
-        connection.connectTimeout = 10000
-        connection.readTimeout = 10000
-        connection.requestMethod = "GET"
-        if (connection.responseCode !in 200..299) throw IllegalStateException("Market API HTTP ${connection.responseCode}")
-        val body = connection.inputStream.bufferedReader().use { it.readText() }
-        val rows = JSONArray(body)
-        val names = mapOf(
-            "BTC" to "Bitcoin", "ETH" to "Ethereum", "BNB" to "BNB",
-            "SOL" to "Solana", "XRP" to "XRP", "DOGE" to "Dogecoin", "ADA" to "Cardano"
-        )
-        (0 until rows.length()).mapNotNull { index ->
-            val row = rows.getJSONObject(index)
-            val fullSymbol = row.getString("symbol")
-            if (!fullSymbol.endsWith("USDT") || fullSymbol.endsWith("UPUSDT") || fullSymbol.endsWith("DOWNUSDT")) return@mapNotNull null
-            val symbol = fullSymbol.removeSuffix("USDT")
-            val price = row.getString("lastPrice").toDoubleOrNull() ?: return@mapNotNull null
-            val change = row.getString("priceChangePercent").toDoubleOrNull() ?: 0.0
-            Coin(
-                symbol = symbol,
-                name = names[symbol] ?: symbol,
-                price = String.format(java.util.Locale.US, "%,.6f", price).trimEnd('0').trimEnd('.'),
-                change = String.format(java.util.Locale.US, "%+.2f%%", change),
-                up = change >= 0
-            )
-        }.sortedByDescending { coin ->
-            rows.let { arr -> (0 until arr.length()).firstOrNull { arr.getJSONObject(it).optString("symbol") == coin.symbol + "USDT" }?.let { arr.getJSONObject(it).optString("quoteVolume").toDoubleOrNull() } ?: 0.0 }
+    fun getJson(url: String): String {
+        val connection = (URL(url).openConnection() as java.net.HttpURLConnection)
+        try {
+            connection.connectTimeout = 15000
+            connection.readTimeout = 20000
+            connection.requestMethod = "GET"
+            if (connection.responseCode !in 200..299) {
+                throw IllegalStateException("Binance market API HTTP ${connection.responseCode}")
+            }
+            return connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
         }
-    } finally {
-        connection.disconnect()
+    }
+
+    // Load the complete list of active, spot-tradable USDT pairs once per app process.
+    val allowedSymbols = cachedUsdtSpotSymbols ?: run {
+        val info = JSONObject(getJson("https://api.binance.com/api/v3/exchangeInfo"))
+        val symbols = info.getJSONArray("symbols")
+        val found = (0 until symbols.length()).mapNotNull { index ->
+            val item = symbols.getJSONObject(index)
+            val symbol = item.optString("symbol")
+            if (item.optString("status") == "TRADING" &&
+                item.optString("quoteAsset") == "USDT" &&
+                item.optBoolean("isSpotTradingAllowed", true) &&
+                symbol.isNotBlank()
+            ) symbol else null
+        }.toSet()
+        cachedUsdtSpotSymbols = found
+        found
+    }
+
+    // One public ticker request supplies the latest price and 24h change for every pair.
+    val rows = JSONArray(getJson("https://api.binance.com/api/v3/ticker/24hr"))
+    val names = mapOf(
+        "BTC" to "Bitcoin", "ETH" to "Ethereum", "BNB" to "BNB",
+        "SOL" to "Solana", "XRP" to "XRP", "DOGE" to "Dogecoin",
+        "ADA" to "Cardano", "TRX" to "TRON", "TON" to "Toncoin",
+        "LTC" to "Litecoin", "BCH" to "Bitcoin Cash", "LINK" to "Chainlink",
+        "DOT" to "Polkadot", "AVAX" to "Avalanche", "MATIC" to "Polygon",
+        "POL" to "POL", "SHIB" to "Shiba Inu", "ATOM" to "Cosmos",
+        "ETC" to "Ethereum Classic", "UNI" to "Uniswap", "NEAR" to "NEAR Protocol"
+    )
+    (0 until rows.length()).mapNotNull { index ->
+        val row = rows.getJSONObject(index)
+        val fullSymbol = row.optString("symbol")
+        if (fullSymbol !in allowedSymbols) return@mapNotNull null
+        val symbol = fullSymbol.removeSuffix("USDT")
+        val price = row.optString("lastPrice").toDoubleOrNull() ?: return@mapNotNull null
+        val change = row.optString("priceChangePercent").toDoubleOrNull() ?: 0.0
+        Coin(
+            symbol = symbol,
+            name = names[symbol] ?: symbol,
+            price = String.format(java.util.Locale.US, "%,.8f", price).trimEnd('0').trimEnd('.'),
+            change = String.format(java.util.Locale.US, "%+.2f%%", change),
+            up = change >= 0
+        )
+    }.sortedByDescending { coin ->
+        rows.let { arr ->
+            (0 until arr.length()).firstOrNull {
+                arr.getJSONObject(it).optString("symbol") == coin.symbol + "USDT"
+            }?.let { arr.getJSONObject(it).optString("quoteVolume").toDoubleOrNull() } ?: 0.0
+        }
     }
 }
 private val sampleMarkets = listOf(
