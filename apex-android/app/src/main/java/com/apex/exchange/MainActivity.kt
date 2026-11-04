@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -139,6 +141,7 @@ private fun ApexNativeApp() {
     }
     var tab by remember { mutableStateOf("Home") }
     var detail by remember { mutableStateOf<String?>(null) }
+    var refreshKey by remember { mutableIntStateOf(0) }
     BackHandler(enabled = detail != null) { detail = null }
 
     MaterialTheme(
@@ -176,8 +179,27 @@ private fun ApexNativeApp() {
                 }
             }
         ) { padding ->
+            var pullDistance by remember { mutableFloatStateOf(0f) }
             Column(
                 Modifier.fillMaxSize().background(Bg).padding(padding)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                if (dragAmount > 0f) {
+                                    pullDistance += dragAmount
+                                    if (pullDistance > 110f) {
+                                        refreshKey++
+                                        pullDistance = -10000f
+                                    }
+                                } else if (pullDistance < 0f) {
+                                    pullDistance = 0f
+                                }
+                                change.consume()
+                            },
+                            onDragEnd = { pullDistance = 0f },
+                            onDragCancel = { pullDistance = 0f }
+                        )
+                    }
             ) {
                 if (detail != null) {
                     NativeDetail(detail!!) { detail = null }
@@ -185,11 +207,12 @@ private fun ApexNativeApp() {
                     when (tab) {
                         "Home" -> HomeScreen(
                             favorites = favorites,
+                            refreshKey = refreshKey,
                             onMarkets = { tab = "Markets" },
                             onTrade = { tab = "Trade" },
                             onDetail = { detail = it }
                         )
-                        "Markets" -> MarketsScreen(favorites) { detail = it }
+                        "Markets" -> MarketsScreen(favorites, refreshKey) { detail = it }
                         "Trade" -> TradeScreen { detail = it }
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> AssetsScreen { detail = it }
@@ -234,7 +257,7 @@ private fun SectionTitle(title: String, action: String? = null, onClick: (() -> 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (String) -> Unit) {
+private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (String) -> Unit) {
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(sampleMarkets) }
@@ -245,7 +268,7 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(refreshKey) {
         while (true) {
             try {
                 val latest = fetchLiveMarkets()
@@ -628,7 +651,7 @@ private val sampleMarkets = listOf(
 )
 
 @Composable
-private fun MarketsScreen(favorites: MutableList<String>, onCoin: (String) -> Unit) {
+private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoin: (String) -> Unit) {
     var filter by remember { mutableStateOf("All") }
     var query by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(sampleMarkets) }
@@ -636,7 +659,7 @@ private fun MarketsScreen(favorites: MutableList<String>, onCoin: (String) -> Un
     var error by remember { mutableStateOf<String?>(null) }
     val hotCoins = setOf("BTC", "ETH", "BNB", "SOL")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(refreshKey) {
         while (true) {
             try {
                 val latest = fetchLiveMarkets()
