@@ -331,7 +331,6 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                 Spacer(Modifier.width(22.dp))
                 Text(coin.change, color = if (coin.up) Green else Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
-            HorizontalDivider(color = Panel, thickness = 1.dp)
         }
         item {
             TextButton(
