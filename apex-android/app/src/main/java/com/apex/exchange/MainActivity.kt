@@ -126,6 +126,17 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ApexNativeApp() {
+    val context = LocalContext.current
+    val favorites = remember {
+        mutableStateListOf<String>().apply {
+            addAll(context.getSharedPreferences("apex_prefs", android.content.Context.MODE_PRIVATE)
+                .getStringSet("favorite_coins", emptySet()) ?: emptySet())
+        }
+    }
+    LaunchedEffect(favorites.toList()) {
+        context.getSharedPreferences("apex_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putStringSet("favorite_coins", favorites.toSet()).apply()
+    }
     var tab by remember { mutableStateOf("Home") }
     var detail by remember { mutableStateOf<String?>(null) }
     BackHandler(enabled = detail != null) { detail = null }
@@ -173,11 +184,12 @@ private fun ApexNativeApp() {
                 } else {
                     when (tab) {
                         "Home" -> HomeScreen(
+                            favorites = favorites,
                             onMarkets = { tab = "Markets" },
                             onTrade = { tab = "Trade" },
                             onDetail = { detail = it }
                         )
-                        "Markets" -> MarketsScreen { detail = it }
+                        "Markets" -> MarketsScreen(favorites) { detail = it }
                         "Trade" -> TradeScreen { detail = it }
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> AssetsScreen { detail = it }
@@ -222,8 +234,8 @@ private fun SectionTitle(title: String, action: String? = null, onClick: (() -> 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (String) -> Unit) {
-    var filter by remember { mutableStateOf("Favorite") }
+private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (String) -> Unit) {
+    var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(sampleMarkets) }
     var loading by remember { mutableStateOf(true) }
@@ -231,7 +243,6 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
     var showAllPairs by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val favorites = remember { mutableStateListOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE") }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -529,13 +540,12 @@ private val sampleMarkets = listOf(
 )
 
 @Composable
-private fun MarketsScreen(onCoin: (String) -> Unit) {
+private fun MarketsScreen(favorites: MutableList<String>, onCoin: (String) -> Unit) {
     var filter by remember { mutableStateOf("All") }
     var query by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(sampleMarkets) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    val favorites = remember { mutableStateListOf("BTC", "ETH") }
     val hotCoins = setOf("BTC", "ETH", "BNB", "SOL")
 
     LaunchedEffect(Unit) {
