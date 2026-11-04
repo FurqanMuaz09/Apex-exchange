@@ -1143,6 +1143,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var pairLoadError by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableStateOf("") }
     var limitPrice by remember { mutableStateOf("") }
+    var totalInput by remember { mutableStateOf("") }
     var percent by remember { mutableFloatStateOf(0f) }
     var chartInterval by remember { mutableStateOf("15m") }
     var chartExpanded by remember { mutableStateOf(true) }
@@ -1308,9 +1309,17 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                 Text("Price ($quote)", color = Muted, fontSize = 9.sp, lineHeight = 10.sp)
                                 androidx.compose.foundation.text.BasicTextField(
                                     value = limitPrice,
-                                    onValueChange = { limitPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                                    onValueChange = { value ->
+                                        val clean = value.filter { ch -> ch.isDigit() || ch == '.' }
+                                        limitPrice = clean
+                                        val p = clean.toDoubleOrNull()
+                                        val q = amount.toDoubleOrNull()
+                                        if (p != null && q != null) totalInput = String.format(java.util.Locale.US, "%.2f", p * q)
+                                    },
                                     singleLine = true,
-                                    textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 12.sp),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(White),
+                                    textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
@@ -1330,9 +1339,18 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         Text("Amount ($base)", color = Muted, fontSize = 9.sp, lineHeight = 10.sp)
                         androidx.compose.foundation.text.BasicTextField(
                             value = amount,
-                            onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }; percent = 0f },
+                            onValueChange = { value ->
+                                val clean = value.filter { ch -> ch.isDigit() || ch == '.' }
+                                amount = clean
+                                percent = 0f
+                                val p = effectivePrice
+                                val q = clean.toDoubleOrNull()
+                                totalInput = if (q != null && p > 0.0) String.format(java.util.Locale.US, "%.2f", q * p) else ""
+                            },
                             singleLine = true,
-                            textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 12.sp),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(White),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1355,11 +1373,31 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     Spacer(Modifier.height(5.dp))
-                    SelectionContainer {
-                        Row(Modifier.fillMaxWidth().height(48.dp).background(Panel, RoundedCornerShape(10.dp)).padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("TOTAL ($quote)", color = Muted, fontSize = 12.sp)
-                            Text(if (amountValue > 0 && effectivePrice > 0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else "0.00", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
+                    Row(Modifier.fillMaxWidth().height(48.dp).background(Panel, RoundedCornerShape(10.dp)).padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("TOTAL ($quote)", color = Muted, fontSize = 12.sp)
+                        Spacer(Modifier.weight(1f))
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = totalInput.ifBlank {
+                                if (amountValue > 0.0 && effectivePrice > 0.0) String.format(java.util.Locale.US, "%.2f", estimatedTotal) else ""
+                            },
+                            onValueChange = { value ->
+                                val clean = value.filter { ch -> ch.isDigit() || ch == '.' }
+                                totalInput = clean
+                                val total = clean.toDoubleOrNull()
+                                if (total != null && effectivePrice > 0.0) {
+                                    amount = String.format(java.util.Locale.US, "%.8f", total / effectivePrice).trimEnd('0').trimEnd('.')
+                                    percent = 0f
+                                } else if (clean.isEmpty()) {
+                                    amount = ""
+                                    percent = 0f
+                                }
+                            },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(White),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.End),
+                            modifier = Modifier.width(125.dp)
+                        )
                     }
                     Text("Est fee: ${String.format(java.util.Locale.US, "%.4f", estimatedTotal * 0.001)} $quote", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 3.dp))
                     Spacer(Modifier.height(4.dp))
