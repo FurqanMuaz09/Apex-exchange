@@ -188,15 +188,40 @@ private fun SectionTitle(title: String, action: String? = null, onClick: (() -> 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (String) -> Unit) {
     var filter by remember { mutableStateOf("Favorite") }
     var search by remember { mutableStateOf("") }
-    val visibleMarkets = sampleMarkets.filter {
-        (it.symbol.contains(search, true) || it.name.contains(search, true)) &&
-        (filter == "All" || filter == "Favorite" || filter == "Hot" ||
-         (filter == "Gainer" && it.up) || (filter == "Loser" && !it.up))
+    var liveMarkets by remember { mutableStateOf(sampleMarkets) }
+    var loading by remember { mutableStateOf(true) }
+    var sheetSearch by remember { mutableStateOf("") }
+    var showAllPairs by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val favorites = remember { mutableStateListOf("BTC", "ETH") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val latest = fetchLiveMarkets()
+                if (latest.isNotEmpty()) liveMarkets = latest
+            } catch (_: Exception) { }
+            loading = false
+            delay(10000)
+        }
     }
+
+    val filtered = liveMarkets.filter { coin ->
+        (coin.symbol.contains(search, true) || coin.name.contains(search, true)) &&
+        when (filter) {
+            "Favorite" -> coin.symbol in favorites
+            "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL")
+            "Gainer" -> coin.up
+            "Loser" -> !coin.up
+            else -> true
+        }
+    }.take(6)
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
@@ -219,9 +244,6 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                         focusedTextColor = White, unfocusedTextColor = White
                     )
                 )
-                IconButton(onClick = { onDetail("Help & Support") }) {
-                    Icon(Icons.Filled.HeadsetMic, "Help and Support", tint = White)
-                }
                 IconButton(onClick = { onDetail("Notifications") }) {
                     Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White)
                 }
@@ -261,39 +283,23 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
             }
         }
         item {
-            Card(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF20242B)),
-                shape = RoundedCornerShape(13.dp)
-            ) {
-                Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("APEX EXCHANGE", color = Yellow, fontSize = 10.sp, letterSpacing = 1.2.sp)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Trade Smarter with APEX", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text("Explore the crypto market", color = Muted, fontSize = 11.sp)
-                    }
-                    Text("◆", color = Yellow, fontSize = 37.sp)
-                }
-            }
-        }
-        item {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                listOf("Favorite", "Hot", "Gainer", "Loser", "All").forEach { option ->
+                listOf("Favorite", "Hot", "Gainer", "Loser", "New", "All").forEach { option ->
                     FilterChip(
                         selected = filter == option,
-                        onClick = { filter = option },
-                        label = { Text(option, fontSize = 10.sp) },
+                        onClick = { filter = if (option == "New") "All" else option },
+                        label = { Text(option, fontSize = 11.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF383019),
-                            selectedLabelColor = Yellow,
-                            labelColor = Muted
+                            selectedLabelColor = Yellow, labelColor = Muted
                         )
                     )
                 }
+                Text("☰", color = Muted, modifier = Modifier.align(Alignment.CenterVertically).clickable { showAllPairs = true }.padding(8.dp))
             }
         }
         item {
@@ -304,12 +310,86 @@ private fun HomeScreen(onMarkets: () -> Unit, onTrade: () -> Unit, onDetail: (St
                 Text("24h chg%", color = Muted, fontSize = 11.sp)
             }
         }
-        items(visibleMarkets) { MarketRow(it) { onDetail("Trade ${it.symbol}") } }
-        item {
-            TextButton(onClick = onMarkets, modifier = Modifier.fillMaxWidth()) {
-                Text("View More ↓", color = Yellow, fontSize = 12.sp)
+        items(filtered) { coin ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onDetail("Trade ${coin.symbol}") }
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier.size(34.dp).background(Panel, RoundedCornerShape(50)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(coin.symbol.take(1), color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(coin.name, color = Muted, fontSize = 11.sp)
+                }
+                Text(coin.price, color = White, fontSize = 12.sp)
+                Spacer(Modifier.width(22.dp))
+                Text(coin.change, color = if (coin.up) Green else Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
-            Spacer(Modifier.height(18.dp))
+            HorizontalDivider(color = Panel, thickness = 1.dp)
+        }
+        item {
+            TextButton(
+                onClick = { showAllPairs = true },
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) { Text("View More ↓", color = Yellow, fontSize = 12.sp) }
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+
+    if (showAllPairs) {
+        ModalBottomSheet(
+            onDismissRequest = { showAllPairs = false; sheetSearch = "" },
+            sheetState = sheetState,
+            containerColor = Panel,
+            contentColor = White,
+            dragHandle = { BottomSheetDefaults.DragHandle(color = Muted) }
+        ) {
+            Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f)) {
+                Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+                OutlinedTextField(
+                    value = sheetSearch, onValueChange = { sheetSearch = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    placeholder = { Text("Search coin or pair", color = Muted) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted) },
+                    singleLine = true, shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Bg,
+                        focusedTextColor = White, unfocusedTextColor = White
+                    )
+                )
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    items(liveMarkets.filter { it.symbol.contains(sheetSearch, true) || it.name.contains(sheetSearch, true) }) { coin ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                showAllPairs = false
+                                onDetail("Trade ${coin.symbol}")
+                            }.padding(horizontal = 18.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(Modifier.size(36.dp).background(Bg, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+                                Text(coin.symbol.take(1), color = Yellow, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.width(11.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold)
+                                Text(coin.name, color = Muted, fontSize = 11.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(coin.price, color = White, fontSize = 12.sp)
+                                Text(coin.change, color = if (coin.up) Green else Red, fontSize = 11.sp)
+                            }
+                        }
+                        HorizontalDivider(color = Bg)
+                    }
+                }
+            }
         }
     }
 }
