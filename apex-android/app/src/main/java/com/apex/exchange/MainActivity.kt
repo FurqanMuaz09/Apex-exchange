@@ -533,15 +533,36 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            when {
-                                signedInUser == null -> "Connect account"
-                                balanceHidden -> "••••••••"
-                                else -> walletBalance ?: "—"
-                            },
-                            color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
+                        val balanceLabel = when {
+                            signedInUser == null -> "Connect account"
+                            balanceHidden -> "••••••••"
+                            else -> walletBalance ?: "—"
+                        }
+                        val balanceParts = balanceLabel.removeSuffix(" USDT")
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                balanceParts,
+                                color = White,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            if (signedInUser != null && !balanceHidden && walletBalance != null) {
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    "USDT",
+                                    color = Muted,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(bottom = 3.dp)
+                                )
+                            }
+                        }
                         Button(
                             onClick = {
                                 if (signedInUser == null) onDetail("Account Login")
