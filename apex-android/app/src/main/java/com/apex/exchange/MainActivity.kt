@@ -868,22 +868,35 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         Text("Price ($quote)", color = Muted, fontSize = 10.sp, modifier = Modifier.weight(0.58f))
                         Text("Amt ($base)", color = Muted, fontSize = 10.sp, modifier = Modifier.weight(0.42f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
-                    asks.asReversed().take(9).forEach { level ->
+                    if (asks.isEmpty()) {
+                        repeat(9) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                                Text("···", color = Red, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.weight(0.58f))
+                                Text("···", color = Muted, fontSize = 10.sp, lineHeight = 17.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
+                            }
+                        }
+                    } else asks.asReversed().take(9).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
                             Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 10.sp, lineHeight = 17.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
                             Text(String.format(java.util.Locale.US, "%,.4f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 10.sp, lineHeight = 17.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
                     Box(Modifier.fillMaxWidth().padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
-                        Text(marketPrice.toDoubleOrNull()?.let { String.format(java.util.Locale.US, "%,.${bookDecimals}f", it) } ?: marketPrice, color = marketPriceColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Text(if (livePriceValue > 0.0) String.format(java.util.Locale.US, "%,.${bookDecimals}f", livePriceValue) else "—", color = marketPriceColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
-                    bids.take(9).forEach { level ->
+                    if (bids.isEmpty()) {
+                        repeat(9) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                                Text("···", color = Green, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.weight(0.58f))
+                                Text("···", color = Muted, fontSize = 10.sp, lineHeight = 17.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
+                            }
+                        }
+                    } else bids.take(9).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
                             Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Green, fontSize = 10.sp, lineHeight = 17.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
                             Text(String.format(java.util.Locale.US, "%,.4f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 10.sp, lineHeight = 17.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
-                    if (depthError != null) Text("Reconnecting…", color = Muted, fontSize = 9.sp)
                     IconButton(onClick = { showDecimalSheet = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Filled.Tune, contentDescription = "Decimal precision", tint = Muted, modifier = Modifier.size(15.dp)) }
                 }
             }
