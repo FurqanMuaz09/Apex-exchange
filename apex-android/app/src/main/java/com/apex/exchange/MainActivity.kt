@@ -65,23 +65,36 @@ import androidx.compose.ui.layout.ContentScale
 @Composable
 private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
     val ticker = symbol.lowercase()
+    val context = LocalContext.current
     Box(
-        Modifier.size(size).background(Panel, RoundedCornerShape(50)),
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Color(0xFF252A33)),
         contentAlignment = Alignment.Center
     ) {
         SubcomposeAsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data("https://assets.coincap.io/assets/icons/${ticker}@2x.png")
+            model = ImageRequest.Builder(context)
+                .data("https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${ticker}.png")
                 .crossfade(true)
                 .build(),
             contentDescription = "${symbol.uppercase()} coin logo",
-            modifier = Modifier.fillMaxSize().padding(2.dp).clip(RoundedCornerShape(50)),
+            modifier = Modifier
+                .size(size - 6.dp)
+                .clip(CircleShape),
             contentScale = ContentScale.Fit,
             loading = {
-                Text(symbol.take(1), color = Yellow, fontSize = (size.value * 0.43f).sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(symbol.take(1).uppercase(), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+                }
             },
             error = {
-                Text(symbol.take(1), color = Yellow, fontSize = (size.value * 0.43f).sp, fontWeight = FontWeight.Bold)
+                Box(
+                    Modifier.fillMaxSize().background(Color(0xFF303846), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(symbol.take(1).uppercase(), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+                }
             },
             success = { SubcomposeAsyncImageContent() }
         )
