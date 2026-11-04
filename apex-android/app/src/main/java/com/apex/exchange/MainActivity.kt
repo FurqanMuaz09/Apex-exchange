@@ -66,6 +66,16 @@ import androidx.compose.ui.layout.ContentScale
 private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
     val ticker = symbol.lowercase()
     val context = LocalContext.current
+    val sources = remember(ticker) {
+        listOf(
+            "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/$ticker.png",
+            "https://assets.coincap.io/assets/icons/${ticker}@2x.png",
+            "https://coinicons-api.vercel.app/api/icon/$ticker",
+            "https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/128/color/$ticker.png",
+            "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/$ticker.png"
+        ).distinct()
+    }
+    var sourceIndex by remember(ticker) { mutableStateOf(0) }
     Box(
         modifier = Modifier
             .size(size)
@@ -75,7 +85,7 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
     ) {
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(context)
-                .data("https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${ticker}.png")
+                .data(sources[sourceIndex])
                 .crossfade(true)
                 .build(),
             contentDescription = "${symbol.uppercase()} coin logo",
@@ -83,6 +93,9 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
                 .size(size - 6.dp)
                 .clip(CircleShape),
             contentScale = ContentScale.Fit,
+            onError = {
+                if (sourceIndex < sources.lastIndex) sourceIndex += 1
+            },
             loading = {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(symbol.take(1).uppercase(), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
