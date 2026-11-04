@@ -169,6 +169,41 @@ app.post('/api/admin/notifications', requireFirebaseAuth, requireApexAdmin, admi
   }
 });
 
+const activeListenKeys = new Map();
+
+app.post('/api/account/listen-key', requireFirebaseAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const existing = activeListenKeys.get(uid);
+    if (existing) return res.json({ listenKey: existing.listenKey });
+
+    const response = await fetch(`${BASE}/api/v3/userDataStream`, {
+      method: 'POST',
+      headers: { 'X-MBX-APIKEY': KEY }
+    });
+    const data = await response.json();
+    if (!response.ok || !data.listenKey) {
+      throw new Error(data.msg || 'Could not start Binance account stream.');
+    }
+
+    const entry = { listenKey: data.listenKey, timer: null };
+    entry.timer = setInterval(async () => {
+      try {
+        await fetch(`${BASE}/api/v3/userDataStream?listenKey=${encodeURIComponent(entry.listenKey)}`, {
+          method: 'PUT',
+          headers: { 'X-MBX-APIKEY': KEY }
+        });
+      } catch (error) {
+        console.error('Binance listen-key keepalive failed:', error.message);
+      }
+    }, 30 * 60 * 1000);
+    activeListenKeys.set(uid, entry);
+    res.json({ listenKey: entry.listenKey });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.get('/api/account', requireFirebaseAuth, async (_req, res) => {
   try {
     const account = await binanceRequest('GET', '/api/v3/account');
