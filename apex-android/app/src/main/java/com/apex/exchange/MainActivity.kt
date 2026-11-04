@@ -373,7 +373,7 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
                                 Text(coin.name, color = Muted, fontSize = 11.sp)
                             }
                             Text(coin.price, color = White, fontSize = 12.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            Text(coin.change, color = marketChangeColor(coin.change), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(78.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            MarketChangeBadge(coin.change)
                         }
                     }
                     TextButton(
@@ -450,7 +450,7 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(coin.price, color = White, fontSize = 12.sp)
-                                Text(coin.change, color = marketChangeColor(coin.change), fontSize = 11.sp)
+                                MarketChangeBadge(coin.change)
                             }
                         }
                     }
@@ -465,6 +465,27 @@ private fun marketChangeColor(change: String): Color = when {
     change.trim().startsWith("+") -> Green
     change.trim().startsWith("-") -> Red
     else -> Muted
+}
+
+@Composable
+private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit.TextUnit = 11.sp) {
+    val positive = change.trim().startsWith("+")
+    val negative = change.trim().startsWith("-")
+    val tint = when {
+        positive -> Green
+        negative -> Red
+        else -> Muted
+    }
+    Text(
+        change,
+        color = tint,
+        fontSize = fontSize,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(tint.copy(alpha = 0.14f))
+            .padding(horizontal = 7.dp, vertical = 3.dp)
+    )
 }
 
 private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float)
@@ -725,7 +746,7 @@ private fun MarketsScreen(favorites: MutableList<String>, onCoin: (String) -> Un
                         }
                         Spacer(Modifier.width(12.dp))
                         Box(Modifier.width(72.dp), contentAlignment = Alignment.CenterEnd) {
-                            Text(coin.change, color = marketChangeColor(coin.change), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            MarketChangeBadge(coin.change)
                         }
                         IconButton(
                             onClick = {
@@ -766,7 +787,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
         }
         Text(coin.price, color = White, fontSize = 13.sp)
         Spacer(Modifier.width(24.dp))
-        Text(coin.change, color = marketChangeColor(coin.change), fontSize = 12.sp)
+        MarketChangeBadge(coin.change)
     }
     HorizontalDivider(color = Panel, thickness = 1.dp)
 }
@@ -1241,7 +1262,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(coin.price, color = White, fontSize = 13.sp)
-                                        Text(coin.change, color = marketChangeColor(coin.change), fontSize = 11.sp)
+                                        MarketChangeBadge(coin.change)
                                     }
                                 }
                                 HorizontalDivider(color = Color(0xFF30343B))
