@@ -67,14 +67,25 @@ import androidx.compose.ui.layout.ContentScale
 private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
     val ticker = symbol.uppercase()
     val context = LocalContext.current
-
-    // Local drawable logos take priority: add files as coin_btc, coin_eth, etc.
-    // This keeps the most-used logos available even without an internet connection.
-    val localLogo = remember(ticker) {
-        context.resources.getIdentifier("coin_${ticker.lowercase()}", "drawable", context.packageName)
+    val bundledSymbols = remember {
+        setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA", "TRX", "USDC", "USDT", "LINK", "LTC", "BCH", "AVAX", "DOT", "ZEC", "UNI", "MATIC", "ATOM", "ETC", "FIL")
+    }
+    val localAssetSymbol = remember(ticker) {
+        when (ticker) {
+            "XBT" -> "btc"
+            "POL" -> "matic"
+            else -> ticker.lowercase()
+        }
+    }
+    val hasLocalAsset = ticker in bundledSymbols || ticker == "XBT" || ticker == "POL"
+    var useLocalAsset by remember(ticker) { mutableStateOf(hasLocalAsset) }
+    var sourceIndex by remember(ticker) { mutableStateOf(0) }
+    val svgImageLoader = remember(context) {
+        coil.ImageLoader.Builder(context)
+            .components { add(coil.decode.SvgDecoder.Factory()) }
+            .build()
     }
 
-    // Some exchanges use legacy or alternate tickers. Try the canonical symbol too.
     val tickerCandidates = remember(ticker) {
         val aliases = mapOf(
             "XBT" to listOf("BTC"),
@@ -84,13 +95,12 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
             "XRB" to listOf("NANO"),
             "LUNA2" to listOf("LUNA"),
             "USTC" to listOf("UST"),
-            "MATIC" to listOf("POL"),
+            "POL" to listOf("MATIC"),
             "RNDR" to listOf("RENDER"),
             "BTTOLD" to listOf("BTT")
         )
         (listOf(ticker) + aliases[ticker].orEmpty()).distinct()
     }
-
     val sources = remember(ticker) {
         tickerCandidates.flatMap { candidate ->
             val key = candidate.lowercase()
@@ -111,26 +121,26 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
         }.distinct()
     }
 
-    var sourceIndex by remember(ticker) { mutableStateOf(0) }
     Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(Color(0xFF252A33)),
+        modifier = Modifier.size(size).clip(CircleShape).background(Color(0xFF252A33)),
         contentAlignment = Alignment.Center
     ) {
         SubcomposeAsyncImage(
-            model = if (localLogo != 0) localLogo else ImageRequest.Builder(context)
-                .data(sources[sourceIndex])
-                .crossfade(true)
-                .build(),
+            model = if (useLocalAsset) {
+                "file:///android_asset/coin-logos/$localAssetSymbol.svg"
+            } else {
+                ImageRequest.Builder(context).data(sources[sourceIndex]).crossfade(true).build()
+            },
+            imageLoader = svgImageLoader,
             contentDescription = "$ticker coin logo",
-            modifier = Modifier
-                .size(size - 6.dp)
-                .clip(CircleShape),
+            modifier = Modifier.size(size - 6.dp).clip(CircleShape),
             contentScale = ContentScale.Fit,
             onError = {
-                if (localLogo == 0 && sourceIndex < sources.lastIndex) sourceIndex += 1
+                if (useLocalAsset) {
+                    useLocalAsset = false
+                } else if (sourceIndex < sources.lastIndex) {
+                    sourceIndex += 1
+                }
             },
             loading = {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -138,10 +148,7 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
                 }
             },
             error = {
-                Box(
-                    Modifier.fillMaxSize().background(Color(0xFF303846), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.fillMaxSize().background(Color(0xFF303846), CircleShape), contentAlignment = Alignment.Center) {
                     Text(ticker.take(1), color = Yellow, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
                 }
             },

@@ -41,6 +41,19 @@ jobs:
           mkdir -p "$RUNNER_TEMP/apex-signing"
           echo "$APEX_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/apex-signing/apex-release.jks"
 
+      - name: Bundle offline coin logos
+        run: |
+          set -euo pipefail
+          LOGO_DIR="apex-android/app/src/main/assets/coin-logos"
+          mkdir -p "$LOGO_DIR"
+          for symbol in btc eth bnb sol xrp doge ada trx usdc usdt link ltc bch avax dot zec uni matic atom etc fil; do
+            curl --fail --location --silent --show-error --retry 3 \
+              "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/svg/color/${symbol}.svg" \
+              --output "$LOGO_DIR/${symbol}.svg"
+            test -s "$LOGO_DIR/${symbol}.svg"
+          done
+          printf '%s\n' "Coin logos from spothq/cryptocurrency-icons (MIT license)." > "$LOGO_DIR/README.txt"
+
       - name: Build native Android APK
         env:
           APEX_API_BASE_URL: ${{ secrets.APEX_API_BASE_URL }}
