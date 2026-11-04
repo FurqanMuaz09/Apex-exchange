@@ -67,7 +67,7 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
                 .crossfade(true)
                 .build(),
             contentDescription = "${symbol.uppercase()} coin logo",
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(50)),
+            modifier = Modifier.fillMaxSize().padding(2.dp).clip(RoundedCornerShape(50)),
             contentScale = ContentScale.Fit,
             loading = {
                 Text(symbol.take(1), color = Yellow, fontSize = (size.value * 0.43f).sp, fontWeight = FontWeight.Bold)
@@ -439,7 +439,7 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
                             Modifier.fillMaxWidth().clickable {
                                 showAllPairs = false
                                 onDetail("Trade ${coin.symbol}")
-                            }.padding(horizontal = 18.dp, vertical = 11.dp),
+                            }.padding(horizontal = 18.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             MarketCoinIcon(coin.symbol, 36.dp)
@@ -453,7 +453,6 @@ private fun HomeScreen(favorites: MutableList<String>, onMarkets: () -> Unit, on
                                 Text(coin.change, color = marketChangeColor(coin.change), fontSize = 11.sp)
                             }
                         }
-                        HorizontalDivider(color = Bg)
                     }
                 }
             }
