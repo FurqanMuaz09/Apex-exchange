@@ -783,7 +783,7 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
             change,
             color = White,
             fontSize = maxOf(fontSize.value, 11f).sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.ExtraBold,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
