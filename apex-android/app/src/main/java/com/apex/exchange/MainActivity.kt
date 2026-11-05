@@ -1251,14 +1251,65 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     }
 
     LaunchedEffect(pair) {
+        // Load an initial REST snapshot, then keep the order book/depth ratio live
+        // from Binance's 100ms partial-depth WebSocket stream.
+        try {
+            val initial = fetchDepthAndTrades(pair)
+            bids = initial.first
+            asks = initial.second
+            depthError = null
+        } catch (e: Exception) {
+            depthError = e.message ?: "Order book unavailable"
+        }
+
+        val client = OkHttpClient()
         while (true) {
+            val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val streamSymbol = pair.replace("/", "").lowercase(java.util.Locale.US)
+            val request = Request.Builder()
+                .url("wss://stream.binance.com:9443/ws/${streamSymbol}@depth20@100ms")
+                .build()
+            val socket = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val payload = JSONObject(text)
+                        fun parseLevels(key: String): List<BookLevel> {
+                            val rows = payload.optJSONArray(key) ?: JSONArray()
+                            return (0 until rows.length()).mapNotNull { index ->
+                                val row = rows.optJSONArray(index) ?: return@mapNotNull null
+                                if (row.length() < 2) return@mapNotNull null
+                                BookLevel(row.optString(0), row.optString(1))
+                            }
+                        }
+                        val nextBids = parseLevels("bids")
+                        val nextAsks = parseLevels("asks")
+                        if (nextBids.isNotEmpty() && nextAsks.isNotEmpty()) {
+                            orderScope.launch {
+                                bids = nextBids
+                                asks = nextAsks
+                                depthError = null
+                            }
+                        }
+                    } catch (_: Exception) { }
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    orderScope.launch {
+                        depthError = t.message ?: "Order book reconnecting"
+                        closed.complete(Unit)
+                    }
+                }
+
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    closed.complete(Unit)
+                }
+            })
             try {
-                val data = fetchDepthAndTrades(pair)
-                bids = data.first
-                asks = data.second
-                depthError = null
-            } catch (e: Exception) { depthError = e.message ?: "Order book unavailable" }
-            delay(3000)
+                closed.await()
+            } finally {
+                socket.cancel()
+            }
+            delay(1000)
         }
     }
 
