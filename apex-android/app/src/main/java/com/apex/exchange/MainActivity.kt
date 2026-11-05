@@ -1163,6 +1163,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var pairLoadError by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableStateOf("") }
     var limitPrice by remember { mutableStateOf("") }
+    var limitPriceAutoFilled by remember { mutableStateOf(false) }
     var totalInput by remember { mutableStateOf("") }
     var percent by remember { mutableFloatStateOf(0f) }
     var chartInterval by remember { mutableStateOf("15m") }
@@ -1208,6 +1209,22 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var orderBusy by remember { mutableStateOf(false) }
     var orderMessage by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(pair) {
+        // Reset the price when the trading pair changes; the new pair's live
+        // ticker will populate the Limit price field as soon as it arrives.
+        limitPrice = ""
+        limitPriceAutoFilled = false
+        marketPrice = "—"
+    }
+    LaunchedEffect(marketPrice, orderType) {
+        if (orderType == "Limit" && !limitPriceAutoFilled) {
+            val current = marketPrice.replace(",", "").toDoubleOrNull()
+            if (current != null && current > 0.0) {
+                limitPrice = java.math.BigDecimal.valueOf(current).stripTrailingZeros().toPlainString()
+                limitPriceAutoFilled = true
+            }
+        }
+    }
     LaunchedEffect(pair, chartInterval) {
         while (true) {
             try {
@@ -1406,6 +1423,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                     onValueChange = { value ->
                                         val clean = value.filter { ch -> ch.isDigit() || ch == '.' }
                                         limitPrice = clean
+                                        limitPriceAutoFilled = true
                                         val p = clean.toDoubleOrNull()
                                         val q = amount.toDoubleOrNull()
                                         if (p != null && q != null) totalInput = String.format(java.util.Locale.US, "%.2f", p * q)
