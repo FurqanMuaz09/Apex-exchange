@@ -474,6 +474,9 @@ app.get('/api/pnl/today', requireFirebaseAuth, async (req, res) => {
   }
 });
 
+const walletTestLimiter = rateLimit({ windowMs: 60 * 1000, limit: 3, standardHeaders: true, legacyHeaders: false });
+const walletTransferLimiter = rateLimit({ windowMs: 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false });
+
 app.post('/api/wallet/transfer', requireFirebaseAuth, walletTransferLimiter, async (req, res) => {
   try {
     const asset = String(req.body.asset || 'USDT').toUpperCase();
