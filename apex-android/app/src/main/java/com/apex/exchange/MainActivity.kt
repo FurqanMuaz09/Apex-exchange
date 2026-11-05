@@ -2532,7 +2532,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     var walletRefreshSignal by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
-        snapshotFlow { sharedLiveMarketsState.value }.collect { markets: List<Market> ->
+        snapshotFlow { sharedLiveMarketsState.value }.collect { markets: List<Coin> ->
             if (markets.isNotEmpty()) livePrices = markets
         }
     }
