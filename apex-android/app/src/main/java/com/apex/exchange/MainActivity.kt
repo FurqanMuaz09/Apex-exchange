@@ -450,7 +450,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 try {
                     val wallet = apexApiRequest("/api/wallet")
                     val balancesJson = wallet.optJSONObject("balances") ?: JSONObject()
-                    val total = balancesJson.optDouble("USDT", 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+                    val total = calculateWalletTotalUsdt(balancesJson)
                     val formatted = String.format(java.util.Locale.US, "%.2f", total)
                     walletBalance = "$formatted USDT"
                     cachedAssetTotalUsdt = total
@@ -856,6 +856,25 @@ private var cachedAssetBalancesAt: Long = 0L
 private var cachedLiveMarkets: List<Coin>? = null
 @Volatile
 private var cachedLiveMarketsAt: Long = 0L
+
+// Convert every credited wallet asset into a USDT portfolio value using current spot prices.
+private fun calculateWalletTotalUsdt(balances: JSONObject): Double {
+    var total = 0.0
+    val keys = balances.keys()
+    while (keys.hasNext()) {
+        val asset = keys.next().uppercase()
+        val amount = balances.optDouble(asset, 0.0)
+        if (!amount.isFinite() || amount <= 0.0) continue
+        val price = when (asset) {
+            "USDT", "USDC", "FDUSD", "BUSD" -> 1.0
+            else -> cachedLiveMarkets.orEmpty()
+                .firstOrNull { it.symbol.equals(asset, ignoreCase = true) }
+                ?.price?.replace(",", "")?.toDoubleOrNull() ?: 0.0
+        }
+        if (price.isFinite() && price > 0.0) total += amount * price
+    }
+    return total.takeIf { it.isFinite() } ?: 0.0
+}
 
 private suspend fun fetchLiveMarkets(forceRefresh: Boolean = false): List<Coin> = withContext(Dispatchers.IO) {
     val cached = cachedLiveMarkets
@@ -2175,17 +2194,17 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             try {
                 val response = apexApiRequest("/api/wallet")
                 val walletBalances = response.optJSONObject("balances") ?: JSONObject()
+                fetchLiveMarkets()
                 val found = mutableListOf<Pair<String, String>>()
-                var usdt = 0.0
                 val keys = walletBalances.keys()
                 while (keys.hasNext()) {
                     val asset = keys.next().uppercase()
                     val amount = walletBalances.optDouble(asset, 0.0)
                     if (amount > 0.0 && amount.isFinite()) found.add(asset to String.format(java.util.Locale.US, "%.8f", amount))
-                    if (asset == "USDT") usdt = amount
                 }
+                val portfolioValue = calculateWalletTotalUsdt(walletBalances)
                 balances = found
-                totalUsdt = usdt
+                totalUsdt = portfolioValue
                 cachedAssetBalances = found
                 cachedAssetTotalUsdt = usdt
                 cachedAssetBalancesAt = System.currentTimeMillis()
@@ -2231,7 +2250,8 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                         val metrics = apexApiRequest("/api/holdings/metrics?symbol=$marketPair")
                         assetMetrics = assetMetrics + (asset to metrics)
                     } catch (_: Exception) {
-                        // Keep prior successful metrics visible if the trade-history request fails.
+                        // Mark failed lookups complete instead of leaving an endless loading label.
+                        assetMetrics = assetMetrics + (asset to JSONObject())
                     }
                 }
             }
@@ -2300,12 +2320,17 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                         Text("Spot PnL (USDT)", color = Muted, fontSize = 12.sp)
                         Text("Spot PnL%", color = Muted, fontSize = 12.sp)
                     }
+                    val isStableAsset = asset in listOf("USDT", "USDC", "FDUSD", "BUSD")
                     val metrics = assetMetrics[asset]
-                    val pnl = metrics?.let { it.optDouble("unrealizedPnl", 0.0) + it.optDouble("realizedPnl", 0.0) }
-                    val pnlPercent = metrics?.optDouble("pnlPercent", 0.0)
+                    val hasPnlMetrics = metrics?.has("unrealizedPnl") == true || metrics?.has("realizedPnl") == true
+                    val pnl = if (!isStableAsset && hasPnlMetrics) {
+                        metrics!!.optDouble("unrealizedPnl", 0.0) + metrics.optDouble("realizedPnl", 0.0)
+                    } else null
+                    val pnlPercent = if (!isStableAsset && metrics?.has("pnlPercent") == true) metrics.optDouble("pnlPercent") else null
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
-                            pnl?.let { String.format(java.util.Locale.US, "%+.4f", it) } ?: "Loading trade history…",
+                            pnl?.let { String.format(java.util.Locale.US, "%+.4f", it) }
+                                ?: if (isStableAsset || metrics != null) "—" else "Loading trade history…",
                             color = when { pnl == null -> Muted; pnl >= 0.0 -> Green; else -> Red },
                             fontSize = 13.sp, fontWeight = FontWeight.SemiBold
                         )
