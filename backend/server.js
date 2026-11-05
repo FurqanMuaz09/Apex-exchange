@@ -275,7 +275,7 @@ app.get('/api/holdings/metrics', requireFirebaseAuth, async (req, res) => {
       costBasis,
       averageEntryPrice,
       unrealizedPnl,
-      pnlPercent: costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : 0,
+      pnlPercent: costBasis > 0 ? ((unrealizedPnl + realizedPnl) / costBasis) * 100 : 0,
       realizedPnl,
       trades: trades.length,
       matchedSells
