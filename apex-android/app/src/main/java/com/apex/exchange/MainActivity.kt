@@ -1739,6 +1739,24 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                 Text("No holdings yet", color = Muted, fontSize = 13.sp)
                             }
                         }
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Buy/Sell", "Add funds", "Transfer").forEach { action ->
+                                Box(
+                                    Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(Panel)
+                                        .clickable {
+                                            when (action) {
+                                                "Buy/Sell" -> { side = "Buy"; selectedOrdersTab = "Open Orders" }
+                                                "Add funds" -> onDetail("Add Funds")
+                                                "Transfer" -> onDetail("Transfer")
+                                            }
+                                        }.padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(action, color = White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                }
+                            }
+                        }
                     }
                 }
             }
