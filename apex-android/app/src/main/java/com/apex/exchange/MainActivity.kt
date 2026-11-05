@@ -20,6 +20,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.awaitCancellation
 import okhttp3.OkHttpClient
 import okhttp3.Request
