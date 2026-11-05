@@ -443,40 +443,53 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         marketFallback.cancel()
     }
 
-    LaunchedEffect(signedInUser?.uid, refreshKey) {
-        if (signedInUser == null) {
-            todayPnl = null
-        } else {
-            try {
-                val response = apexApiRequest("/api/pnl/today")
-                if (response.has("pnl") && !response.isNull("pnl")) {
-                    todayPnl = response.optDouble("pnl")
-                }
-            } catch (_: Exception) {
-                // Keep the last successful PnL visible during temporary network errors.
-            }
-        }
-    }
-
-    LaunchedEffect(signedInUser?.uid, refreshKey) {
-        if (signedInUser == null) {
+    DisposableEffect(signedInUser?.uid, refreshKey) {
+        val uid = signedInUser?.uid
+        if (uid == null) {
             walletBalance = null
+            todayPnl = null
+            onDispose { }
         } else {
-            // Same APEX testnet demo ledger as Assets; retain cached value while refreshing.
-            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+            val walletListener = FirebaseFirestore.getInstance()
+                .collection("wallets").document(uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error == null && snapshot != null && snapshot.exists()) {
+                        val balances = snapshot.get("spotBalances") as? Map<*, *>
+                            ?: snapshot.get("balances") as? Map<*, *> ?: emptyMap<String, Any>()
+                        val json = JSONObject(balances)
+                        val total = calculateWalletTotalUsdt(json)
+                        walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
+                        cachedAssetTotalUsdt = total
+                        cachedAssetBalancesAt = System.currentTimeMillis()
+                    }
+                }
+            val ordersListener = FirebaseFirestore.getInstance()
+                .collection("users").document(uid).collection("orders")
+                .addSnapshotListener { _, error ->
+                    if (error == null) scope.launch {
+                        try {
+                            val response = apexApiRequest("/api/pnl/today")
+                            if (response.has("pnl") && !response.isNull("pnl")) todayPnl = response.optDouble("pnl")
+                        } catch (_: Exception) { }
+                    }
+                }
+            scope.launch {
+                try {
+                    val response = apexApiRequest("/api/pnl/today")
+                    if (response.has("pnl") && !response.isNull("pnl")) todayPnl = response.optDouble("pnl")
+                } catch (_: Exception) { }
                 try {
                     val wallet = apexApiRequest("/api/wallet")
-                    val balancesJson = wallet.optJSONObject("balances") ?: JSONObject()
-                    val total = calculateWalletTotalUsdt(balancesJson)
-                    val formatted = String.format(java.util.Locale.US, "%.2f", total)
-                    walletBalance = "$formatted USDT"
+                    val balances = wallet.optJSONObject("balances") ?: JSONObject()
+                    val total = calculateWalletTotalUsdt(balances)
+                    walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
                     cachedAssetTotalUsdt = total
                     cachedAssetBalancesAt = System.currentTimeMillis()
-                } catch (_: Exception) {
-                    if (walletBalance == null) walletBalance = if (cachedAssetBalancesAt > 0L)
-                        String.format(java.util.Locale.US, "%.2f USDT", cachedAssetTotalUsdt) else "—"
-                }
-                delay(5000)
+                } catch (_: Exception) { }
+            }
+            onDispose {
+                walletListener.remove()
+                ordersListener.remove()
             }
         }
     }
@@ -2443,26 +2456,55 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             } finally { busy = false; walletRequestInFlight = false }
         }
     }
-    LaunchedEffect(user?.uid) {
-        if (user == null) {
+    var walletTradeVersion by remember { mutableIntStateOf(0) }
+    DisposableEffect(user?.uid) {
+        val uid = user?.uid
+        if (uid == null) {
             balances = emptyList()
             totalUsdt = 0.0
-            cachedAssetBalances = emptyList()
-            cachedAssetTotalUsdt = 0.0
-            cachedAssetBalancesAt = 0L
-            message = "Login to load your APEX Testnet Wallet."
+            onDispose { }
         } else {
-            // Render cached data immediately, then keep both balance surfaces synced.
             balances = cachedAssetBalances
             totalUsdt = cachedAssetTotalUsdt
-            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-                refreshWallet()
-                delay(5000)
+            val walletListener = FirebaseFirestore.getInstance()
+                .collection("wallets").document(uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error == null && snapshot != null && snapshot.exists()) {
+                        val walletMap = snapshot.get("spotBalances") as? Map<*, *>
+                            ?: snapshot.get("balances") as? Map<*, *> ?: emptyMap<String, Any>()
+                        val json = JSONObject(walletMap)
+                        val found = mutableListOf<Pair<String, String>>()
+                        val keys = json.keys()
+                        while (keys.hasNext()) {
+                            val symbol = keys.next().uppercase()
+                            val amount = json.optDouble(symbol, 0.0)
+                            if (amount > 0.0 && amount.isFinite()) {
+                                found.add(symbol to String.format(java.util.Locale.US, "%.8f", amount))
+                            }
+                        }
+                        val value = calculateWalletTotalUsdt(json)
+                        balances = found
+                        totalUsdt = value
+                        cachedAssetBalances = found
+                        cachedAssetTotalUsdt = value
+                        cachedAssetBalancesAt = System.currentTimeMillis()
+                        busy = false
+                    }
+                }
+            val ordersListener = FirebaseFirestore.getInstance()
+                .collection("users").document(uid).collection("orders")
+                .addSnapshotListener { _, error ->
+                    if (error == null) walletTradeVersion++
+                }
+            scope.launch { refreshWallet() }
+            onDispose {
+                walletListener.remove()
+                ordersListener.remove()
             }
         }
     }
 
-    LaunchedEffect(user?.uid, balances) {
+    LaunchedEffect(user?.uid, balances, walletTradeVersion) {
         if (user == null) {
             assetMetrics = emptyMap()
         } else {
@@ -2842,14 +2884,34 @@ private fun WalletTransactionsScreen(onBack: () -> Unit) {
     var transactions by remember { mutableStateOf(emptyList<JSONObject>()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        try {
-            val response = apexApiRequest("/api/wallet/transactions")
-            val rows = response.optJSONArray("transactions") ?: JSONArray()
-            transactions = (0 until rows.length()).map { rows.getJSONObject(it) }
-        } catch (e: Exception) {
-            error = e.localizedMessage ?: "Could not load wallet transactions."
-        } finally { loading = false }
+    val user = FirebaseAuth.getInstance().currentUser
+    DisposableEffect(user?.uid) {
+        val uid = user?.uid
+        if (uid == null) {
+            loading = false
+            error = "Login to view wallet transactions."
+            onDispose { }
+        } else {
+            val listener = FirebaseFirestore.getInstance()
+                .collection("wallets").document(uid).collection("transactions")
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(50)
+                .addSnapshotListener { snapshot, failure ->
+                    if (failure != null) {
+                        error = failure.localizedMessage ?: "Transaction stream unavailable."
+                        loading = false
+                    } else if (snapshot != null) {
+                        transactions = snapshot.documents.map { doc ->
+                            val data = doc.data ?: emptyMap()
+                            val created = doc.getTimestamp("createdAt")?.toDate()?.toString() ?: "Date unavailable"
+                            JSONObject(data).put("id", doc.id).put("createdAt", created)
+                        }
+                        error = null
+                        loading = false
+                    }
+                }
+            onDispose { listener.remove() }
+        }
     }
     Column(Modifier.fillMaxSize().padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

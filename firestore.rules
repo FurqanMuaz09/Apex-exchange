@@ -10,9 +10,12 @@ service cloud.firestore {
 
     // Wallet balances and ledger are server-only; Admin SDK writes bypass these rules.
     match /wallets/{uid} {
-      allow read, write: if false;
+      // Owners can subscribe to their own wallet state; only trusted Admin SDK can mutate it.
+      allow read: if owns(uid);
+      allow write: if false;
       match /transactions/{transactionId} {
-        allow read, write: if false;
+        allow read: if owns(uid);
+        allow write: if false;
       }
     }
 
@@ -31,7 +34,7 @@ service cloud.firestore {
       }
 
       match /orders/{orderId} {
-        // Orders are written by the authenticated backend using Admin SDK.
+        // Owners may subscribe to their own order changes; writes remain server-only.
         allow read: if owns(uid);
         allow write: if false;
       }
