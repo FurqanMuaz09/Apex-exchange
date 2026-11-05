@@ -428,11 +428,16 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         if (signedInUser == null) {
             todayPnl = null
         } else {
-            try {
-                val response = apexApiRequest("/api/pnl/today")
-                todayPnl = response.optDouble("pnl", 0.0)
-            } catch (_: Exception) {
-                todayPnl = null
+            while (true) {
+                try {
+                    val response = apexApiRequest("/api/pnl/today")
+                    if (response.has("pnl") && !response.isNull("pnl")) {
+                        todayPnl = response.optDouble("pnl")
+                    }
+                } catch (_: Exception) {
+                    // Keep the last successful PnL visible during temporary network errors.
+                }
+                delay(15000)
             }
         }
     }
