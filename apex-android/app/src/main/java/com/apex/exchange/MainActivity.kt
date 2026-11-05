@@ -2191,6 +2191,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
     var busy by remember { mutableStateOf(user != null && cachedAssetBalances.isEmpty()) }
     var message by remember { mutableStateOf(if (cachedAssetBalances.isNotEmpty()) "Binance Spot Testnet · Cached wallet" else "Login to load your Binance Spot Testnet wallet.") }
     var totalUsdt by remember { mutableStateOf(cachedAssetTotalUsdt) }
+    var assetMetrics by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
 
     fun refreshWallet() {
         if (user == null) { message = "Login to load your Testnet wallet."; return }
@@ -2232,6 +2233,28 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             balances = cachedAssetBalances
             totalUsdt = cachedAssetTotalUsdt
             refreshWallet()
+        }
+    }
+
+    LaunchedEffect(user?.uid, balances) {
+        if (user == null) {
+            assetMetrics = emptyMap()
+        } else {
+            balances.forEach { coin ->
+                val asset = coin.first
+                if (asset in listOf("USDT", "USDC", "FDUSD", "BUSD")) return@forEach
+                val marketPair = cachedLiveMarkets
+                    ?.firstOrNull { it.symbol.replace("/", "").equals("${asset}USDT", true) }
+                    ?.symbol?.replace("/", "") ?: "${asset}USDT"
+                scope.launch {
+                    try {
+                        val metrics = apexApiRequest("/api/holdings/metrics?symbol=$marketPair")
+                        assetMetrics = assetMetrics + (asset to metrics)
+                    } catch (_: Exception) {
+                        // Keep prior successful metrics visible if the trade-history request fails.
+                    }
+                }
+            }
         }
     }
 
@@ -2297,9 +2320,20 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                         Text("Spot PnL (USDT)", color = Muted, fontSize = 12.sp)
                         Text("Spot PnL%", color = Muted, fontSize = 12.sp)
                     }
+                    val metrics = assetMetrics[asset]
+                    val pnl = metrics?.optDouble("unrealizedPnl", 0.0)?.plus(metrics.optDouble("realizedPnl", 0.0))
+                    val pnlPercent = metrics?.optDouble("pnlPercent", 0.0)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("—", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("—", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            pnl?.let { String.format(java.util.Locale.US, "%+.4f", it) } ?: "Loading trade history…",
+                            color = when { pnl == null -> Muted; pnl >= 0.0 -> Green; else -> Red },
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            pnlPercent?.let { String.format(java.util.Locale.US, "%+.2f%%", it) } ?: "—",
+                            color = when { pnlPercent == null -> Muted; pnlPercent >= 0.0 -> Green; else -> Red },
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -2315,7 +2349,10 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                     if (asset !in listOf("USDT", "USDC", "FDUSD", "BUSD")) {
                         Spacer(Modifier.height(12.dp))
                         Text("Spot breakeven price (USDT)", color = Muted, fontSize = 12.sp)
-                        Text("—", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            metrics?.optDouble("averageEntryPrice", 0.0)?.takeIf { it > 0.0 }?.let { String.format(java.util.Locale.US, "%.8f", it) } ?: if (metrics == null) "Loading…" else "—",
+                            color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
                         Text(if (pinnedAssetSymbol.equals(asset, true)) "★ Pinned to top" else "Long press to pin this asset to top", color = if (pinnedAssetSymbol.equals(asset, true)) Yellow else Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 5.dp))
                     }
                 }
