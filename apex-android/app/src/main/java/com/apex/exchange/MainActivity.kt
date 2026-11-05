@@ -1722,7 +1722,8 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 val unrealizedNow = (livePriceValue * holdingTrackedQuantity) - (holdingCostBasis ?: 0.0)
                                 val pnlValue = if (isStable || holdingCostBasis == null) null else holdingRealizedPnl + unrealizedNow
-                                val pnlPct = if (isStable || holdingCostBasis == null) null else holdingPnlPercent
+                                val pnlPct = if (isStable || holdingCostBasis == null || holdingCostBasis!! <= 0.0) null
+                                    else ((holdingRealizedPnl + unrealizedNow) / holdingCostBasis!!) * 100.0
                                 val pnlColor = if ((pnlValue ?: 0.0) >= 0.0) Color(0xFF0ECB81) else Color(0xFFEA4778)
                                 Text(
                                     pnlValue?.let { String.format(java.util.Locale.US, "%+.4f", it) } ?: if (holdingMetricsError != null && !isStable) "Unavailable" else "—",
