@@ -1001,6 +1001,7 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
                         if (updated.isNotEmpty()) {
                             liveMarkets = updated
                             cachedLiveMarkets = updated
+                            sharedLiveMarketsState.value = updated
                             cachedLiveMarketsAt = System.currentTimeMillis()
                             loading = false
                             error = null
@@ -2281,6 +2282,7 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                                 if (updated.isNotEmpty()) {
                                     allPairMarkets = updated
                                     cachedLiveMarkets = updated
+                                    sharedLiveMarketsState.value = updated
                                     cachedLiveMarketsAt = System.currentTimeMillis()
                                     pairLoading = false
                                     pairLoadError = null
@@ -2304,6 +2306,7 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                         if (latest.isNotEmpty()) {
                             allPairMarkets = latest
                             cachedLiveMarkets = latest
+                            sharedLiveMarketsState.value = latest
                             cachedLiveMarketsAt = System.currentTimeMillis()
                             pairLoading = false
                         }
