@@ -1291,17 +1291,18 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
         }
         item {
             Row(
-                Modifier.fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 9.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { pairSearch = ""; showPairSheet = true }
-                    .padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.clip(RoundedCornerShape(8.dp))
+                            .clickable { pairSearch = ""; showPairSheet = true }
+                            .padding(vertical = 5.dp, horizontal = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(pair, color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Filled.ArrowDropDown, "Select market pair", tint = White, modifier = Modifier.size(28.dp))
+                        Icon(Icons.Filled.ArrowDropDown, "Select market pair", tint = White, modifier = Modifier.size(30.dp))
                     }
                     val changeValue = marketChangePercent.toDoubleOrNull() ?: 0.0
                     Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = when { changeValue > 0.0 -> Green; changeValue < 0.0 -> Red; else -> White }, fontSize = 16.sp, fontWeight = FontWeight.Bold)
