@@ -548,7 +548,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 softWrap = false,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
-                            if (signedInUser != null && !balanceHidden && walletBalance != null) {
+                            if (signedInUser != null) {
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     "USDT",
