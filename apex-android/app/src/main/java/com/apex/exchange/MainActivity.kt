@@ -2243,16 +2243,16 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             Column(Modifier.padding(18.dp)) {
                 Text("Estimated total value", color = Muted, fontSize = 13.sp)
                 Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("APEX Testnet Demo Wallet · live balance", color = Muted, fontSize = 10.sp)
+                Text("APEX Internal Wallet · Spot + Funding", color = Muted, fontSize = 10.sp)
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton("Refresh", Modifier.weight(1f)) { refreshWallet() }
             ActionButton("Deposit", Modifier.weight(1f)) { onDetail("Deposit") }
             ActionButton("Withdraw", Modifier.weight(1f)) { onDetail("Withdraw") }
+            ActionButton("Transfer", Modifier.weight(1f)) { onDetail("Transfer") }
         }
         Text(message, color = if (message.startsWith("Binance")) Green else Muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
-        SectionTitle("My Wallet Assets")
+        SectionTitle("My Internal Wallet Assets")
         if (busy && balances.isEmpty()) {
             repeat(6) {
                 Row(
@@ -2338,7 +2338,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                 HorizontalDivider(color = Panel)
             }
         }
-        Text("Testnet demo ledger only. Demo USDT is not real money and cannot be transferred on a blockchain. Real-money custody remains disabled.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
+        Text("Internal transfers move demo ledger balances between your APEX Spot and Funding wallets only. Binance Spot Testnet remains separate.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
     }
 }
 
@@ -2398,6 +2398,7 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
         "Notifications" -> NotificationsScreen(onBack)
         "Deposit" -> WalletActionScreen("Deposit", onBack)
         "Withdraw" -> WalletActionScreen("Withdraw", onBack)
+        "Transfer" -> WalletTransferScreen(onBack)
         "Wallet Transactions" -> WalletTransactionsScreen(onBack)
         "Security" -> SecurityScreen(onBack)
         "Order History", "Open Orders" -> OrderHistoryScreen(title, onBack)
@@ -2491,6 +2492,95 @@ private fun WalletActionScreen(title: String, onBack: () -> Unit) {
         Spacer(Modifier.height(12.dp))
         Text("These controls do not generate deposit addresses or send blockchain funds. Real-money custody remains disabled.",
             color = Red, fontSize = 11.sp)
+    }
+}
+
+
+@Composable
+private fun WalletTransferScreen(onBack: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var from by remember { mutableStateOf("spot") }
+    var to by remember { mutableStateOf("funding") }
+    var asset by remember { mutableStateOf("USDT") }
+    var amount by remember { mutableStateOf("") }
+    var spotBalance by remember { mutableStateOf(0.0) }
+    var fundingBalance by remember { mutableStateOf(0.0) }
+    var loading by remember { mutableStateOf(true) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    suspend fun loadWallet() {
+        val wallet = apexApiRequest("/api/wallet")
+        val spot = wallet.optJSONObject("spotBalances") ?: wallet.optJSONObject("balances") ?: JSONObject()
+        val funding = wallet.optJSONObject("fundingBalances") ?: JSONObject()
+        spotBalance = spot.optDouble(asset, 0.0)
+        fundingBalance = funding.optDouble(asset, 0.0)
+    }
+    LaunchedEffect(asset) {
+        try { loadWallet() } catch (e: Exception) { message = e.localizedMessage ?: "Wallet load failed." }
+        finally { loading = false }
+    }
+    Column(Modifier.fillMaxSize().padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("Internal Transfer", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(14.dp))
+        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Panel)) {
+            Column(Modifier.padding(16.dp)) {
+                Text("APEX INTERNAL WALLETS", color = Yellow, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column { Text("Spot", color = Muted); Text(String.format(java.util.Locale.US, "%.8f", spotBalance), color = White) }
+                    Column(horizontalAlignment = Alignment.End) { Text("Funding", color = Muted); Text(String.format(java.util.Locale.US, "%.8f", fundingBalance), color = White) }
+                }
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Text("From", color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("spot" to "Spot", "funding" to "Funding").forEach { option ->
+                Button(onClick = { from = option.first; to = if (from == "spot") "funding" else "spot" },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (from == option.first) Yellow else Panel,
+                        contentColor = if (from == option.first) Bg else White), modifier = Modifier.weight(1f)) { Text(option.second) }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.Center) {
+            Icon(Icons.Filled.SwapVert, "Transfer direction", tint = Yellow, modifier = Modifier.size(28.dp))
+        }
+        Text("To: ${if (to == "spot") "Spot" else "Funding"}", color = White, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(14.dp))
+        OutlinedTextField(value = asset, onValueChange = { asset = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(12) },
+            label = { Text("Asset (e.g. USDT)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(value = amount, onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }.take(24) },
+            label = { Text("Transfer amount") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        Text("Available: ${String.format(java.util.Locale.US, "%.8f", if (from == "spot") spotBalance else fundingBalance)} $asset",
+            color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        message?.let { Text(it, color = if (it.startsWith("Success")) Green else Red, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp)) }
+        Spacer(Modifier.height(18.dp))
+        Button(enabled = !busy && !loading && asset.matches(Regex("[A-Z0-9]{2,12}")) &&
+            (amount.toDoubleOrNull()?.let { it > 0.0 && it <= if (from == "spot") spotBalance else fundingBalance } == true),
+            onClick = {
+                scope.launch {
+                    busy = true; message = null
+                    try {
+                        val payload = JSONObject().put("asset", asset).put("from", from).put("to", to).put("amount", amount.toDouble())
+                        val result = apexApiRequest("/api/wallet/transfer", "POST", payload)
+                        message = "Success: " + result.optString("message", "Transfer completed.")
+                        amount = ""
+                        loadWallet()
+                    } catch (e: Exception) { message = e.localizedMessage ?: "Transfer failed." }
+                    finally { busy = false }
+                }
+            }, modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)) {
+            if (busy || loading) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
+            else Text("Confirm Transfer")
+        }
+        Spacer(Modifier.height(10.dp))
+        Text("Instant internal ledger transfer only. Binance Spot Testnet funds are not moved by this action.", color = Muted, fontSize = 11.sp)
     }
 }
 

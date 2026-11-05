@@ -383,10 +383,10 @@ app.post('/api/wallet/testnet/deposit', requireFirebaseAuth, walletTestLimiter, 
         error.status = 429; throw error;
       }
       const wallet = walletSnap.exists ? walletSnap.data() : { balances: {} };
-      const balances = { ...(wallet.balances || {}) };
+      const balances = { ...(wallet.spotBalances || wallet.balances || {}) };
       balances.USDT = Number((Number(balances.USDT || 0) + 100).toFixed(8));
       tx.set(walletRef, {
-        uid, mode: 'TESTNET_SIMULATED', status: 'TESTNET_DEMO_ACTIVE', balances,
+        uid, mode: 'TESTNET_SIMULATED', status: 'TESTNET_DEMO_ACTIVE', balances, spotBalances: balances, fundingBalances: wallet.fundingBalances || {},
         createdAt: wallet.createdAt || FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp()
       }, { merge: true });
@@ -397,6 +397,54 @@ app.post('/api/wallet/testnet/deposit', requireFirebaseAuth, walletTestLimiter, 
     });
     res.status(201).json({ ok: true, mode: 'TESTNET_SIMULATED', amount: 100, asset: 'USDT',
       message: '100 demo USDT credited. This is not real money and cannot be transferred to a blockchain.' });
+  } catch (error) { sendError(res, error); }
+});
+
+
+const walletTransferLimiter = rateLimit({ windowMs: 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false });
+
+app.post('/api/wallet/transfer', requireFirebaseAuth, walletTransferLimiter, async (req, res) => {
+  try {
+    const asset = String(req.body.asset || 'USDT').toUpperCase();
+    const from = String(req.body.from || '').toLowerCase();
+    const to = String(req.body.to || '').toLowerCase();
+    const amount = Number(req.body.amount);
+    if (!/^[A-Z0-9]{2,12}$/.test(asset) || !['spot', 'funding'].includes(from) ||
+        !['spot', 'funding'].includes(to) || from === to || !Number.isFinite(amount) || amount <= 0 || amount > 1000000) {
+      return res.status(400).json({ error: 'Invalid internal transfer details.' });
+    }
+    const rounded = Number(amount.toFixed(8));
+    if (Math.abs(rounded - amount) > 1e-10) return res.status(400).json({ error: 'Maximum 8 decimal places are allowed.' });
+    const uid = req.user.uid;
+    const walletRef = userWallet(uid);
+    const txRef = userWalletTransactions(uid).doc();
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(walletRef);
+      if (!snap.exists) {
+        const error = new Error('Wallet not initialized.'); error.status = 409; throw error;
+      }
+      const wallet = snap.data();
+      const spot = { ...(wallet.spotBalances || wallet.balances || {}) };
+      const funding = { ...(wallet.fundingBalances || {}) };
+      const source = from === 'spot' ? spot : funding;
+      const target = to === 'spot' ? spot : funding;
+      const available = Number(source[asset] || 0);
+      if (!Number.isFinite(available) || available + 1e-12 < rounded) {
+        const error = new Error('Insufficient ' + from + ' wallet ' + asset + ' balance.'); error.status = 400; throw error;
+      }
+      source[asset] = Number((available - rounded).toFixed(8));
+      target[asset] = Number((Number(target[asset] || 0) + rounded).toFixed(8));
+      tx.update(walletRef, {
+        balances: spot, spotBalances: spot, fundingBalances: funding,
+        updatedAt: FieldValue.serverTimestamp()
+      });
+      tx.create(txRef, {
+        type: 'INTERNAL_TRANSFER', asset, amount: rounded, from, to,
+        status: 'COMPLETED_INTERNAL', createdAt: FieldValue.serverTimestamp()
+      });
+    });
+    res.status(200).json({ ok: true, asset, amount: rounded, from, to,
+      status: 'COMPLETED_INTERNAL', message: 'Internal transfer completed instantly.' });
   } catch (error) { sendError(res, error); }
 });
 
@@ -421,14 +469,14 @@ app.post('/api/wallet/testnet/withdraw', requireFirebaseAuth, walletTestLimiter,
         error.status = 409; throw error;
       }
       const wallet = walletSnap.data();
-      const balances = { ...(wallet.balances || {}) };
+      const balances = { ...(wallet.spotBalances || wallet.balances || {}) };
       const available = Number(balances.USDT || 0);
       if (available < rounded) {
         const error = new Error('Insufficient demo USDT balance.');
         error.status = 400; throw error;
       }
       balances.USDT = Number((available - rounded).toFixed(8));
-      tx.update(walletRef, { balances, updatedAt: FieldValue.serverTimestamp() });
+      tx.update(walletRef, { balances, spotBalances: balances, updatedAt: FieldValue.serverTimestamp() });
       tx.create(txRef, { type: 'TESTNET_DEMO_WITHDRAWAL', asset, amount: rounded,
         destination, status: 'COMPLETED_SIMULATED', createdAt: FieldValue.serverTimestamp() });
     });
@@ -445,7 +493,9 @@ app.get('/api/wallet', requireFirebaseAuth, async (req, res) => {
     res.json({
       mode: wallet.mode || 'TESTNET_LEDGER_ONLY',
       status: wallet.status || 'PENDING_CUSTODY_INFRASTRUCTURE',
-      balances: wallet.balances || {},
+      balances: wallet.spotBalances || wallet.balances || {},
+      spotBalances: wallet.spotBalances || wallet.balances || {},
+      fundingBalances: wallet.fundingBalances || {},
       depositsEnabled: true,
       withdrawalsEnabled: true,
       realDepositsEnabled: false,
