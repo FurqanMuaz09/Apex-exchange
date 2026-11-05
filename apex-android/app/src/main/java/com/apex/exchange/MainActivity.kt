@@ -363,7 +363,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(cachedLiveMarkets?.takeIf { it.isNotEmpty() } ?: sampleMarkets) }
-    var loading by remember { mutableStateOf(true) }
+    var loading by remember { mutableStateOf(cachedLiveMarkets.isNullOrEmpty() && sampleMarkets.isEmpty()) }
     var sheetSearch by remember { mutableStateOf("") }
     var sheetFilter by remember { mutableStateOf("All") }
     var showAllPairs by remember { mutableStateOf(false) }
