@@ -305,7 +305,7 @@ private fun ApexNativeApp() {
                         "Markets" -> MarketsScreen(favorites, refreshKey) { detail = it }
                         "Trade" -> TradeScreen(favorites = favorites, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
-                        "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen { detail = it }
+                        "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen(refreshKey = refreshKey) { detail = it }
                         else -> ProfileScreen { detail = it }
                     }
                 }
@@ -2519,7 +2519,7 @@ private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Un
 
 
 @Composable
-private fun AssetsScreen(onDetail: (String) -> Unit) {
+private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     val context = LocalContext.current
     val user = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
@@ -2565,7 +2565,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
         }
     }
     var walletTradeVersion by remember { mutableIntStateOf(0) }
-    DisposableEffect(user?.uid) {
+    DisposableEffect(user?.uid, refreshKey) {
         val uid = user?.uid
         if (uid == null) {
             balances = emptyList()
