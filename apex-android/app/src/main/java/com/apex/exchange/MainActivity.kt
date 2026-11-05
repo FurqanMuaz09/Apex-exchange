@@ -670,13 +670,14 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
 
     if (showAllPairs) {
         ModalBottomSheet(
-            onDismissRequest = { showAllPairs = false; sheetSearch = "" },
+            onDismissRequest = { showAllPairs = false; sheetSearch = ""; sheetFilter = "All" },
+            modifier = Modifier.fillMaxHeight(0.96f),
             sheetState = sheetState,
             containerColor = Panel,
             contentColor = White,
             dragHandle = { BottomSheetDefaults.DragHandle(color = Muted) }
         ) {
-            Column(Modifier.fillMaxWidth().fillMaxHeight(0.96f)) {
+            Column(Modifier.fillMaxWidth().fillMaxSize()) {
                 Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
                 OutlinedTextField(
@@ -697,7 +698,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         .padding(horizontal = 18.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    listOf("All", "Gainer", "Loser").forEach { category ->
+                    listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach { category ->
                         Text(
                             category,
                             color = if (sheetFilter == category) Yellow else Muted,
@@ -708,13 +709,20 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     }
                 }
                 val allPairResults = liveMarkets
-                    .filter { it.symbol.contains(sheetSearch, true) || it.name.contains(sheetSearch, true) }
+                    .filter { coin ->
+                        (coin.symbol.contains(sheetSearch, true) || coin.name.contains(sheetSearch, true)) &&
+                            when (sheetFilter) {
+                                "Favorite" -> coin.symbol in favorites
+                                "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE")
+                                "Gainer" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) > 0.0
+                                "Loser" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) < 0.0
+                                else -> true
+                            }
+                    }
                     .let { coins ->
                         when (sheetFilter) {
-                            "Gainer" -> coins.filter { it.change.removeSuffix("%").toDoubleOrNull()?.let { value -> value > 0.0 } == true }
-                                .sortedByDescending { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
-                            "Loser" -> coins.filter { it.change.removeSuffix("%").toDoubleOrNull()?.let { value -> value < 0.0 } == true }
-                                .sortedBy { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                            "Gainer" -> coins.sortedByDescending { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                            "Loser" -> coins.sortedBy { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
                             else -> coins
                         }
                     }
