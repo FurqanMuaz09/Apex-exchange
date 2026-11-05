@@ -1182,6 +1182,10 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var availableUsdt by remember { mutableStateOf("0.00") }
     var availableUsdc by remember { mutableStateOf("0.00") }
     var availableBase by remember { mutableStateOf("0.00") }
+    var holdingPnl by remember { mutableStateOf<Double?>(null) }
+    var holdingPnlPercent by remember { mutableStateOf<Double?>(null) }
+    var holdingBreakeven by remember { mutableStateOf<Double?>(null) }
+    var holdingMetricsError by remember { mutableStateOf<String?>(null) }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
     val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
     val effectivePrice = if (orderType == "Limit") limitPrice.toDoubleOrNull() ?: livePriceValue else livePriceValue
@@ -1223,6 +1227,24 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             if (current != null && current > 0.0) {
                 limitPrice = java.math.BigDecimal.valueOf(current).stripTrailingZeros().toPlainString()
                 limitPriceAutoFilled = true
+            }
+        }
+    }
+    LaunchedEffect(pair, selectedOrdersTab) {
+        if (selectedOrdersTab == "Holdings" && FirebaseAuth.getInstance().currentUser != null) {
+            holdingPnl = null
+            holdingPnlPercent = null
+            holdingBreakeven = null
+            holdingMetricsError = null
+            try {
+                val metrics = apexApiRequest("/api/holdings/metrics?symbol=${pair.replace("/", "")}")
+                val unrealized = metrics.optDouble("unrealizedPnl", 0.0)
+                val realized = metrics.optDouble("realizedPnl", 0.0)
+                holdingPnl = unrealized + realized
+                holdingPnlPercent = metrics.optDouble("pnlPercent", 0.0)
+                holdingBreakeven = metrics.optDouble("averageEntryPrice", 0.0).takeIf { it > 0.0 }
+            } catch (e: Exception) {
+                holdingMetricsError = e.message ?: "Trade history unavailable"
             }
         }
     }
@@ -1694,8 +1716,21 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             }
                             Spacer(Modifier.height(3.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("--  --", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("--", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                val pnlValue = if (isStable) null else holdingPnl
+                                val pnlPct = if (isStable) null else holdingPnlPercent
+                                val pnlColor = if ((pnlValue ?: 0.0) >= 0.0) Color(0xFF0ECB81) else Color(0xFFEA4778)
+                                Text(
+                                    pnlValue?.let { String.format(java.util.Locale.US, "%+.4f", it) } ?: if (holdingMetricsError != null && !isStable) "Unavailable" else "—",
+                                    color = if (pnlValue == null) Muted else pnlColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    pnlPct?.let { String.format(java.util.Locale.US, "%+.2f%%", it) } ?: "—",
+                                    color = if (pnlPct == null) Muted else if (pnlPct >= 0.0) Color(0xFF0ECB81) else Color(0xFFEA4778),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                             Spacer(Modifier.height(15.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -1711,7 +1746,12 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             if (!isStable) {
                                 Spacer(Modifier.height(13.dp))
                                 Text("Spot breakeven price ($stableAsset)", color = Muted, fontSize = 12.sp)
-                                Text("--  ✎", color = White, fontSize = 13.sp)
+                                Text(
+                                    holdingBreakeven?.let { String.format(java.util.Locale.US, "%.8f", it).trimEnd('0').trimEnd('.') } ?: if (holdingMetricsError != null) "Unavailable" else "—",
+                                    color = White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
