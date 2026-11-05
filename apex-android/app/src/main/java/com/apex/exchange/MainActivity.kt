@@ -57,6 +57,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -2528,9 +2529,10 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     var assetMetrics by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
     var livePrices by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { cachedLiveMarkets.orEmpty() }) }
     var walletRequestInFlight by remember { mutableStateOf(false) }
+    var walletRefreshSignal by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.snapshotFlow { sharedLiveMarketsState.value }.collect { markets ->
+        snapshotFlow { sharedLiveMarketsState.value }.collect { markets: List<Market> ->
             if (markets.isNotEmpty()) livePrices = markets
         }
     }
@@ -2594,7 +2596,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                 val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
                 val request = Request.Builder().url("wss://stream.testnet.binance.vision/ws/$listenKey").build()
                 socket = client.newWebSocket(request, object : WebSocketListener() {
-                    override fun onOpen(webSocket: WebSocket, response: Response?) { connected.complete(Unit) }
+                    override fun onOpen(webSocket: WebSocket, response: Response) { connected.complete(Unit) }
                     override fun onMessage(webSocket: WebSocket, text: String) {
                         try {
                             val event = JSONObject(text)
@@ -2619,7 +2621,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                                         cachedAssetTotalUsdt = value
                                     }
                                 }
-                                "executionReport" -> scope.launch { refreshWallet() }
+                                "executionReport" -> scope.launch { walletRefreshSignal++ }
                             }
                         } catch (_: Exception) { }
                     }
@@ -2679,6 +2681,10 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
             } finally { busy = false; walletRequestInFlight = false }
         }
     }
+    LaunchedEffect(walletRefreshSignal) {
+        if (walletRefreshSignal > 0) refreshWallet()
+    }
+
     var walletTradeVersion by remember { mutableIntStateOf(0) }
     DisposableEffect(user?.uid, refreshKey) {
         val uid = user?.uid
