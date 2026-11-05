@@ -233,10 +233,10 @@ private fun ApexNativeApp() {
     var tab by remember { mutableStateOf("Home") }
     var detail by remember { mutableStateOf<String?>(null) }
     var selectedTradingPair by remember { mutableStateOf("BTC/USDT") }
-    var showTradeOrderEntry by remember { mutableStateOf(false) }
+    var chartPair by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
-    BackHandler(enabled = detail != null || (tab == "Trade" && showTradeOrderEntry)) {
-        if (detail != null) detail = null else showTradeOrderEntry = false
+    BackHandler(enabled = detail != null || chartPair != null) {
+        if (detail != null) detail = null else chartPair = null
     }
 
     MaterialTheme(
@@ -259,7 +259,7 @@ private fun ApexNativeApp() {
                     destinations.forEach { (label, icon, route) ->
                         NavigationBarItem(
                             selected = tab == route && detail == null,
-                            onClick = { tab = route; detail = null; if (route == "Trade") showTradeOrderEntry = false },
+                            onClick = { tab = route; detail = null; chartPair = null },
                             icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp)) },
                             label = { Text(label, fontSize = 9.sp, lineHeight = 10.sp) },
                             colors = NavigationBarItemDefaults.colors(
@@ -298,6 +298,19 @@ private fun ApexNativeApp() {
             ) {
                 if (detail != null) {
                     NativeDetail(detail!!) { detail = null }
+                } else if (chartPair != null) {
+                    TradeScreen(
+                        favorites = favorites,
+                        initialPair = chartPair!!,
+                        chartOnly = true,
+                        onOpenOrderEntry = { pair ->
+                            selectedTradingPair = pair
+                            chartPair = null
+                            tab = "Trade"
+                        },
+                        onDetail = { detail = it },
+                        onTradeUpdate = { refreshKey++ }
+                    )
                 } else {
                     when (tab) {
                         "Home" -> HomeScreen(
@@ -305,10 +318,24 @@ private fun ApexNativeApp() {
                             refreshKey = refreshKey,
                             onMarkets = { tab = "Markets" },
                             onTrade = { tab = "Trade" },
-                            onDetail = { detail = it }
+                            onDetail = { value ->
+                                if (value.startsWith("Trade ")) {
+                                    chartPair = value.removePrefix("Trade ") + "/USDT"
+                                } else detail = value
+                            }
                         )
-                        "Markets" -> MarketsScreen(favorites, refreshKey) { symbol -> selectedTradingPair = "$symbol/USDT"; showTradeOrderEntry = false; tab = "Trade"; detail = null }
-                        "Trade" -> TradeScreen(favorites = favorites, initialPair = selectedTradingPair, chartOnly = !showTradeOrderEntry, onOpenOrderEntry = { showTradeOrderEntry = true }, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
+                        "Markets" -> MarketsScreen(favorites, refreshKey) { symbol ->
+                            chartPair = "$symbol/USDT"
+                            detail = null
+                        }
+                        "Trade" -> TradeScreen(
+                            favorites = favorites,
+                            initialPair = selectedTradingPair,
+                            chartOnly = false,
+                            onOpenOrderEntry = { selectedTradingPair = it; chartPair = null },
+                            onDetail = { detail = it },
+                            onTradeUpdate = { refreshKey++ }
+                        )
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen(refreshKey = refreshKey) { detail = it }
                         else -> ProfileScreen { detail = it }
@@ -1351,7 +1378,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TradeScreen(favorites: MutableList<String>, initialPair: String, chartOnly: Boolean, onOpenOrderEntry: () -> Unit, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
+private fun TradeScreen(favorites: MutableList<String>, initialPair: String, chartOnly: Boolean, onOpenOrderEntry: (String) -> Unit, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
     var pair by remember(initialPair) { mutableStateOf(initialPair) }
@@ -1801,11 +1828,24 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { side = "Buy"; onOpenOrderEntry() }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Bg)) { Text("Buy", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
-                    Button(onClick = { side = "Sell"; onOpenOrderEntry() }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = White)) { Text("Sell", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+                    Button(onClick = { side = "Buy"; onOpenOrderEntry(pair) }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Bg)) { Text("Buy", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+                    Button(onClick = { side = "Sell"; onOpenOrderEntry(pair) }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = White)) { Text("Sell", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
                 }
             }
         } else {
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(pair, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { pairSearch = ""; showPairSheet = true })
+                Icon(Icons.Filled.ArrowDropDown, "Select pair", tint = White,
+                    modifier = Modifier.size(28.dp).clickable { pairSearch = ""; showPairSheet = true })
+                Spacer(Modifier.weight(1f))
+                Text("Spot", color = Muted, fontSize = 13.sp)
+            }
+        }
         item {
             Row(
                 Modifier.fillMaxWidth(),
