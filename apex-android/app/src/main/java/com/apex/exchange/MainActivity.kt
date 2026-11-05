@@ -1180,6 +1180,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     val bookDecimals = bookDecimalsOverride ?: autoBookDecimals
     var showDecimalSheet by remember { mutableStateOf(false) }
     var availableUsdt by remember { mutableStateOf("0.00") }
+    var availableUsdc by remember { mutableStateOf("0.00") }
     var availableBase by remember { mutableStateOf("0.00") }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
     val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
@@ -1251,15 +1252,18 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     val wallet = apexApiRequest("/api/account")
                     val rows = wallet.optJSONArray("balances") ?: JSONArray()
                     var usdtFree = 0.0
+                    var usdcFree = 0.0
                     var baseFree = 0.0
                     for (i in 0 until rows.length()) {
                         val row = rows.getJSONObject(i)
                         val asset = row.optString("asset")
                         val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
                         if (asset == "USDT") usdtFree = free
+                        if (asset == "USDC") usdcFree = free
                         if (asset == base) baseFree = free
                     }
                     availableUsdt = String.format(java.util.Locale.US, "%.8f", usdtFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
+                    availableUsdc = String.format(java.util.Locale.US, "%.8f", usdcFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
                     availableBase = String.format(java.util.Locale.US, "%.8f", baseFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
                 }
             } catch (_: Exception) { }
@@ -1659,14 +1663,82 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         Text("No open orders", color = Muted, fontSize = 14.sp)
                     }
                 } else {
-                    Column(
-                        Modifier.fillMaxWidth().height(190.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = Muted, modifier = Modifier.size(42.dp))
-                        Spacer(Modifier.height(12.dp))
-                        Text("No holdings yet", color = Muted, fontSize = 14.sp)
+                    val baseQuantity = availableBase.toDoubleOrNull() ?: 0.0
+                    val stableUsdt = availableUsdt.toDoubleOrNull() ?: 0.0
+                    val stableUsdc = availableUsdc.toDoubleOrNull() ?: 0.0
+                    val stableAsset = when {
+                        stableUsdt > 0.0 -> "USDT"
+                        stableUsdc > 0.0 -> "USDC"
+                        quote == "USDC" -> "USDC"
+                        else -> "USDT"
+                    }
+                    val stableQuantity = if (stableAsset == "USDC") stableUsdc else stableUsdt
+                    val basePrice = livePriceValue
+                    val baseEquity = baseQuantity * basePrice
+                    val stableEquity = stableQuantity
+                    val baseDisplay = String.format(java.util.Locale.US, "%.8f", baseQuantity).trimEnd('0').trimEnd('.').ifBlank { "0" }
+                    val stableDisplay = String.format(java.util.Locale.US, "%.8f", stableQuantity).trimEnd('0').trimEnd('.').ifBlank { "0" }
+
+                    @Composable
+                    fun HoldingAssetCard(asset: String, quantity: String, equity: Double, isStable: Boolean) {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 13.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                MarketCoinIcon(asset, 34.dp)
+                                Spacer(Modifier.width(9.dp))
+                                Text(asset, color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(17.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Spot PnL ($stableAsset)", color = Muted, fontSize = 12.sp)
+                                Text("Spot PnL%", color = Muted, fontSize = 12.sp)
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("--  --", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("--", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            Spacer(Modifier.height(15.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text("Equity", color = Muted, fontSize = 12.sp)
+                                    Text("$quantity  $ " + String.format(java.util.Locale.US, "%.2f", equity), color = White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Balance", color = Muted, fontSize = 12.sp)
+                                    Text(quantity, color = White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                            if (!isStable) {
+                                Spacer(Modifier.height(13.dp))
+                                Text("Spot breakeven price ($stableAsset)", color = Muted, fontSize = 12.sp)
+                                Text("--  ✎", color = White, fontSize = 13.sp)
+                            }
+                        }
+                    }
+
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Panel).padding(horizontal = 12.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Margin rate", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.width(7.dp))
+                            Text("◉ 0.00%", color = Color(0xFF18B8C8), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.weight(1f))
+                            Icon(Icons.Filled.ExpandMore, null, tint = Muted)
+                        }
+                        if (baseQuantity > 0.0 || basePrice > 0.0) {
+                            HoldingAssetCard(base, baseDisplay, baseEquity, false)
+                            HorizontalDivider(color = Color(0xFF30343B))
+                        }
+                        if (stableQuantity > 0.0 || (baseQuantity <= 0.0 && basePrice <= 0.0)) {
+                            HoldingAssetCard(stableAsset, stableDisplay, stableEquity, true)
+                        }
+                        if (baseQuantity <= 0.0 && stableQuantity <= 0.0 && basePrice <= 0.0) {
+                            Column(Modifier.fillMaxWidth().height(90.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Text("No holdings yet", color = Muted, fontSize = 13.sp)
+                            }
+                        }
                     }
                 }
             }
