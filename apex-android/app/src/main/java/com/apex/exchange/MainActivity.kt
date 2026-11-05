@@ -2441,37 +2441,79 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
             Box(Modifier.fillMaxWidth().weight(1f).padding(20.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(title, color = White, 
+
 @Composable
 private fun WalletActionScreen(title: String, onBack: () -> Unit) {
+    val isDeposit = title == "Deposit"
+    val scope = rememberCoroutineScope()
+    var amount by remember { mutableStateOf(if (isDeposit) "100" else "") }
+    var destination by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
-            Text(title, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(if (isDeposit) "Testnet Demo Deposit" else "Testnet Demo Withdrawal", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(18.dp)) {
-                Icon(if (title == "Deposit") Icons.Filled.SouthWest else Icons.Filled.NorthEast,
-                    null, tint = Yellow, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.height(12.dp))
-                Text(if (title == "Deposit") "Deposit crypto to APEX" else "Withdraw crypto from APEX",
-                    color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("TESTNET SIMULATION ONLY", color = Yellow, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Spacer(Modifier.height(8.dp))
-                Text(if (title == "Deposit")
-                    "Deposit addresses are not generated yet. APEX is completing secure custody and blockchain monitoring setup."
-                    else "Withdrawals are disabled until secure key custody, 2-step verification, screening and approval controls are ready.",
+                Text(if (isDeposit) "Claim demo balance" else "Simulate a withdrawal",
+                    color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text(if (isDeposit)
+                    "Claim 100 demo USDT once per day. This credit has no cash value and is not a real deposit."
+                    else "The amount is deducted from your internal demo ledger. No crypto is sent to any network.",
                     color = Muted, fontSize = 13.sp)
+                if (!isDeposit) {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount (USDT)") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = destination, onValueChange = { destination = it },
+                        label = { Text("Destination label (demo only)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                }
+                if (message != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(message!!, color = if (message!!.startsWith("Success")) Green else Red, fontSize = 12.sp)
+                }
                 Spacer(Modifier.height(16.dp))
-                Text(if (title == "Deposit") "Do not send funds to any address claiming to belong to APEX."
-                    else "Withdrawals are not available through this screen yet.",
-                    color = Red, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(14.dp))
-                Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(disabledContainerColor = Color(0xFF34302A))) {
-                    Text(if (title == "Deposit") "Address not available" else "Withdrawals disabled", color = Muted)
+                Button(
+                    enabled = !busy && (isDeposit || (amount.toDoubleOrNull()?.let { it > 0.0 } == true && destination.trim().length >= 8)),
+                    onClick = {
+                        scope.launch {
+                            busy = true
+                            message = null
+                            try {
+                                val payload = JSONObject()
+                                if (!isDeposit) {
+                                    payload.put("asset", "USDT")
+                                    payload.put("amount", amount.toDouble())
+                                    payload.put("destination", destination.trim())
+                                }
+                                val result = apexApiRequest(
+                                    if (isDeposit) "/api/wallet/testnet/deposit" else "/api/wallet/testnet/withdraw",
+                                    "POST", payload
+                                )
+                                message = "Success: " + result.optString("message", "Demo transaction recorded.")
+                            } catch (e: Exception) {
+                                message = e.localizedMessage ?: "Testnet demo transaction failed."
+                            } finally { busy = false }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg)
+                ) {
+                    if (busy) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Bg, strokeWidth = 2.dp)
+                    else Text(if (isDeposit) "Claim 100 Demo USDT" else "Simulate Withdrawal")
                 }
             }
         }
+        Spacer(Modifier.height(12.dp))
+        Text("Important: These controls do not generate deposit addresses or send/receive blockchain funds. Real-money custody remains disabled.",
+            color = Red, fontSize = 11.sp)
     }
 }
 

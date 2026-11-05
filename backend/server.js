@@ -364,6 +364,80 @@ app.get('/api/pnl/today', requireFirebaseAuth, async (req, res) => {
 });
 
 
+
+const walletTestLimiter = rateLimit({ windowMs: 60 * 1000, limit: 3, standardHeaders: true, legacyHeaders: false });
+
+// TESTNET DEMO ONLY: credits have no monetary value and never move on a blockchain.
+app.post('/api/wallet/testnet/deposit', requireFirebaseAuth, walletTestLimiter, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const walletRef = userWallet(uid);
+    const now = new Date();
+    const dayKey = now.toISOString().slice(0, 10);
+    const faucetRef = userWalletTransactions(uid).doc('faucet_' + dayKey);
+    const txRef = userWalletTransactions(uid).doc();
+    await db.runTransaction(async tx => {
+      const [walletSnap, faucetSnap] = await Promise.all([tx.get(walletRef), tx.get(faucetRef)]);
+      if (faucetSnap.exists) {
+        const error = new Error('Today\'s demo credit has already been claimed. Try again tomorrow.');
+        error.status = 429; throw error;
+      }
+      const wallet = walletSnap.exists ? walletSnap.data() : { balances: {} };
+      const balances = { ...(wallet.balances || {}) };
+      balances.USDT = Number((Number(balances.USDT || 0) + 100).toFixed(8));
+      tx.set(walletRef, {
+        uid, mode: 'TESTNET_SIMULATED', status: 'TESTNET_DEMO_ACTIVE', balances,
+        createdAt: wallet.createdAt || FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+      tx.create(faucetRef, { type: 'TESTNET_DEMO_DEPOSIT', asset: 'USDT', amount: 100,
+        status: 'COMPLETED_SIMULATED', createdAt: FieldValue.serverTimestamp() });
+      tx.create(txRef, { type: 'TESTNET_DEMO_DEPOSIT', asset: 'USDT', amount: 100,
+        status: 'COMPLETED_SIMULATED', createdAt: FieldValue.serverTimestamp() });
+    });
+    res.status(201).json({ ok: true, mode: 'TESTNET_SIMULATED', amount: 100, asset: 'USDT',
+      message: '100 demo USDT credited. This is not real money and cannot be transferred to a blockchain.' });
+  } catch (error) { sendError(res, error); }
+});
+
+app.post('/api/wallet/testnet/withdraw', requireFirebaseAuth, walletTestLimiter, async (req, res) => {
+  try {
+    const amount = Number(req.body.amount);
+    const asset = String(req.body.asset || 'USDT').toUpperCase();
+    const destination = String(req.body.destination || '').trim();
+    if (asset !== 'USDT' || !Number.isFinite(amount) || amount <= 0 || amount > 1000 ||
+        !/^\\S{8,160}$/.test(destination)) {
+      return res.status(400).json({ error: 'Enter a valid demo USDT amount (max 1,000) and destination label/address (8–160 characters).' });
+    }
+    const rounded = Number(amount.toFixed(8));
+    if (Math.abs(rounded - amount) > 1e-10) return res.status(400).json({ error: 'Maximum 8 decimal places are allowed.' });
+    const uid = req.user.uid;
+    const walletRef = userWallet(uid);
+    const txRef = userWalletTransactions(uid).doc();
+    await db.runTransaction(async tx => {
+      const walletSnap = await tx.get(walletRef);
+      if (!walletSnap.exists) {
+        const error = new Error('No demo wallet found. Claim the testnet demo credit first.');
+        error.status = 409; throw error;
+      }
+      const wallet = walletSnap.data();
+      const balances = { ...(wallet.balances || {}) };
+      const available = Number(balances.USDT || 0);
+      if (available < rounded) {
+        const error = new Error('Insufficient demo USDT balance.');
+        error.status = 400; throw error;
+      }
+      balances.USDT = Number((available - rounded).toFixed(8));
+      tx.update(walletRef, { balances, updatedAt: FieldValue.serverTimestamp() });
+      tx.create(txRef, { type: 'TESTNET_DEMO_WITHDRAWAL', asset, amount: rounded,
+        destination, status: 'COMPLETED_SIMULATED', createdAt: FieldValue.serverTimestamp() });
+    });
+    res.status(201).json({ ok: true, mode: 'TESTNET_SIMULATED', amount: rounded, asset,
+      status: 'COMPLETED_SIMULATED',
+      message: 'Demo withdrawal recorded internally only. No blockchain transfer was made.' });
+  } catch (error) { sendError(res, error); }
+});
+
 app.get('/api/wallet', requireFirebaseAuth, async (req, res) => {
   try {
     const snapshot = await ensureWallet(req.user.uid);
@@ -372,9 +446,11 @@ app.get('/api/wallet', requireFirebaseAuth, async (req, res) => {
       mode: wallet.mode || 'TESTNET_LEDGER_ONLY',
       status: wallet.status || 'PENDING_CUSTODY_INFRASTRUCTURE',
       balances: wallet.balances || {},
-      depositsEnabled: false,
-      withdrawalsEnabled: false,
-      message: 'Custody infrastructure and compliance approval are required before real deposits or withdrawals.'
+      depositsEnabled: true,
+      withdrawalsEnabled: true,
+      realDepositsEnabled: false,
+      realWithdrawalsEnabled: false,
+      message: 'Testnet demo only. No real funds or blockchain transfers.'
     });
   } catch (error) { sendError(res, error); }
 });
