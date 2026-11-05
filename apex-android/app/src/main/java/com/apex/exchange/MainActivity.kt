@@ -441,53 +441,24 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     }
 
     LaunchedEffect(signedInUser?.uid, refreshKey) {
-        walletBalance = null
-        if (signedInUser != null) {
-            var walletSocket: WebSocket? = null
-            try {
-                val wallet = apexApiRequest("/api/account")
-                val rows = wallet.optJSONArray("balances") ?: JSONArray()
-                var total = 0.0
-                for (i in 0 until rows.length()) {
-                    val row = rows.getJSONObject(i)
-                    if (row.optString("asset") == "USDT") {
-                        val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
-                        val locked = row.optString("locked", "0").toDoubleOrNull() ?: 0.0
-                        total = free + locked
-                        break
-                    }
+        if (signedInUser == null) {
+            walletBalance = null
+        } else {
+            // Same APEX testnet demo ledger as Assets; retain cached value while refreshing.
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                try {
+                    val wallet = apexApiRequest("/api/wallet")
+                    val balancesJson = wallet.optJSONObject("balances") ?: JSONObject()
+                    val total = balancesJson.optDouble("USDT", 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+                    val formatted = String.format(java.util.Locale.US, "%.2f", total)
+                    walletBalance = "$formatted USDT"
+                    cachedAssetTotalUsdt = total
+                    cachedAssetBalancesAt = System.currentTimeMillis()
+                } catch (_: Exception) {
+                    if (walletBalance == null) walletBalance = if (cachedAssetBalancesAt > 0L)
+                        String.format(java.util.Locale.US, "%.2f USDT", cachedAssetTotalUsdt) else "—"
                 }
-                walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
-
-                val stream = apexApiRequest("/api/account/listen-key")
-                val listenKey = stream.getString("listenKey")
-                val client = OkHttpClient()
-                val request = Request.Builder()
-                    .url("wss://stream.testnet.binance.vision/ws/$listenKey")
-                    .build()
-                walletSocket = client.newWebSocket(request, object : WebSocketListener() {
-                    override fun onMessage(webSocket: WebSocket, text: String) {
-                        try {
-                            val event = JSONObject(text)
-                            if (event.optString("e") != "outboundAccountPosition") return
-                            val changed = event.optJSONArray("B") ?: return
-                            for (i in 0 until changed.length()) {
-                                val row = changed.getJSONObject(i)
-                                if (row.optString("a") == "USDT") {
-                                    val free = row.optString("f", "0").toDoubleOrNull() ?: 0.0
-                                    val locked = row.optString("l", "0").toDoubleOrNull() ?: 0.0
-                                    walletBalance = String.format(java.util.Locale.US, "%.2f USDT", free + locked)
-                                    break
-                                }
-                            }
-                        } catch (_: Exception) { }
-                    }
-                })
-                awaitCancellation()
-            } catch (_: Exception) {
-                if (walletBalance == null) walletBalance = "—"
-            } finally {
-                walletSocket?.close(1000, "Wallet screen refreshed or closed")
+                delay(5000)
             }
         }
     }
@@ -2191,10 +2162,13 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
     var message by remember { mutableStateOf(if (cachedAssetBalances.isNotEmpty()) "Binance Spot Testnet · Cached wallet" else "Login to load your Binance Spot Testnet wallet.") }
     var totalUsdt by remember { mutableStateOf(cachedAssetTotalUsdt) }
     var assetMetrics by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
+    var walletRequestInFlight by remember { mutableStateOf(false) }
 
     fun refreshWallet() {
         if (user == null) { message = "Login to load your APEX wallet."; return }
-        // Keep cached balances visible while refreshing; only show skeleton on first load.
+        if (walletRequestInFlight) return
+        walletRequestInFlight = true
+        // Keep cached balances visible during every background refresh.
         if (balances.isEmpty()) busy = true
         scope.launch {
             try {
@@ -2215,10 +2189,11 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                 cachedAssetTotalUsdt = usdt
                 cachedAssetBalancesAt = System.currentTimeMillis()
                 val walletStatus = response.optString("status", "PENDING_CUSTODY_INFRASTRUCTURE")
-                message = if (walletStatus == "ACTIVE") "APEX Custodial Wallet · Live ledger"
-                    else "APEX Custodial Wallet · Setup pending"
-            } catch (e: Exception) { message = e.localizedMessage ?: "Wallet could not be loaded." }
-            finally { busy = false }
+                message = if (walletStatus == "ACTIVE") "APEX Wallet · Live ledger"
+                    else "APEX Testnet Wallet · Demo ledger"
+            } catch (e: Exception) {
+                if (balances.isEmpty()) message = e.localizedMessage ?: "Wallet could not be loaded."
+            } finally { busy = false; walletRequestInFlight = false }
         }
     }
     LaunchedEffect(user?.uid) {
@@ -2227,12 +2202,16 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             totalUsdt = 0.0
             cachedAssetBalances = emptyList()
             cachedAssetTotalUsdt = 0.0
-            message = "Login to load your APEX Custodial Wallet."
+            cachedAssetBalancesAt = 0L
+            message = "Login to load your APEX Testnet Wallet."
         } else {
-            // Cached wallet renders immediately; refresh silently in the background.
+            // Render cached data immediately, then keep both balance surfaces synced.
             balances = cachedAssetBalances
             totalUsdt = cachedAssetTotalUsdt
-            refreshWallet()
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                refreshWallet()
+                delay(5000)
+            }
         }
     }
 
@@ -2264,7 +2243,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             Column(Modifier.padding(18.dp)) {
                 Text("Estimated total value", color = Muted, fontSize = 13.sp)
                 Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("APEX internal ledger · balances appear after approved credits", color = Muted, fontSize = 10.sp)
+                Text("APEX Testnet Demo Wallet · live balance", color = Muted, fontSize = 10.sp)
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2359,7 +2338,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                 HorizontalDivider(color = Panel)
             }
         }
-        Text("Deposits and withdrawals are disabled until custody infrastructure is approved. Binance Testnet trading funds are separate from this wallet ledger.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
+        Text("Testnet demo ledger only. Demo USDT is not real money and cannot be transferred on a blockchain. Real-money custody remains disabled.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
     }
 }
 
