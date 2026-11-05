@@ -773,7 +773,7 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
     }
     Box(
         modifier = Modifier
-            .width(90.dp)
+            .width(82.dp)
             .height(26.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(tint),
