@@ -1413,48 +1413,170 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
         }
     }
     LaunchedEffect(pair, chartInterval) {
-        while (true) {
-            try {
-                val data = fetchPairMarketData(pair, chartInterval.lowercase())
-                val previousPrice = marketPrice.replace(",", "").toDoubleOrNull()
-                val updatedPrice = data.price.replace(",", "").toDoubleOrNull()
-                marketPriceColor = when {
-                    previousPrice == null || updatedPrice == null || updatedPrice == previousPrice -> White
-                    updatedPrice > previousPrice -> Green
-                    else -> Red
+        // One REST snapshot for chart history, then ticker + kline updates arrive over WebSocket.
+        try {
+            val data = fetchPairMarketData(pair, chartInterval.lowercase())
+            marketPrice = data.price
+            marketChangePercent = data.changePercent
+            candles = data.candles
+            marketError = null
+        } catch (e: Exception) { marketError = e.message ?: "Market data unavailable" }
+
+        val streamSymbol = pair.replace("/", "").lowercase(java.util.Locale.US)
+        val interval = chartInterval.lowercase(java.util.Locale.US)
+        val client = OkHttpClient()
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+            val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val streams = "$streamSymbol@ticker/$streamSymbol@kline_$interval"
+            val request = Request.Builder()
+                .url("wss://stream.binance.com:9443/stream?streams=$streams")
+                .build()
+            val socket = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val envelope = JSONObject(text)
+                        val event = envelope.optJSONObject("data") ?: envelope
+                        when (event.optString("e")) {
+                            "24hrTicker" -> {
+                                val nextPrice = event.optString("c")
+                                val nextValue = nextPrice.toDoubleOrNull()
+                                if (nextValue != null && nextValue > 0.0) {
+                                    val previous = marketPrice.replace(",", "").toDoubleOrNull()
+                                    marketPriceColor = when {
+                                        previous == null || nextValue == previous -> White
+                                        nextValue > previous -> Green
+                                        else -> Red
+                                    }
+                                    marketPrice = nextPrice
+                                    marketChangePercent = event.optString("P", marketChangePercent)
+                                    marketError = null
+                                }
+                            }
+                            "kline" -> {
+                                val kline = event.optJSONObject("k") ?: return
+                                val candle = Candle(
+                                    kline.optString("o").toFloatOrNull() ?: return,
+                                    kline.optString("h").toFloatOrNull() ?: return,
+                                    kline.optString("l").toFloatOrNull() ?: return,
+                                    kline.optString("c").toFloatOrNull() ?: return
+                                )
+                                candles = if (candles.isEmpty()) listOf(candle) else candles.dropLast(1) + candle
+                                marketError = null
+                            }
+                        }
+                    } catch (_: Exception) { }
                 }
-                marketPrice = data.price
-                marketChangePercent = data.changePercent
-                candles = data.candles
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    closed.complete(Unit)
+                }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    closed.complete(Unit)
+                }
+            })
+            try {
+                // Binance sends ticker/kline updates continuously; reconnect if the stream goes silent.
+                kotlinx.coroutines.withTimeoutOrNull(70000) { closed.await() }
+            } finally {
+                socket.cancel()
+            }
+            try {
+                val snapshot = fetchPairMarketData(pair, interval)
+                marketPrice = snapshot.price
+                marketChangePercent = snapshot.changePercent
+                candles = snapshot.candles
                 marketError = null
-            } catch (e: Exception) { marketError = e.message ?: "Market data unavailable" }
-            delay(5000)
+            } catch (e: Exception) {
+                marketError = e.message ?: "Market stream reconnecting…"
+            }
+            delay(1000)
         }
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
     }
-    LaunchedEffect(Unit) {
-        while (true) {
-            try {
-                if (FirebaseAuth.getInstance().currentUser != null) {
-                    val wallet = apexApiRequest("/api/account")
-                    val rows = wallet.optJSONArray("balances") ?: JSONArray()
-                    var usdtFree = 0.0
-                    var usdcFree = 0.0
-                    var baseFree = 0.0
-                    for (i in 0 until rows.length()) {
-                        val row = rows.getJSONObject(i)
-                        val asset = row.optString("asset")
-                        val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
-                        if (asset == "USDT") usdtFree = free
-                        if (asset == "USDC") usdcFree = free
-                        if (asset == base) baseFree = free
-                    }
-                    availableUsdt = String.format(java.util.Locale.US, "%.8f", usdtFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
-                    availableUsdc = String.format(java.util.Locale.US, "%.8f", usdcFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
-                    availableBase = String.format(java.util.Locale.US, "%.8f", baseFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
-                }
-            } catch (_: Exception) { }
-            delay(15000)
+    LaunchedEffect(base) {
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            availableUsdt = "0"
+            availableUsdc = "0"
+            availableBase = "0"
+            return@LaunchedEffect
         }
+        suspend fun applyAccountBalances(rows: JSONArray) {
+            var usdtFree = 0.0
+            var usdcFree = 0.0
+            var baseFree = 0.0
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i) ?: continue
+                val asset = row.optString("asset")
+                val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
+                if (asset == "USDT") usdtFree = free
+                if (asset == "USDC") usdcFree = free
+                if (asset == base) baseFree = free
+            }
+            availableUsdt = String.format(java.util.Locale.US, "%.8f", usdtFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
+            availableUsdc = String.format(java.util.Locale.US, "%.8f", usdcFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
+            availableBase = String.format(java.util.Locale.US, "%.8f", baseFree).trimEnd('0').trimEnd('.').ifBlank { "0" }
+        }
+
+        // Initial account snapshot, followed by Binance Testnet account WebSocket events.
+        try {
+            val snapshot = apexApiRequest("/api/account")
+            applyAccountBalances(snapshot.optJSONArray("balances") ?: JSONArray())
+        } catch (_: Exception) { }
+
+        val client = OkHttpClient()
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+            var socket: WebSocket? = null
+            try {
+                val listenKeyResponse = apexApiRequest("/api/account/listen-key")
+                val listenKey = listenKeyResponse.getString("listenKey")
+                val connected = kotlinx.coroutines.CompletableDeferred<Unit>()
+                val request = Request.Builder()
+                    .url("wss://stream.testnet.binance.vision/ws/$listenKey")
+                    .build()
+                socket = client.newWebSocket(request, object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        connected.complete(Unit)
+                    }
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        try {
+                            val event = JSONObject(text)
+                            when (event.optString("e")) {
+                                "outboundAccountPosition", "outboundAccountInfo" -> {
+                                    val rows = event.optJSONArray("B") ?: event.optJSONArray("balances") ?: JSONArray()
+                                    orderScope.launch { applyAccountBalances(rows) }
+                                }
+                                "executionReport" -> {
+                                    // Order fills/cancels can change available balances; refresh once on the event.
+                                    orderScope.launch {
+                                        try {
+                                            val snapshot = apexApiRequest("/api/account")
+                                            applyAccountBalances(snapshot.optJSONArray("balances") ?: JSONArray())
+                                        } catch (_: Exception) { }
+                                    }
+                                }
+                            }
+                        } catch (_: Exception) { }
+                    }
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        if (!connected.isCompleted) connected.complete(Unit)
+                    }
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        if (!connected.isCompleted) connected.complete(Unit)
+                    }
+                })
+                // Rotate listen keys before Binance's 60-minute expiry.
+                kotlinx.coroutines.withTimeoutOrNull(25 * 60 * 1000L) { connected.await() }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                throw kotlinx.coroutines.CancellationException()
+            } catch (_: Exception) {
+                delay(1500)
+            } finally {
+                socket?.close(1000, "Account stream reconnect")
+            }
+            delay(1000)
+        }
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
     }
 
     LaunchedEffect(pair) {
