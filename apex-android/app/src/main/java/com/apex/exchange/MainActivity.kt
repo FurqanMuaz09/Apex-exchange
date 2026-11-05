@@ -1796,52 +1796,6 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onD
         }
         item {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(Modifier.size(32.dp).background(Yellow, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                    Text("A", color = Bg, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                }
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text("APEX", color = White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("Exchange", color = Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { onDetail("Notifications") }) {
-                    Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White)
-                }
-                IconButton(onClick = { onDetail("Profile") }) {
-                    Icon(Icons.Filled.AccountCircle, "Profile", tint = White)
-                }
-            }
-            HorizontalDivider(color = Color(0xFF252A32))
-        }
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Row(
-                        Modifier.clip(RoundedCornerShape(8.dp))
-                            .clickable { pairSearch = ""; showPairSheet = true }
-                            .padding(vertical = 5.dp, horizontal = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(pair, color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Filled.ArrowDropDown, "Select market pair", tint = White, modifier = Modifier.size(30.dp))
-                    }
-                    val changeValue = marketChangePercent.toDoubleOrNull() ?: 0.0
-                    Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = when { changeValue > 0.0 -> Green; changeValue < 0.0 -> Red; else -> White }, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-                Icon(Icons.Filled.CandlestickChart, null, tint = White, modifier = Modifier.size(25.dp))
-                Spacer(Modifier.width(15.dp))
-                Icon(Icons.Filled.MoreHoriz, null, tint = White)
-            }
-        }
-        item {
-            Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.Top
