@@ -2528,7 +2528,124 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     var message by remember { mutableStateOf(if (cachedAssetBalances.isNotEmpty()) "Binance Spot Testnet · Cached wallet" else "Login to load your Binance Spot Testnet wallet.") }
     var totalUsdt by remember { mutableStateOf(cachedAssetTotalUsdt) }
     var assetMetrics by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
+    var livePrices by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { cachedLiveMarkets.orEmpty() }) }
     var walletRequestInFlight by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.snapshotFlow { sharedLiveMarketsState.value }.collect { markets ->
+            if (markets.isNotEmpty()) livePrices = markets
+        }
+    }
+
+    LaunchedEffect(livePrices, balances) {
+        val walletAmounts = JSONObject()
+        balances.forEach { (asset, amount) -> walletAmounts.put(asset, amount.toDoubleOrNull() ?: 0.0) }
+        val value = calculateWalletTotalUsdt(walletAmounts)
+        if (value.isFinite()) {
+            totalUsdt = value
+            cachedAssetTotalUsdt = value
+        }
+    }
+
+    // Wallet prices keep streaming while the Assets tab is open.
+    LaunchedEffect(user?.uid) {
+        if (user == null) return@LaunchedEffect
+        val client = OkHttpClient()
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+            val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val request = Request.Builder().url("wss://stream.binance.com:9443/ws/!ticker@arr").build()
+            val socket = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val updated = parseTickerWebSocketMarkets(text)
+                        if (updated.isNotEmpty()) {
+                            cachedLiveMarkets = updated
+                            sharedLiveMarketsState.value = updated
+                            cachedLiveMarketsAt = System.currentTimeMillis()
+                        }
+                    } catch (_: Exception) { }
+                }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { closed.complete(Unit) }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { closed.complete(Unit) }
+            })
+            try { kotlinx.coroutines.withTimeoutOrNull(25000L) { closed.await() } }
+            finally { socket.cancel() }
+            try {
+                val latest = fetchLiveMarkets(forceRefresh = true)
+                if (latest.isNotEmpty()) {
+                    livePrices = latest
+                    sharedLiveMarketsState.value = latest
+                }
+            } catch (_: Exception) { }
+            delay(1000)
+        }
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
+    }
+
+    // Binance Testnet account events update wallet quantities immediately after fills.
+    LaunchedEffect(user?.uid) {
+        if (user == null) return@LaunchedEffect
+        val client = OkHttpClient()
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+            var socket: WebSocket? = null
+            try {
+                val keyResponse = apexApiRequest("/api/account/listen-key")
+                val listenKey = keyResponse.getString("listenKey")
+                val connected = kotlinx.coroutines.CompletableDeferred<Unit>()
+                val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
+                val request = Request.Builder().url("wss://stream.testnet.binance.vision/ws/$listenKey").build()
+                socket = client.newWebSocket(request, object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response?) { connected.complete(Unit) }
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        try {
+                            val event = JSONObject(text)
+                            when (event.optString("e")) {
+                                "outboundAccountPosition", "outboundAccountInfo" -> {
+                                    val rows = event.optJSONArray("B") ?: event.optJSONArray("balances") ?: JSONArray()
+                                    val normalized = JSONArray()
+                                    for (i in 0 until rows.length()) {
+                                        val row = rows.optJSONObject(i) ?: continue
+                                        normalized.put(JSONObject()
+                                            .put("asset", row.optString("a", row.optString("asset")))
+                                            .put("free", row.optString("f", row.optString("free", "0")))
+                                            .put("locked", row.optString("l", row.optString("locked", "0"))))
+                                    }
+                                    val (found, amounts) = parseBinanceTestnetBalances(JSONObject().put("balances", normalized))
+                                    scope.launch {
+                                        balances = found
+                                        cachedAssetBalances = found
+                                        cachedAssetBalancesAt = System.currentTimeMillis()
+                                        val value = calculateWalletTotalUsdt(amounts)
+                                        totalUsdt = value
+                                        cachedAssetTotalUsdt = value
+                                    }
+                                }
+                                "executionReport" -> scope.launch { refreshWallet() }
+                            }
+                        } catch (_: Exception) { }
+                    }
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        connected.complete(Unit); closed.complete(Unit)
+                    }
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        connected.complete(Unit); closed.complete(Unit)
+                    }
+                })
+                connected.await()
+                kotlinx.coroutines.withTimeoutOrNull(25 * 60 * 1000L) { closed.await() }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                throw kotlinx.coroutines.CancellationException()
+            } catch (_: Exception) {
+                delay(1500)
+            } finally {
+                socket?.close(1000, "Assets account stream reconnect")
+            }
+            delay(1000)
+        }
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
+    }
 
     fun refreshWallet() {
         if (user == null) { message = "Login to load your APEX wallet."; return }
@@ -2678,7 +2795,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
             rankedBalances.forEach { coin ->
                 val asset = coin.first
                 val quantity = coin.second.toDoubleOrNull() ?: 0.0
-                val market = cachedLiveMarkets?.firstOrNull { it.symbol.equals(asset, true) }
+                val market = livePrices.firstOrNull { it.symbol.equals(asset, true) }
                 val marketPrice = if (asset == "USDT" || asset == "USDC" || asset == "FDUSD" || asset == "BUSD") 1.0
                     else market?.price?.replace(",", "")?.toDoubleOrNull() ?: 0.0
                 val equity = quantity * marketPrice
@@ -2708,9 +2825,12 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                     val metrics = assetMetrics[asset]
                     val hasPnlMetrics = metrics?.has("unrealizedPnl") == true || metrics?.has("realizedPnl") == true
                     val pnl = if (!isStableAsset && hasPnlMetrics) {
-                        metrics!!.optDouble("unrealizedPnl", 0.0) + metrics.optDouble("realizedPnl", 0.0)
+                        (marketPrice * metrics!!.optDouble("trackedQuantity", 0.0) - metrics.optDouble("costBasis", 0.0)) + metrics.optDouble("realizedPnl", 0.0)
                     } else null
-                    val pnlPercent = if (!isStableAsset && metrics?.has("pnlPercent") == true) metrics.optDouble("pnlPercent") else null
+                    val pnlPercent = if (!isStableAsset && metrics != null && metrics.optDouble("costBasis", 0.0) > 0.0) {
+                        val basis = metrics.optDouble("costBasis", 0.0)
+                        (((marketPrice * metrics.optDouble("trackedQuantity", 0.0) - basis) + metrics.optDouble("realizedPnl", 0.0)) / basis) * 100.0
+                    } else null
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             pnl?.let { String.format(java.util.Locale.US, "%+.4f", it) }
