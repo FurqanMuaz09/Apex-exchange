@@ -543,7 +543,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             Text(
                                 if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts,
                                 color = White,
-                                fontSize = 26.sp,
+                                fontSize = 32.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                                 softWrap = false,
@@ -554,7 +554,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 Text(
                                     "USDT",
                                     color = Muted,
-                                    fontSize = 10.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.padding(bottom = 3.dp)
                                 )
@@ -2315,7 +2315,7 @@ private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Un
         LaunchedEffect(showPairSheet) {
             if (showPairSheet) {
                 cachedLiveMarkets?.let { if (it.isNotEmpty()) allPairMarkets = it }
-                pairLoading = allPairMarkets.isEmpty()
+                pairLoading = !hasUsableMarketPrices(allPairMarkets)
                 pairLoadError = null
                 try {
                     val latest = fetchLiveMarkets(forceRefresh = true)
@@ -2323,7 +2323,7 @@ private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Un
                 } catch (e: Exception) {
                     pairLoadError = e.message ?: "Markets unavailable"
                 } finally {
-                    pairLoading = false
+                    pairLoading = !hasUsableMarketPrices(allPairMarkets)
                 }
                 val client = OkHttpClient()
                 while (kotlinx.coroutines.currentCoroutineContext().isActive) {
@@ -2441,7 +2441,10 @@ private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Un
                             Spacer(Modifier.width(30.dp))
                         }
                     }
-                    items(tradePairResults) { coin ->
+                    if (pairLoading && !hasUsableMarketPrices(tradePairResults)) {
+                        items(8) { MarketRowSkeleton() }
+                    } else {
+                        items(tradePairResults) { coin ->
                         Row(
                             Modifier.fillMaxWidth().padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -2484,6 +2487,7 @@ private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Un
                                 )
                             }
                         }
+                    }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
