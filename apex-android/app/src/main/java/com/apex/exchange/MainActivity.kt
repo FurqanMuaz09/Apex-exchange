@@ -2194,29 +2194,30 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
     var assetMetrics by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
 
     fun refreshWallet() {
-        if (user == null) { message = "Login to load your Testnet wallet."; return }
+        if (user == null) { message = "Login to load your APEX wallet."; return }
         // Keep cached balances visible while refreshing; only show skeleton on first load.
         if (balances.isEmpty()) busy = true
         scope.launch {
             try {
-                val response = apexApiRequest("/api/account")
-                val list = response.optJSONArray("balances") ?: JSONArray()
+                val response = apexApiRequest("/api/wallet")
+                val walletBalances = response.optJSONObject("balances") ?: JSONObject()
                 val found = mutableListOf<Pair<String, String>>()
                 var usdt = 0.0
-                for (i in 0 until list.length()) {
-                    val item = list.getJSONObject(i)
-                    val asset = item.optString("asset")
-                    val free = item.optString("free", "0").toDoubleOrNull() ?: 0.0
-                    val locked = item.optString("locked", "0").toDoubleOrNull() ?: 0.0
-                    if (free + locked > 0) found.add(asset to String.format(java.util.Locale.US, "%.8f", free + locked))
-                    if (asset == "USDT") usdt = free + locked
+                val keys = walletBalances.keys()
+                while (keys.hasNext()) {
+                    val asset = keys.next().uppercase()
+                    val amount = walletBalances.optDouble(asset, 0.0)
+                    if (amount > 0.0 && amount.isFinite()) found.add(asset to String.format(java.util.Locale.US, "%.8f", amount))
+                    if (asset == "USDT") usdt = amount
                 }
                 balances = found
                 totalUsdt = usdt
                 cachedAssetBalances = found
                 cachedAssetTotalUsdt = usdt
                 cachedAssetBalancesAt = System.currentTimeMillis()
-                message = "Binance Spot Testnet · Live account data"
+                val walletStatus = response.optString("status", "PENDING_CUSTODY_INFRASTRUCTURE")
+                message = if (walletStatus == "ACTIVE") "APEX Custodial Wallet · Live ledger"
+                    else "APEX Custodial Wallet · Setup pending"
             } catch (e: Exception) { message = e.localizedMessage ?: "Wallet could not be loaded." }
             finally { busy = false }
         }
@@ -2227,7 +2228,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             totalUsdt = 0.0
             cachedAssetBalances = emptyList()
             cachedAssetTotalUsdt = 0.0
-            message = "Login to load your Binance Spot Testnet wallet."
+            message = "Login to load your APEX Custodial Wallet."
         } else {
             // Cached wallet renders immediately; refresh silently in the background.
             balances = cachedAssetBalances
@@ -2264,7 +2265,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             Column(Modifier.padding(18.dp)) {
                 Text("Estimated total value", color = Muted, fontSize = 13.sp)
                 Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("USDT balance only · other assets not converted", color = Muted, fontSize = 10.sp)
+                Text("APEX internal ledger · balances appear after approved credits", color = Muted, fontSize = 10.sp)
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2273,7 +2274,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             ActionButton("Withdraw", Modifier.weight(1f)) { onDetail("Withdraw") }
         }
         Text(message, color = if (message.startsWith("Binance")) Green else Muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
-        SectionTitle("My Testnet Assets")
+        SectionTitle("My Wallet Assets")
         if (busy && balances.isEmpty()) {
             repeat(6) {
                 Row(
@@ -2289,7 +2290,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                 HorizontalDivider(color = Panel)
             }
         } else if (balances.isEmpty()) {
-            Text("No funded assets returned.", color = Muted, modifier = Modifier.padding(18.dp))
+            Text("No credited wallet assets yet.", color = Muted, modifier = Modifier.padding(18.dp))
         } else {
             balances.sortedByDescending { it.first.equals(pinnedAssetSymbol, ignoreCase = true) }.forEach { coin ->
                 val asset = coin.first
@@ -2359,7 +2360,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                 HorizontalDivider(color = Panel)
             }
         }
-        Text("Testnet funds have no real monetary value. Deposits and withdrawals are not enabled here.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
+        Text("Deposits and withdrawals are disabled until custody infrastructure is approved. Binance Testnet trading funds are separate from this wallet ledger.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
     }
 }
 
@@ -2419,6 +2420,12 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
         KycScreen(onBack)
     } else if (title == "Notifications") {
         NotificationsScreen(onBack)
+    } else if (title == "Deposit") {
+        WalletActionScreen("Deposit", onBack)
+    } else if (title == "Withdraw") {
+        WalletActionScreen("Withdraw", onBack)
+    } else if (title == "Wallet Transactions") {
+        WalletTransactionsScreen(onBack)
     } else if (title == "Security") {
         SecurityScreen(onBack)
     } else if (title == "Order History" || title == "Open Orders") {
@@ -2433,7 +2440,82 @@ private fun NativeDetail(title: String, onBack: () -> Unit) {
             }
             Box(Modifier.fillMaxWidth().weight(1f).padding(20.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(title, color = White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text(title, color = White, 
+@Composable
+private fun WalletActionScreen(title: String, onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize().padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text(title, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(24.dp))
+        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Panel)) {
+            Column(Modifier.padding(18.dp)) {
+                Icon(if (title == "Deposit") Icons.Filled.SouthWest else Icons.Filled.NorthEast,
+                    null, tint = Yellow, modifier = Modifier.size(32.dp))
+                Spacer(Modifier.height(12.dp))
+                Text(if (title == "Deposit") "Deposit crypto to APEX" else "Withdraw crypto from APEX",
+                    color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text(if (title == "Deposit")
+                    "Deposit addresses are not generated yet. APEX is completing secure custody and blockchain monitoring setup."
+                    else "Withdrawals are disabled until secure key custody, 2-step verification, screening and approval controls are ready.",
+                    color = Muted, fontSize = 13.sp)
+                Spacer(Modifier.height(16.dp))
+                Text(if (title == "Deposit") "Do not send funds to any address claiming to belong to APEX."
+                    else "Withdrawals are not available through this screen yet.",
+                    color = Red, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(14.dp))
+                Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(disabledContainerColor = Color(0xFF34302A))) {
+                    Text(if (title == "Deposit") "Address not available" else "Withdrawals disabled", color = Muted)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WalletTransactionsScreen(onBack: () -> Unit) {
+    var transactions by remember { mutableStateOf(emptyList<JSONObject>()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        try {
+            val response = apexApiRequest("/api/wallet/transactions")
+            val rows = response.optJSONArray("transactions") ?: JSONArray()
+            transactions = (0 until rows.length()).map { rows.getJSONObject(it) }
+        } catch (e: Exception) { error = e.localizedMessage ?: "Could not load wallet transactions." }
+        finally { loading = false }
+    }
+    Column(Modifier.fillMaxSize().padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
+            Text("Wallet Transactions", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        when {
+            loading -> CircularProgressIndicator(color = Yellow, modifier = Modifier.padding(24.dp))
+            error != null -> Text(error!!, color = Red, modifier = Modifier.padding(12.dp))
+            transactions.isEmpty() -> Text("No wallet transactions yet.", color = Muted, modifier = Modifier.padding(12.dp))
+            else -> LazyColumn {
+                items(transactions) { item ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 13.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(item.optString("type", "Transaction").uppercase(), color = White,
+                                fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text(item.optString("status", "PENDING"), color = Yellow, fontSize = 12.sp)
+                        }
+                        Text("${item.optString("amount", "—")} ${item.optString("asset", "")}", color = White, fontSize = 14.sp)
+                        Text(item.optString("createdAt", "Date unavailable"), color = Muted, fontSize = 10.sp)
+                    }
+                    HorizontalDivider(color = Panel)
+                }
+            }
+        }
+    }
+}
+
+fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Text("This native section will be connected next.", color = Muted, fontSize = 13.sp)
                 }
