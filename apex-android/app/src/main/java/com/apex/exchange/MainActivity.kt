@@ -1717,16 +1717,6 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     }
 
                     Column(Modifier.fillMaxWidth()) {
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Panel).padding(horizontal = 12.dp, vertical = 11.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Margin rate", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.width(7.dp))
-                            Text("◉ 0.00%", color = Color(0xFF18B8C8), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.weight(1f))
-                            Icon(Icons.Filled.ExpandMore, null, tint = Muted)
-                        }
                         if (baseQuantity > 0.0 || basePrice > 0.0) {
                             HoldingAssetCard(base, baseDisplay, baseEquity, false)
                             HorizontalDivider(color = Color(0xFF30343B))
