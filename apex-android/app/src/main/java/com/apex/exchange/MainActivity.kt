@@ -559,7 +559,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             verticalAlignment = Alignment.Bottom
                         ) {
                             Text(
-                                balanceParts,
+                                if (signedInUser != null && !balanceHidden && walletBalance != null) "\$balanceParts" else balanceParts,
                                 color = White,
                                 fontSize = 26.sp,
                                 fontWeight = FontWeight.ExtraBold,
