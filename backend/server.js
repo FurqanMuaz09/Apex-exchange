@@ -369,102 +369,110 @@ app.get('/api/holdings/metrics', requireFirebaseAuth, async (req, res) => {
 app.get('/api/pnl/today', requireFirebaseAuth, async (req, res) => {
   try {
     const snapshot = await userOrders(req.user.uid).limit(500).get();
-    const symbols = [...new Set(snapshot.docs.map(doc => String(doc.data().symbol || '').toUpperCase()).filter(symbol => /^[A-Z0-9]{5,20}USDT$/.test(symbol)))];
+    const symbols = [...new Set(snapshot.docs
+      .map(doc => String(doc.data().symbol || '').toUpperCase())
+      .filter(symbol => /^[A-Z0-9]{5,20}USDT$/.test(symbol)))];
 
-    // Daily boundary is midnight in Pakistan Standard Time (UTC+05:00).
+    // Pakistan-local midnight (UTC+05:00) defines the daily PnL window.
     const pkNow = new Date(Date.now() + 5 * 60 * 60 * 1000);
-    const startTime = Date.UTC(pkNow.getUTCFullYear(), pkNow.getUTCMonth(), pkNow.getUTCDate()) - 5 * 60 * 60 * 1000;
+    const startTime = Date.UTC(
+      pkNow.getUTCFullYear(), pkNow.getUTCMonth(), pkNow.getUTCDate()
+    ) - 5 * 60 * 60 * 1000;
+
     let realizedPnl = 0;
+    let unrealizedPnl = 0;
     let tradesChecked = 0;
+    let symbolsChecked = 0;
 
     for (const symbol of symbols) {
-      const trades = await binanceRequest('GET', '/api/v3/myTrades', { symbol, limit: 1000 });
-      trades.sort((a, b) => Number(a.time) - Number(b.time));
+      const [trades, tickerResponse, candleResponse] = await Promise.all([
+        binanceRequest('GET', '/api/v3/myTrades', { symbol, limit: 1000 }),
+        fetch(`${BASE}/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}`),
+        fetch(`${BASE}/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=1m&startTime=${startTime}&limit=1`)
+      ]);
+
+      const ticker = await tickerResponse.json().catch(() => ({}));
+      const candles = await candleResponse.json().catch(() => []);
+      const currentPrice = Number(ticker.price);
+      const dayOpenPrice = Array.isArray(candles) && candles.length
+        ? Number(candles[0][1])
+        : NaN;
+
+      if (!tickerResponse.ok || !Number.isFinite(currentPrice)) continue;
+      if (!Array.isArray(trades)) continue;
+
+      const baseAsset = symbol.slice(0, -4);
       const lots = [];
+      trades.sort((a, b) => Number(a.time) - Number(b.time));
 
       for (const trade of trades) {
         const qty = Number(trade.qty);
-        const quote = Number(trade.quoteQty);
-        if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(quote)) continue;
-        const unitCostOrProceeds = quote / qty;
+        const quoteQty = Number(trade.quoteQty);
+        const fee = Number(trade.commission || 0);
+        const time = Number(trade.time);
+        if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(quoteQty)) continue;
 
         if (trade.isBuyer) {
-          lots.push({ qty, unitCost: unitCostOrProceeds });
+          const netQty = Math.max(0, qty - (trade.commissionAsset === baseAsset ? fee : 0));
+          const totalCost = quoteQty + (trade.commissionAsset === 'USDT' ? fee : 0);
+          if (netQty > 0) {
+            lots.push({ qty: netQty, unitCost: totalCost / netQty, boughtAt: time });
+          }
           continue;
         }
 
-        let remaining = qty;
-        let cost = 0;
+        const sellQty = qty + (trade.commissionAsset === baseAsset ? fee : 0);
+        const proceeds = Math.max(0, quoteQty - (trade.commissionAsset === 'USDT' ? fee : 0));
+        let remaining = sellQty;
+        let matchedQty = 0;
+        let allocatedCost = 0;
+
         while (remaining > 1e-12 && lots.length) {
           const lot = lots[0];
           const matched = Math.min(remaining, lot.qty);
-          cost += matched * lot.unitCost;
+          allocatedCost += matched * lot.unitCost;
+          matchedQty += matched;
           lot.qty -= matched;
           remaining -= matched;
           if (lot.qty <= 1e-12) lots.shift();
         }
 
-        if (Number(trade.time) >= startTime && remaining < qty) {
-          const matchedQty = qty - remaining;
-          realizedPnl += matchedQty * unitCostOrProceeds - cost;
-          if (trade.commissionAsset === 'USDT') realizedPnl -= Number(trade.commission || 0);
+        if (time >= startTime && matchedQty > 0) {
+          const allocatedProceeds = proceeds * (matchedQty / sellQty);
+          realizedPnl += allocatedProceeds - allocatedCost;
           tradesChecked++;
         }
       }
+
+      // For inventory held before PKT midnight, measure only today's price move.
+      // For inventory bought today, measure mark-to-market against its buy cost.
+      for (const lot of lots) {
+        const referencePrice = lot.boughtAt >= startTime
+          ? lot.unitCost
+          : dayOpenPrice;
+        if (Number.isFinite(referencePrice)) {
+          unrealizedPnl += lot.qty * (currentPrice - referencePrice);
+        }
+      }
+      symbolsChecked++;
     }
 
+    const totalPnl = realizedPnl + unrealizedPnl;
     res.json({
       mode: 'TESTNET ONLY',
       period: 'TODAY_ASIA_KARACHI',
-      pnl: Number(realizedPnl.toFixed(8)),
+      pnl: Number(totalPnl.toFixed(8)),
+      realizedPnl: Number(realizedPnl.toFixed(8)),
+      unrealizedPnl: Number(unrealizedPnl.toFixed(8)),
       currency: 'USDT',
-      type: 'REALIZED_FIFO',
-      trades: tradesChecked
+      type: 'REALIZED_PLUS_TODAY_UNREALIZED_FIFO',
+      trades: tradesChecked,
+      symbols: symbolsChecked
     });
   } catch (error) {
     sendError(res, error);
   }
 });
-
-
-
-const walletTestLimiter = rateLimit({ windowMs: 60 * 1000, limit: 3, standardHeaders: true, legacyHeaders: false });
-
-// TESTNET DEMO ONLY: credits have no monetary value and never move on a blockchain.
-app.post('/api/wallet/testnet/deposit', requireFirebaseAuth, walletTestLimiter, async (req, res) => {
-  try {
-    const uid = req.user.uid;
-    const walletRef = userWallet(uid);
-    const now = new Date();
-    const dayKey = now.toISOString().slice(0, 10);
-    const faucetRef = userWalletTransactions(uid).doc('faucet_' + dayKey);
-    const txRef = userWalletTransactions(uid).doc();
-    await db.runTransaction(async tx => {
-      const [walletSnap, faucetSnap] = await Promise.all([tx.get(walletRef), tx.get(faucetRef)]);
-      if (faucetSnap.exists) {
-        const error = new Error('Today\'s demo credit has already been claimed. Try again tomorrow.');
-        error.status = 429; throw error;
-      }
-      const wallet = walletSnap.exists ? walletSnap.data() : { balances: {} };
-      const balances = { ...(wallet.spotBalances || wallet.balances || {}) };
-      balances.USDT = Number((Number(balances.USDT || 0) + 100).toFixed(8));
-      tx.set(walletRef, {
-        uid, mode: 'TESTNET_SIMULATED', status: 'TESTNET_DEMO_ACTIVE', balances, spotBalances: balances, fundingBalances: wallet.fundingBalances || {},
-        createdAt: wallet.createdAt || FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-      tx.create(faucetRef, { type: 'TESTNET_DEMO_DEPOSIT', asset: 'USDT', amount: 100,
-        status: 'COMPLETED_SIMULATED', createdAt: FieldValue.serverTimestamp() });
-      tx.create(txRef, { type: 'TESTNET_DEMO_DEPOSIT', asset: 'USDT', amount: 100,
-        status: 'COMPLETED_SIMULATED', createdAt: FieldValue.serverTimestamp() });
-    });
-    res.status(201).json({ ok: true, mode: 'TESTNET_SIMULATED', amount: 100, asset: 'USDT',
-      message: '100 demo USDT credited. This is not real money and cannot be transferred to a blockchain.' });
-  } catch (error) { sendError(res, error); }
-});
-
-
-const walletTransferLimiter = rateLimit({ windowMs: 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false });
 
 app.post('/api/wallet/transfer', requireFirebaseAuth, walletTransferLimiter, async (req, res) => {
   try {
