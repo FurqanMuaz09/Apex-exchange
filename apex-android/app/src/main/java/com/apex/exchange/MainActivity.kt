@@ -2321,7 +2321,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                         Text("Spot PnL%", color = Muted, fontSize = 12.sp)
                     }
                     val metrics = assetMetrics[asset]
-                    val pnl = metrics?.optDouble("unrealizedPnl", 0.0)?.plus(metrics.optDouble("realizedPnl", 0.0))
+                    val pnl = metrics?.let { it.optDouble("unrealizedPnl", 0.0) + it.optDouble("realizedPnl", 0.0) }
                     val pnlPercent = metrics?.optDouble("pnlPercent", 0.0)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
