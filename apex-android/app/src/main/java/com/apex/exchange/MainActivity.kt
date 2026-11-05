@@ -303,7 +303,7 @@ private fun ApexNativeApp() {
                             onDetail = { detail = it }
                         )
                         "Markets" -> MarketsScreen(favorites, refreshKey) { detail = it }
-                        "Trade" -> TradeScreen(onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
+                        "Trade" -> TradeScreen(favorites = favorites, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen { detail = it }
                         else -> ProfileScreen { detail = it }
@@ -1253,14 +1253,13 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
+private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
     var pair by remember { mutableStateOf("BTC/USDT") }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
     var pairSheetFilter by remember { mutableStateOf("All") }
-    val pairSheetFavorites = remember { mutableStateListOf<String>() }
     var allPairMarkets by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { cachedLiveMarkets ?: emptyList() }) }
     LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) allPairMarkets = it } }
     var pairLoading by remember { mutableStateOf(false) }
@@ -2416,7 +2415,7 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                 val tradePairResults = allPairMarkets.filter { coin ->
                     (coin.symbol.contains(pairSearch, true) || coin.name.contains(pairSearch, true)) &&
                         when (pairSheetFilter) {
-                            "Favorite" -> coin.symbol in pairSheetFavorites
+                            "Favorite" -> coin.symbol in favorites
                             "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE")
                             "Gainer" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) > 0.0
                             "Loser" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) < 0.0
@@ -2472,15 +2471,15 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                             }
                             IconButton(
                                 onClick = {
-                                    if (coin.symbol in pairSheetFavorites) pairSheetFavorites.remove(coin.symbol)
-                                    else pairSheetFavorites.add(coin.symbol)
+                                    if (coin.symbol in favorites) favorites.remove(coin.symbol)
+                                    else favorites.add(coin.symbol)
                                 },
                                 modifier = Modifier.size(30.dp)
                             ) {
                                 Icon(
-                                    if (coin.symbol in pairSheetFavorites) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                    if (coin.symbol in favorites) Icons.Filled.Star else Icons.Filled.StarBorder,
                                     contentDescription = "Toggle favorite",
-                                    tint = if (coin.symbol in pairSheetFavorites) Yellow else Muted,
+                                    tint = if (coin.symbol in favorites) Yellow else Muted,
                                     modifier = Modifier.size(19.dp)
                                 )
                             }
