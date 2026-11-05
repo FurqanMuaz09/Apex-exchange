@@ -82,6 +82,24 @@ function userOrders(uid) {
   return db.collection('users').doc(uid).collection('orders');
 }
 
+function userWallet(uid) {
+  return db.collection('wallets').doc(uid);
+}
+function userWalletTransactions(uid) {
+  return userWallet(uid).collection('transactions');
+}
+async function ensureWallet(uid) {
+  const ref = userWallet(uid);
+  await db.runTransaction(async tx => {
+    const snapshot = await tx.get(ref);
+    if (!snapshot.exists) tx.create(ref, {
+      uid, mode: 'TESTNET_LEDGER_ONLY', status: 'PENDING_CUSTODY_INFRASTRUCTURE',
+      balances: {}, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+    });
+  });
+  return ref.get();
+}
+
 async function binanceRequest(method, path, params = {}) {
   if (!KEY || !SECRET) throw new Error('Binance Testnet API keys are not configured.');
 
@@ -343,6 +361,34 @@ app.get('/api/pnl/today', requireFirebaseAuth, async (req, res) => {
   } catch (error) {
     sendError(res, error);
   }
+});
+
+
+app.get('/api/wallet', requireFirebaseAuth, async (req, res) => {
+  try {
+    const snapshot = await ensureWallet(req.user.uid);
+    const wallet = snapshot.data() || {};
+    res.json({
+      mode: wallet.mode || 'TESTNET_LEDGER_ONLY',
+      status: wallet.status || 'PENDING_CUSTODY_INFRASTRUCTURE',
+      balances: wallet.balances || {},
+      depositsEnabled: false,
+      withdrawalsEnabled: false,
+      message: 'Custody infrastructure and compliance approval are required before real deposits or withdrawals.'
+    });
+  } catch (error) { sendError(res, error); }
+});
+
+app.get('/api/wallet/transactions', requireFirebaseAuth, async (req, res) => {
+  try {
+    const snapshot = await userWalletTransactions(req.user.uid).orderBy('createdAt', 'desc').limit(50).get();
+    const transactions = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return { id: doc.id, type: data.type, asset: data.asset, amount: data.amount,
+        status: data.status, createdAt: data.createdAt?.toDate?.().toISOString() || null };
+    });
+    res.json({ mode: 'TESTNET_LEDGER_ONLY', transactions });
+  } catch (error) { sendError(res, error); }
 });
 
 app.get('/api/account', requireFirebaseAuth, async (_req, res) => {

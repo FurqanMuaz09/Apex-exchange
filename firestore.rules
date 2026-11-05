@@ -8,6 +8,14 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // Wallet balances and ledger are server-only; Admin SDK writes bypass these rules.
+    match /wallets/{uid} {
+      allow read, write: if false;
+      match /transactions/{transactionId} {
+        allow read, write: if false;
+      }
+    }
+
     match /users/{uid} {
       allow read, create, update, delete: if owns(uid);
 
