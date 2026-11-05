@@ -363,6 +363,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(cachedLiveMarkets?.takeIf { it.isNotEmpty() } ?: sampleMarkets) }
+    LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) liveMarkets = it } }
     var loading by remember { mutableStateOf(cachedLiveMarkets.isNullOrEmpty() && sampleMarkets.isEmpty()) }
     var sheetSearch by remember { mutableStateOf("") }
     var sheetFilter by remember { mutableStateOf("All") }
@@ -394,6 +395,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         if (updated.isNotEmpty() && updated != cachedLiveMarkets) {
                             liveMarkets = updated
                             cachedLiveMarkets = updated
+                            sharedLiveMarketsState.value = updated
                             cachedLiveMarketsAt = System.currentTimeMillis()
                             loading = false
                         }
@@ -858,6 +860,7 @@ private var cachedAssetTotalUsdt: Double = 0.0
 private var cachedAssetBalancesAt: Long = 0L
 
 private var cachedLiveMarkets: List<Coin>? = null
+private val sharedLiveMarketsState = androidx.compose.runtime.mutableStateOf<List<Coin>>(emptyList())
 @Volatile
 private var cachedLiveMarketsAt: Long = 0L
 
@@ -912,6 +915,7 @@ private suspend fun fetchLiveMarkets(forceRefresh: Boolean = false): List<Coin> 
         if (result.isEmpty()) throw IllegalStateException("No live USDT market pairs returned.")
         cachedUsdtSpotSymbols = result.map { it.symbol + "USDT" }.toSet()
         cachedLiveMarkets = result
+        sharedLiveMarketsState.value = result
         cachedLiveMarketsAt = System.currentTimeMillis()
         result
     }
@@ -966,7 +970,8 @@ private val sampleMarkets = listOf(
 private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoin: (String) -> Unit) {
     var filter by remember { mutableStateOf("All") }
     var query by remember { mutableStateOf("") }
-    var liveMarkets by remember { mutableStateOf(sampleMarkets) }
+    var liveMarkets by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { sampleMarkets }) }
+    LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) liveMarkets = it } }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val hotCoins = setOf("BTC", "ETH", "BNB", "SOL")
@@ -1018,6 +1023,7 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
                 if (latest.isNotEmpty()) {
                     liveMarkets = latest
                     cachedLiveMarkets = latest
+                    sharedLiveMarketsState.value = latest
                     cachedLiveMarketsAt = System.currentTimeMillis()
                     loading = false
                     error = null
@@ -1197,7 +1203,8 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var pair by remember { mutableStateOf("BTC/USDT") }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
-    var allPairMarkets by remember { mutableStateOf(cachedLiveMarkets ?: emptyList()) }
+    var allPairMarkets by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { cachedLiveMarkets ?: emptyList() }) }
+    LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) allPairMarkets = it } }
     var pairLoading by remember { mutableStateOf(false) }
     var pairLoadError by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableStateOf("") }
