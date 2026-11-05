@@ -3241,56 +3241,67 @@ private fun AuthScreen(onSuccess: () -> Unit) {
         }
         Spacer(Modifier.height(28.dp))
         Text(if (isSignUp) "Create your account" else "Welcome back", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        if (!isSignUp) {
+            Spacer(Modifier.height(5.dp))
+            Text("Sign in to your APEX account", color = Muted, fontSize = 14.sp)
+        }
         Spacer(Modifier.height(22.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
-            OutlinedTextField(
-                value = email, onValueChange = { email = it.trim(); error = null },
-                modifier = Modifier.fillMaxWidth(), label = { Text("Email address") },
-                singleLine = true, colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                    focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
-                )
+        OutlinedTextField(
+            value = email, onValueChange = { email = it.trim(); error = null },
+            modifier = Modifier.fillMaxWidth().height(58.dp),
+            placeholder = { Text("Email address or phone number", color = Muted.copy(alpha = 0.72f)) },
+            singleLine = true,
+            shape = RoundedCornerShape(13.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF343943),
+                focusedTextColor = Muted, unfocusedTextColor = Muted,
+                focusedPlaceholderColor = Muted.copy(alpha = 0.72f),
+                unfocusedPlaceholderColor = Muted.copy(alpha = 0.72f),
+                focusedContainerColor = Panel, unfocusedContainerColor = Panel,
+                cursorColor = Yellow
             )
-            Spacer(Modifier.height(7.dp))
+        )
+        Spacer(Modifier.height(11.dp))
+        OutlinedTextField(
+            value = password, onValueChange = { password = it; error = null },
+            modifier = Modifier.fillMaxWidth().height(58.dp),
+            placeholder = { Text("Password", color = Muted.copy(alpha = 0.72f)) },
+            singleLine = true,
+            shape = RoundedCornerShape(13.dp),
+            visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password", tint = Muted)
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF343943),
+                focusedTextColor = Muted, unfocusedTextColor = Muted,
+                focusedPlaceholderColor = Muted.copy(alpha = 0.72f),
+                unfocusedPlaceholderColor = Muted.copy(alpha = 0.72f),
+                focusedContainerColor = Panel, unfocusedContainerColor = Panel,
+                cursorColor = Yellow
+            )
+        )
+        if (isSignUp) {
+            Spacer(Modifier.height(11.dp))
             OutlinedTextField(
-                value = password, onValueChange = { password = it; error = null },
-                modifier = Modifier.fillMaxWidth(), label = { Text("Password") },
-                singleLine = true,
-                visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password", tint = Muted)
-                    }
-                },
+                value = confirmPassword, onValueChange = { confirmPassword = it; error = null },
+                modifier = Modifier.fillMaxWidth().height(58.dp), placeholder = { Text("Confirm password", color = Muted.copy(alpha = 0.72f)) },
+                singleLine = true, shape = RoundedCornerShape(13.dp),
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                    focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
+                    focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF343943),
+                    focusedTextColor = Muted, unfocusedTextColor = Muted,
+                    focusedContainerColor = Panel, unfocusedContainerColor = Panel, cursorColor = Yellow
                 )
             )
-            if (isSignUp) {
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = confirmPassword, onValueChange = { confirmPassword = it; error = null },
-                    modifier = Modifier.fillMaxWidth(), label = { Text("Confirm password") },
-                    singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                        focusedTextColor = White, unfocusedTextColor = White, cursorColor = Yellow
-                    )
-                )
-            }
-            if (error != null) {
-                Spacer(Modifier.height(10.dp))
-                Text(error!!, color = Red, fontSize = 12.sp)
-            }
-            }
+        }
+        if (error != null) {
+            Spacer(Modifier.height(10.dp))
+            Text(error!!, color = Red, fontSize = 12.sp)
         }
         Spacer(Modifier.height(20.dp))
         Button(
@@ -3342,7 +3353,14 @@ private fun AuthScreen(onSuccess: () -> Unit) {
             if (busy) {
                 CircularProgressIndicator(modifier = Modifier.size(19.dp), color = Color(0xFF4285F4), strokeWidth = 2.dp)
             } else {
-                Text("G", color = Color(0xFF4285F4), fontSize = 25.sp, fontWeight = FontWeight.Bold)
+                androidx.compose.foundation.Canvas(Modifier.size(25.dp)) {
+                    val stroke = androidx.compose.ui.graphics.Stroke(width = 4.2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Butt)
+                    drawArc(Color(0xFF4285F4), -45f, 90f, false, style = stroke)
+                    drawArc(Color(0xFF34A853), 45f, 90f, false, style = stroke)
+                    drawArc(Color(0xFFFBBC05), 135f, 90f, false, style = stroke)
+                    drawArc(Color(0xFFEA4335), 225f, 90f, false, style = stroke)
+                    drawLine(Color(0xFF4285F4), androidx.compose.ui.geometry.Offset(size.width * 0.52f, size.height * 0.5f), androidx.compose.ui.geometry.Offset(size.width, size.height * 0.5f), stroke.width)
+                }
                 Spacer(Modifier.width(12.dp))
                 Text("Continue with Google", color = Color(0xFF202124), fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
