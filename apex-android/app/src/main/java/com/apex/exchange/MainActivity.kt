@@ -305,7 +305,7 @@ private fun ApexNativeApp() {
                         "Markets" -> MarketsScreen(favorites, refreshKey) { detail = it }
                         "Trade" -> TradeScreen(onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
-                        "Assets" -> AssetsScreen { detail = it }
+                        "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen { detail = it }
                         else -> ProfileScreen { detail = it }
                     }
                 }
