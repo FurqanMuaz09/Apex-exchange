@@ -1506,8 +1506,9 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
             var baseFree = 0.0
             for (i in 0 until rows.length()) {
                 val row = rows.optJSONObject(i) ?: continue
-                val asset = row.optString("asset")
-                val free = row.optString("free", "0").toDoubleOrNull() ?: 0.0
+                // REST snapshots use asset/free; Binance account-stream events use a/f.
+                val asset = row.optString("asset", row.optString("a"))
+                val free = row.optString("free", row.optString("f", "0")).toDoubleOrNull() ?: 0.0
                 if (asset == "USDT") usdtFree = free
                 if (asset == "USDC") usdcFree = free
                 if (asset == base) baseFree = free
@@ -1530,6 +1531,7 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                 val listenKeyResponse = apexApiRequest("/api/account/listen-key")
                 val listenKey = listenKeyResponse.getString("listenKey")
                 val connected = kotlinx.coroutines.CompletableDeferred<Unit>()
+                val streamClosed = kotlinx.coroutines.CompletableDeferred<Unit>()
                 val request = Request.Builder()
                     .url("wss://stream.testnet.binance.vision/ws/$listenKey")
                     .build()
@@ -1546,7 +1548,6 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                                     orderScope.launch { applyAccountBalances(rows) }
                                 }
                                 "executionReport" -> {
-                                    // Order fills/cancels can change available balances; refresh once on the event.
                                     orderScope.launch {
                                         try {
                                             val snapshot = apexApiRequest("/api/account")
@@ -1558,14 +1559,17 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                         } catch (_: Exception) { }
                     }
                     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                        if (!connected.isCompleted) connected.complete(Unit)
+                        connected.complete(Unit)
+                        streamClosed.complete(Unit)
                     }
                     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                        if (!connected.isCompleted) connected.complete(Unit)
+                        connected.complete(Unit)
+                        streamClosed.complete(Unit)
                     }
                 })
-                // Rotate listen keys before Binance's 60-minute expiry.
-                kotlinx.coroutines.withTimeoutOrNull(25 * 60 * 1000L) { connected.await() }
+                connected.await()
+                // Keep the account stream alive; rotate listen keys well before expiry.
+                kotlinx.coroutines.withTimeoutOrNull(25 * 60 * 1000L) { streamClosed.await() }
             } catch (_: kotlinx.coroutines.CancellationException) {
                 throw kotlinx.coroutines.CancellationException()
             } catch (_: Exception) {
