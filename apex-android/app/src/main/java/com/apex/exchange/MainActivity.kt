@@ -1259,6 +1259,8 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var pair by remember { mutableStateOf("BTC/USDT") }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
+    var pairSheetFilter by remember { mutableStateOf("All") }
+    val pairSheetFavorites = remember { mutableStateListOf<String>() }
     var allPairMarkets by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { cachedLiveMarkets ?: emptyList() }) }
     LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) allPairMarkets = it } }
     var pairLoading by remember { mutableStateOf(false) }
@@ -2372,54 +2374,121 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                 client.connectionPool.evictAll()
             }
         }
-        ModalBottomSheet(onDismissRequest = { showPairSheet = false }, containerColor = Panel, contentColor = White) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(value = pairSearch, onValueChange = { pairSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("Search coin or pair") })
-                Spacer(Modifier.height(8.dp))
-                when {
-                    allPairMarkets.isEmpty() && pairLoading -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
-                        items(7) {
-                            Row(Modifier.fillMaxWidth().padding(vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(42.dp).background(Color(0xFF252A32), CircleShape))
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Box(Modifier.fillMaxWidth(0.48f).height(14.dp).background(Color(0xFF252A32), RoundedCornerShape(6.dp)))
-                                    Box(Modifier.fillMaxWidth(0.28f).height(10.dp).background(Color(0xFF252A32), RoundedCornerShape(5.dp)))
-                                }
-                                Spacer(Modifier.width(14.dp))
-                                Box(Modifier.width(62.dp).height(13.dp).background(Color(0xFF252A32), RoundedCornerShape(5.dp)))
-                                Spacer(Modifier.width(16.dp))
-                                Box(Modifier.width(78.dp).height(38.dp).background(Color(0xFF252A32), RoundedCornerShape(9.dp)))
-                            }
-                        }
-                    }
-                    allPairMarkets.isEmpty() && pairLoadError != null ->
-                        Text(pairLoadError ?: "Markets unavailable", color = Red, modifier = Modifier.padding(12.dp))
-                    else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
-                        items(allPairMarkets.filter { (it.symbol + "/USDT " + it.name).contains(pairSearch.trim(), ignoreCase = true) }) { coin ->
-                            Row(Modifier.fillMaxWidth().clickable {
-                                pair = coin.symbol + "/USDT"
-                                amount = ""; limitPrice = ""; totalInput = ""; percent = 0f
-                                showPairSheet = false; pairSearch = ""
-                            }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                MarketCoinIcon(coin.symbol, 40.dp)
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(coin.symbol + "/USDT", color = White, fontWeight = FontWeight.SemiBold)
-                                    Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(coin.price, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                    MarketChangeBadge(coin.change)
-                                }
-                            }
-                            HorizontalDivider(color = Color(0xFF30343B))
-                        }
+        ModalBottomSheet(
+            onDismissRequest = { showPairSheet = false; pairSearch = ""; pairSheetFilter = "All" },
+            modifier = Modifier.fillMaxHeight(0.96f),
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Panel,
+            contentColor = White,
+            dragHandle = { BottomSheetDefaults.DragHandle(color = Muted) }
+        ) {
+            Column(Modifier.fillMaxWidth().fillMaxSize()) {
+                Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+                OutlinedTextField(
+                    value = pairSearch, onValueChange = { pairSearch = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).height(50.dp),
+                    placeholder = { Text("Search coin or pair", color = Muted, fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted) },
+                    singleLine = true, shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF292D35),
+                        focusedTextColor = White, unfocusedTextColor = White,
+                        unfocusedContainerColor = Color(0xFF111419),
+                        focusedContainerColor = Color(0xFF111419)
+                    )
+                )
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach { category ->
+                        Text(
+                            category,
+                            color = if (pairSheetFilter == category) Yellow else Muted,
+                            fontSize = 14.sp,
+                            fontWeight = if (pairSheetFilter == category) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.clickable { pairSheetFilter = category }.padding(vertical = 7.dp)
+                        )
                     }
                 }
-                Spacer(Modifier.height(18.dp))
+                val tradePairResults = allPairMarkets.filter { coin ->
+                    (coin.symbol.contains(pairSearch, true) || coin.name.contains(pairSearch, true)) &&
+                        when (pairSheetFilter) {
+                            "Favorite" -> coin.symbol in pairSheetFavorites
+                            "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE")
+                            "Gainer" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) > 0.0
+                            "Loser" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) < 0.0
+                            else -> true
+                        }
+                }.let { coins ->
+                    when (pairSheetFilter) {
+                        "Gainer" -> coins.sortedByDescending { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                        "Loser" -> coins.sortedBy { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                        else -> coins
+                    }
+                }
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Spacer(Modifier.width(8.dp))
+                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(86.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Spacer(Modifier.width(30.dp))
+                        }
+                    }
+                    items(tradePairResults) { coin ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                Modifier.weight(1f).clickable {
+                                    pair = coin.symbol + "/USDT"
+                                    amount = ""; limitPrice = ""; totalInput = ""; percent = 0f
+                                    showPairSheet = false; pairSearch = ""; pairSheetFilter = "All"
+                                },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                MarketCoinIcon(coin.symbol, 34.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                            }
+                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
+                                Text(coin.price, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.width(86.dp), horizontalAlignment = Alignment.End) {
+                                MarketChangeBadge(coin.change)
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (coin.symbol in pairSheetFavorites) pairSheetFavorites.remove(coin.symbol)
+                                    else pairSheetFavorites.add(coin.symbol)
+                                },
+                                modifier = Modifier.size(30.dp)
+                            ) {
+                                Icon(
+                                    if (coin.symbol in pairSheetFavorites) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                    contentDescription = "Toggle favorite",
+                                    tint = if (coin.symbol in pairSheetFavorites) Yellow else Muted,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = Color(0xFF30343B))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
