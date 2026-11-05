@@ -289,7 +289,7 @@ private fun ApexNativeApp() {
                             onDetail = { detail = it }
                         )
                         "Markets" -> MarketsScreen(favorites, refreshKey) { detail = it }
-                        "Trade" -> TradeScreen { detail = it }
+                        "Trade" -> TradeScreen(onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> AssetsScreen { detail = it }
                         else -> ProfileScreen { detail = it }
@@ -428,16 +428,13 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         if (signedInUser == null) {
             todayPnl = null
         } else {
-            while (true) {
-                try {
-                    val response = apexApiRequest("/api/pnl/today")
-                    if (response.has("pnl") && !response.isNull("pnl")) {
-                        todayPnl = response.optDouble("pnl")
-                    }
-                } catch (_: Exception) {
-                    // Keep the last successful PnL visible during temporary network errors.
+            try {
+                val response = apexApiRequest("/api/pnl/today")
+                if (response.has("pnl") && !response.isNull("pnl")) {
+                    todayPnl = response.optDouble("pnl")
                 }
-                delay(15000)
+            } catch (_: Exception) {
+                // Keep the last successful PnL visible during temporary network errors.
             }
         }
     }
@@ -1157,7 +1154,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TradeScreen(onDetail: (String) -> Unit) {
+private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
     var pair by remember { mutableStateOf("BTC/USDT") }
@@ -1666,6 +1663,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                         if (orderType == "Limit") payload.put("price", priceValue)
                                         val result = apexApiRequest("/api/order", "POST", payload)
                                         orderMessage = "Testnet order: " + (result.optJSONObject("order")?.optString("status", "accepted") ?: "accepted")
+                                        onTradeUpdate()
                                         amount = ""; percent = 0f
                                     } catch (e: Exception) { orderMessage = e.localizedMessage ?: "Order failed." }
                                     finally { orderBusy = false }
