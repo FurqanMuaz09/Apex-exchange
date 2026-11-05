@@ -1252,6 +1252,99 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
     HorizontalDivider(color = Panel, thickness = 1.dp)
 }
 
+@Composable
+private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit) {
+    val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
+    val changeValue = change.toDoubleOrNull() ?: 0.0
+    val closes = candles.map { it.close }
+    fun movingAverage(period: Int): Float? = closes.takeLast(period).takeIf { it.isNotEmpty() }?.average()?.toFloat()
+    val high = candles.maxOfOrNull { it.high }
+    val low = candles.minOfOrNull { it.low }
+    Column(Modifier.fillMaxWidth().background(Bg)) {
+        Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
+            Spacer(Modifier.width(15.dp))
+            Text(pair, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Icon(Icons.Filled.ArrowDropDown, "Select pair", tint = White, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Filled.AutoAwesome, "Tools", tint = Yellow, modifier = Modifier.size(25.dp))
+            Spacer(Modifier.width(15.dp))
+            Icon(if (favorite) Icons.Filled.Star else Icons.Filled.StarBorder, "Favorite", tint = Yellow, modifier = Modifier.size(27.dp).clickable { onFavorite() })
+            Spacer(Modifier.width(15.dp))
+            Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White, modifier = Modifier.size(26.dp))
+        }
+        Row(Modifier.fillMaxWidth().height(43.dp).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+            listOf("Price", "Info", "Data", "Square").forEachIndexed { index, label ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(label, color = if (index == 0) White else Muted, fontSize = 17.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium)
+                    if (index == 0) Box(Modifier.padding(top = 4.dp).width(42.dp).height(3.dp).background(Yellow, RoundedCornerShape(3.dp)))
+                }
+            }
+        }
+        HorizontalDivider(color = Color(0xFF292D35))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1.1f)) {
+                Text(if (p > 0) String.format(java.util.Locale.US, "%,.2f", p) else "—", color = if (changeValue >= 0) Green else Red, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (p > 0) "$" + String.format(java.util.Locale.US, "%,.2f", p) else "—", color = White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.width(8.dp))
+                    Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = if (changeValue >= 0) Green else Red, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(6.dp))
+                Text("Payments  ›   Vol  ›   Prv  ›", color = Muted, fontSize = 14.sp)
+            }
+            Column(Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf("24h High" to (high?.let { String.format(java.util.Locale.US, "%,.2f", it) } ?: "—"), "24h Low" to (low?.let { String.format(java.util.Locale.US, "%,.2f", it) } ?: "—"), "24h Vol(BTC)" to "—", "24h Vol(USDT)" to "—").forEach { (label, value) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) { Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f), maxLines = 1); Text(value, color = White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
+        HorizontalDivider(color = Color(0xFF292D35))
+        Row(Modifier.fillMaxWidth().height(45.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(17.dp)) {
+            Text("Time", color = Muted, fontSize = 14.sp)
+            listOf("15m", "1h", "4h", "1D").forEach { value -> Text(value, color = if (interval == value) White else Muted, fontSize = 15.sp, fontWeight = if (interval == value) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.clickable { onInterval(value) }) }
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Filled.ShowChart, null, tint = White, modifier = Modifier.size(22.dp))
+            Icon(Icons.Filled.Settings, null, tint = White, modifier = Modifier.size(22.dp))
+            Icon(Icons.Filled.GridView, null, tint = White, modifier = Modifier.size(22.dp))
+        }
+        HorizontalDivider(color = Color(0xFF292D35))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text("MA(7): ${movingAverage(7)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Yellow, fontSize = 11.sp)
+            Text("MA(25): ${movingAverage(25)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFFE92BA8), fontSize = 11.sp)
+            Text("MA(99): ${movingAverage(99)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
+        }
+        Box(Modifier.fillMaxWidth().height(270.dp)) {
+            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp)) {
+                if (candles.isNotEmpty()) {
+                    val minP = candles.minOf { it.low }; val maxP = candles.maxOf { it.high }; val range = (maxP - minP).coerceAtLeast(0.000001f); val slot = size.width / candles.size
+                    for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
+                    candles.forEachIndexed { i, candle ->
+                        val x = slot * i + slot / 2f
+                        val yH = size.height - ((candle.high - minP) / range) * size.height
+                        val yL = size.height - ((candle.low - minP) / range) * size.height
+                        val yO = size.height - ((candle.open - minP) / range) * size.height
+                        val yC = size.height - ((candle.close - minP) / range) * size.height
+                        val c = if (candle.close >= candle.open) Green else Red
+                        drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.58f).coerceAtLeast(2f))
+                    }
+                }
+            }
+            Column(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(60.dp), verticalArrangement = Arrangement.SpaceEvenly) {
+                (0..4).forEach { i -> Text(if (high != null && low != null) String.format(java.util.Locale.US, "%,.0f", high - ((high - low) * i / 4f)) else "—", color = Muted, fontSize = 10.sp) }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Vol: —", color = Muted, fontSize = 12.sp); Text(interval, color = Muted, fontSize = 12.sp) }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(19.dp)) {
+            listOf("MA", "EMA", "BOLL", "SAR", "AVL", "SUPER", "VWAP", "VOL").forEach { Text(it, color = if (it == "MA") White else Muted, fontSize = 14.sp) }
+        }
+        HorizontalDivider(color = Color(0xFF292D35))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("Today", "7 Days", "30 Days", "90 Days").forEach { label -> Column { Text(label, color = Muted, fontSize = 12.sp); Text("—", color = White, fontSize = 14.sp, fontWeight = FontWeight.Bold) } }
+        }
+        HorizontalDivider(color = Color(0xFF292D35))
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
@@ -1698,6 +1791,9 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onD
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
+        item {
+            TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) })
+        }
         item {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp),
@@ -2257,59 +2353,6 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onD
                 }
             }
             HorizontalDivider(color = Color(0xFF252A32), thickness = 1.dp)
-        }
-        item {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().clickable { chartExpanded = !chartExpanded },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("$pair Chart", color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Icon(if (chartExpanded) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess, null, tint = White)
-                    Spacer(Modifier.weight(1f))
-                    if (chartExpanded) {
-                        listOf("1m", "5m", "15m", "1h", "1D").forEach { interval ->
-                            Text(
-                                interval,
-                                color = if (chartInterval == interval) Bg else Muted,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 4.dp).background(if (chartInterval == interval) Yellow else Color.Transparent, RoundedCornerShape(10.dp)).clickable { chartInterval = interval }.padding(horizontal = 5.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-                if (chartExpanded) {
-                    Box(
-                        Modifier.fillMaxWidth().height(145.dp).padding(top = 8.dp).background(Panel, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (candles.size > 1) {
-                            Canvas(Modifier.fillMaxSize().padding(7.dp)) {
-                                val minPrice = candles.minOf { it.low }
-                                val maxPrice = candles.maxOf { it.high }
-                                val range = (maxPrice - minPrice).coerceAtLeast(0.000001f)
-                                val slot = size.width / candles.size
-                                candles.forEachIndexed { index, candle ->
-                                    val x = slot * index + slot / 2f
-                                    val yHigh = size.height - ((candle.high - minPrice) / range) * size.height
-                                    val yLow = size.height - ((candle.low - minPrice) / range) * size.height
-                                    val yOpen = size.height - ((candle.open - minPrice) / range) * size.height
-                                    val yClose = size.height - ((candle.close - minPrice) / range) * size.height
-                                    val color = if (candle.close >= candle.open) Green else Red
-                                    drawLine(color, Offset(x, yHigh), Offset(x, yLow), strokeWidth = 1.4f)
-                                    drawLine(color, Offset(x, yOpen), Offset(x, yClose), strokeWidth = (slot * 0.58f).coerceAtLeast(2f))
-                                }
-                            }
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(color = Yellow, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text(marketError ?: "Loading chart…", color = Muted, fontSize = 9.sp)
-                            }
-                        }
-                    }
-                    Text("Live Binance market data", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
-                }
-            }
         }
     }
     if (showPairSheet) {
