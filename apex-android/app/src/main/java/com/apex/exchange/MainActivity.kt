@@ -455,10 +455,11 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     if (response.has("pnl") && !response.isNull("pnl")) todayPnl = response.optDouble("pnl")
                 } catch (_: Exception) { }
                 try {
-                    val wallet = apexApiRequest("/api/wallet")
-                    val balances = wallet.optJSONObject("balances") ?: JSONObject()
+                    val account = apexApiRequest("/api/account")
+                    val (testnetAssets, balances) = parseBinanceTestnetBalances(account)
                     val total = calculateWalletTotalUsdt(balances)
                     walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
+                    cachedAssetBalances = testnetAssets
                     cachedAssetTotalUsdt = total
                     cachedAssetBalancesAt = System.currentTimeMillis()
                 } catch (_: Exception) { }
@@ -865,6 +866,24 @@ private val sharedLiveMarketsState = androidx.compose.runtime.mutableStateOf<Lis
 private var cachedLiveMarketsAt: Long = 0L
 
 // Convert every credited wallet asset into a USDT portfolio value using current spot prices.
+private fun parseBinanceTestnetBalances(response: JSONObject): Pair<List<Pair<String, String>>, JSONObject> {
+    val rows = response.optJSONArray("balances") ?: JSONArray()
+    val amounts = JSONObject()
+    val found = mutableListOf<Pair<String, String>>()
+    for (i in 0 until rows.length()) {
+        val row = rows.optJSONObject(i) ?: continue
+        val asset = row.optString("asset").uppercase()
+        val free = row.optDouble("free", 0.0)
+        val locked = row.optDouble("locked", 0.0)
+        val total = free + locked
+        if (asset.isNotBlank() && total > 0.0 && total.isFinite()) {
+            amounts.put(asset, total)
+            found.add(asset to String.format(java.util.Locale.US, "%.8f", total))
+        }
+    }
+    return found to amounts
+}
+
 private fun calculateWalletTotalUsdt(balances: JSONObject): Double {
     var total = 0.0
     val keys = balances.keys()
@@ -2414,25 +2433,16 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
         if (balances.isEmpty()) busy = true
         scope.launch {
             try {
-                val response = apexApiRequest("/api/wallet")
-                val walletBalances = response.optJSONObject("balances") ?: JSONObject()
+                val response = apexApiRequest("/api/account")
+                val (found, walletBalances) = parseBinanceTestnetBalances(response)
                 fetchLiveMarkets()
-                val found = mutableListOf<Pair<String, String>>()
-                val keys = walletBalances.keys()
-                while (keys.hasNext()) {
-                    val asset = keys.next().uppercase()
-                    val amount = walletBalances.optDouble(asset, 0.0)
-                    if (amount > 0.0 && amount.isFinite()) found.add(asset to String.format(java.util.Locale.US, "%.8f", amount))
-                }
                 val portfolioValue = calculateWalletTotalUsdt(walletBalances)
                 balances = found
                 totalUsdt = portfolioValue
                 cachedAssetBalances = found
                 cachedAssetTotalUsdt = portfolioValue
                 cachedAssetBalancesAt = System.currentTimeMillis()
-                val walletStatus = response.optString("status", "PENDING_CUSTODY_INFRASTRUCTURE")
-                message = if (walletStatus == "ACTIVE") "APEX Wallet · Live ledger"
-                    else "APEX Testnet Wallet · Demo ledger"
+                message = "Binance Spot Testnet · Available + Locked"
             } catch (e: Exception) {
                 if (balances.isEmpty()) message = e.localizedMessage ?: "Wallet could not be loaded."
             } finally { busy = false; walletRequestInFlight = false }
