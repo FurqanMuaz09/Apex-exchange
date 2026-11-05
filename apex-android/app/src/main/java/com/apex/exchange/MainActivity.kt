@@ -2668,16 +2668,11 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
         } else if (balances.isEmpty()) {
             Text("No credited wallet assets yet.", color = Muted, modifier = Modifier.padding(18.dp))
         } else {
-            // Keep USDT first, then rank every other asset by its current USDT market value.
+            // Keep USDT first, then rank coins by the actual amount invested (remaining FIFO cost basis).
             val rankedBalances = balances.sortedWith(
                 compareByDescending<Pair<String, String>> { it.first.equals("USDT", ignoreCase = true) }
                     .thenByDescending { coin ->
-                        val assetName = coin.first
-                        val amount = coin.second.toDoubleOrNull() ?: 0.0
-                        val price = if (assetName in listOf("USDT", "USDC", "FDUSD", "BUSD")) 1.0
-                            else cachedLiveMarkets?.firstOrNull { it.symbol.equals(assetName, true) }
-                                ?.price?.replace(",", "")?.toDoubleOrNull() ?: 0.0
-                        amount * price
+                        assetMetrics[coin.first]?.optDouble("costBasis", 0.0) ?: 0.0
                     }
             )
             rankedBalances.forEach { coin ->
