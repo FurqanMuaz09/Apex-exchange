@@ -875,6 +875,10 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
 @Volatile
 private var cachedUsdtSpotSymbols: Set<String>? = null
 @Volatile
+private var cachedAssetBalances: List<Pair<String, String>> = emptyList()
+private var cachedAssetTotalUsdt: Double = 0.0
+private var cachedAssetBalancesAt: Long = 0L
+
 private var cachedLiveMarkets: List<Coin>? = null
 @Volatile
 private var cachedLiveMarketsAt: Long = 0L
@@ -2179,14 +2183,15 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
 private fun AssetsScreen(onDetail: (String) -> Unit) {
     val user = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
-    var balances by remember { mutableStateOf(listOf<Pair<String, String>>()) }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("Login to load your Binance Spot Testnet wallet.") }
-    var totalUsdt by remember { mutableStateOf(0.0) }
+    var balances by remember { mutableStateOf(cachedAssetBalances) }
+    var busy by remember { mutableStateOf(user != null && cachedAssetBalances.isEmpty()) }
+    var message by remember { mutableStateOf(if (cachedAssetBalances.isNotEmpty()) "Binance Spot Testnet · Cached wallet" else "Login to load your Binance Spot Testnet wallet.") }
+    var totalUsdt by remember { mutableStateOf(cachedAssetTotalUsdt) }
 
     fun refreshWallet() {
         if (user == null) { message = "Login to load your Testnet wallet."; return }
-        busy = true
+        // Keep cached balances visible while refreshing; only show skeleton on first load.
+        if (balances.isEmpty()) busy = true
         scope.launch {
             try {
                 val response = apexApiRequest("/api/account")
@@ -2203,12 +2208,28 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                 }
                 balances = found
                 totalUsdt = usdt
+                cachedAssetBalances = found
+                cachedAssetTotalUsdt = usdt
+                cachedAssetBalancesAt = System.currentTimeMillis()
                 message = "Binance Spot Testnet · Live account data"
             } catch (e: Exception) { message = e.localizedMessage ?: "Wallet could not be loaded." }
             finally { busy = false }
         }
     }
-    LaunchedEffect(user?.uid) { refreshWallet() }
+    LaunchedEffect(user?.uid) {
+        if (user == null) {
+            balances = emptyList()
+            totalUsdt = 0.0
+            cachedAssetBalances = emptyList()
+            cachedAssetTotalUsdt = 0.0
+            message = "Login to load your Binance Spot Testnet wallet."
+        } else {
+            // Cached wallet renders immediately; refresh silently in the background.
+            balances = cachedAssetBalances
+            totalUsdt = cachedAssetTotalUsdt
+            refreshWallet()
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         TopBar("Assets")
@@ -2225,15 +2246,33 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             ActionButton("Withdraw", Modifier.weight(1f)) { onDetail("Withdraw") }
         }
         Text(message, color = if (message.startsWith("Binance")) Green else Muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
-        if (busy) CircularProgressIndicator(color = Yellow, modifier = Modifier.padding(18.dp))
         SectionTitle("My Testnet Assets")
-        if (balances.isEmpty() && !busy) Text("No funded assets returned.", color = Muted, modifier = Modifier.padding(18.dp))
-        balances.forEach { coin ->
-            Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)) {
-                Text(coin.first, color = White, modifier = Modifier.weight(1f))
-                Text(coin.second, color = White)
+        if (busy && balances.isEmpty()) {
+            repeat(6) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.size(34.dp).clip(CircleShape).background(Color(0xFF292D35)))
+                    Spacer(Modifier.width(12.dp))
+                    Box(Modifier.weight(1f).height(13.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF292D35)))
+                    Spacer(Modifier.width(18.dp))
+                    Box(Modifier.width(88.dp).height(13.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF292D35)))
+                }
+                HorizontalDivider(color = Panel)
             }
-            HorizontalDivider(color = Panel)
+        } else if (balances.isEmpty()) {
+            Text("No funded assets returned.", color = Muted, modifier = Modifier.padding(18.dp))
+        } else {
+            balances.forEach { coin ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    MarketCoinIcon(coin.first, 30.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(coin.first, color = White, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                    Text(coin.second, color = White, fontWeight = FontWeight.Medium)
+                }
+                HorizontalDivider(color = Panel)
+            }
         }
         Text("Testnet funds have no real monetary value. Deposits and withdrawals are not enabled here.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
     }
