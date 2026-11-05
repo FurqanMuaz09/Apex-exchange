@@ -752,6 +752,20 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
                                 MarketChangeBadge(coin.change)
                             }
+                            androidx.compose.material3.IconButton(
+                                onClick = {
+                                    if (coin.symbol in favorites) favorites.remove(coin.symbol)
+                                    else favorites.add(coin.symbol)
+                                },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (coin.symbol in favorites) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                    contentDescription = if (coin.symbol in favorites) "Remove from favorites" else "Add to favorites",
+                                    tint = if (coin.symbol in favorites) Yellow else Muted,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }
