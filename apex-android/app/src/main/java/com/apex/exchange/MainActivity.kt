@@ -231,6 +231,7 @@ private fun ApexNativeApp() {
     }
     var tab by remember { mutableStateOf("Home") }
     var detail by remember { mutableStateOf<String?>(null) }
+    var selectedTradingPair by remember { mutableStateOf("BTC/USDT") }
     var refreshKey by remember { mutableIntStateOf(0) }
     BackHandler(enabled = detail != null) { detail = null }
 
@@ -302,8 +303,8 @@ private fun ApexNativeApp() {
                             onTrade = { tab = "Trade" },
                             onDetail = { detail = it }
                         )
-                        "Markets" -> MarketsScreen(favorites, refreshKey) { detail = it }
-                        "Trade" -> TradeScreen(favorites = favorites, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
+                        "Markets" -> MarketsScreen(favorites, refreshKey) { symbol -> selectedTradingPair = "$symbol/USDT"; tab = "Trade"; detail = null }
+                        "Trade" -> TradeScreen(favorites = favorites, initialPair = selectedTradingPair, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen(refreshKey = refreshKey) { detail = it }
                         else -> ProfileScreen { detail = it }
@@ -1253,10 +1254,10 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
+private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
-    var pair by remember { mutableStateOf("BTC/USDT") }
+    var pair by remember(initialPair) { mutableStateOf(initialPair) }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
     var pairSheetFilter by remember { mutableStateOf("All") }
