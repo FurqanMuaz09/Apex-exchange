@@ -364,7 +364,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(cachedLiveMarkets?.takeIf { it.isNotEmpty() } ?: sampleMarkets) }
     LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) liveMarkets = it } }
-    var loading by remember { mutableStateOf(cachedLiveMarkets.isNullOrEmpty() && sampleMarkets.isEmpty()) }
+    var loading by remember { mutableStateOf(!hasUsableMarketPrices(cachedLiveMarkets.orEmpty())) }
     var sheetSearch by remember { mutableStateOf("") }
     var sheetFilter by remember { mutableStateOf("All") }
     var showAllPairs by remember { mutableStateOf(false) }
@@ -379,7 +379,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 loading = false
             }
         } catch (_: Exception) {
-            loading = false
+            // Keep skeleton placeholders visible until a valid price snapshot arrives.
         }
 
         val client = OkHttpClient()
@@ -956,6 +956,8 @@ private fun parseTickerWebSocketMarkets(payload: String): List<Coin> {
     }.sortedByDescending { coin -> quoteVolumes[coin.symbol + "USDT"] ?: 0.0 }
 }
 
+private fun hasUsableMarketPrices(markets: List<Coin>): Boolean = markets.any { it.price != "—" && (it.price.toDoubleOrNull() ?: 0.0) > 0.0 }
+
 private val sampleMarkets = listOf(
     Coin("BTC", "Bitcoin", "—", "—", true),
     Coin("ETH", "Ethereum", "—", "—", true),
@@ -972,7 +974,7 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
     var query by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { sampleMarkets }) }
     LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) liveMarkets = it } }
-    var loading by remember { mutableStateOf(true) }
+    var loading by remember { mutableStateOf(!hasUsableMarketPrices(sharedLiveMarketsState.value.ifEmpty { cachedLiveMarkets.orEmpty() })) }
     var error by remember { mutableStateOf<String?>(null) }
     val hotCoins = setOf("BTC", "ETH", "BNB", "SOL")
 
@@ -986,7 +988,7 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
         } catch (e: Exception) {
             error = e.message ?: "Market data unavailable"
         } finally {
-            loading = false
+            if (hasUsableMarketPrices(liveMarkets)) loading = false
         }
         val client = OkHttpClient()
         while (kotlinx.coroutines.currentCoroutineContext().isActive) {
@@ -1096,9 +1098,9 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
             Text("24h", color = Muted, fontSize = 11.sp)
         }
         HorizontalDivider(color = Panel)
-        if (loading && liveMarkets.all { it.price == "—" }) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Yellow)
+        if (loading && !hasUsableMarketPrices(liveMarkets)) {
+            LazyColumn(Modifier.weight(1f)) {
+                items(10) { MarketRowSkeleton() }
             }
         } else if (filtered.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
