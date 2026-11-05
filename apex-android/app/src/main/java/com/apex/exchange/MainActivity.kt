@@ -877,7 +877,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
 private var cachedUsdtSpotSymbols: Set<String>? = null
 @Volatile
 @Volatile
-private var pinnedTradingPair: String = "BTC/USDT"
+private var pinnedAssetSymbol: String? = null
 private var cachedAssetBalances: List<Pair<String, String>> = emptyList()
 private var cachedAssetTotalUsdt: Double = 0.0
 private var cachedAssetBalancesAt: Long = 0L
@@ -1164,7 +1164,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
-    var pair by remember { mutableStateOf(pinnedTradingPair) }
+    var pair by remember { mutableStateOf("BTC/USDT") }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
     var allPairMarkets by remember { mutableStateOf(cachedLiveMarkets ?: emptyList()) }
@@ -2184,6 +2184,7 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
 
 @Composable
 private fun AssetsScreen(onDetail: (String) -> Unit) {
+    val context = LocalContext.current
     val user = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
     var balances by remember { mutableStateOf(cachedAssetBalances) }
@@ -2267,7 +2268,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
         } else if (balances.isEmpty()) {
             Text("No funded assets returned.", color = Muted, modifier = Modifier.padding(18.dp))
         } else {
-            balances.forEach { coin ->
+            balances.sortedByDescending { it.first.equals(pinnedAssetSymbol, ignoreCase = true) }.forEach { coin ->
                 val asset = coin.first
                 val quantity = coin.second.toDoubleOrNull() ?: 0.0
                 val market = cachedLiveMarkets?.firstOrNull { it.symbol.equals(asset, true) }
@@ -2280,8 +2281,8 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                         .pointerInput(asset) {
                             detectTapGestures(onLongPress = {
                                 if (marketPrice > 0.0 && asset !in listOf("USDT", "USDC", "FDUSD", "BUSD")) {
-                                    pinnedTradingPair = pair
-                                    android.widget.Toast.makeText(context, "$pair pinned for Trading", android.widget.Toast.LENGTH_SHORT).show()
+                                    pinnedAssetSymbol = asset
+                                    android.widget.Toast.makeText(context, "$asset pinned to the top of Assets", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             })
                         }
@@ -2315,7 +2316,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                         Spacer(Modifier.height(12.dp))
                         Text("Spot breakeven price (USDT)", color = Muted, fontSize = 12.sp)
                         Text("—", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Long press to pin ${asset}/USDT for Trading", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 5.dp))
+                        Text(if (pinnedAssetSymbol.equals(asset, true)) "★ Pinned to top" else "Long press to pin this asset to top", color = if (pinnedAssetSymbol.equals(asset, true)) Yellow else Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 5.dp))
                     }
                 }
                 HorizontalDivider(color = Panel)
