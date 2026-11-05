@@ -1253,7 +1253,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit) {
+private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit) {
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
     val changeValue = change.toDoubleOrNull() ?: 0.0
     val closes = candles.map { it.close }
@@ -1264,8 +1264,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
             Spacer(Modifier.width(15.dp))
-            Text(pair, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Icon(Icons.Filled.ArrowDropDown, "Select pair", tint = White, modifier = Modifier.size(28.dp))
+            Text(pair, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onPairPicker() })
+            Icon(Icons.Filled.ArrowDropDown, "Select pair", tint = White, modifier = Modifier.size(28.dp).clickable { onPairPicker() })
             Spacer(Modifier.weight(1f))
             Icon(Icons.Filled.AutoAwesome, "Tools", tint = Yellow, modifier = Modifier.size(25.dp))
             Spacer(Modifier.width(15.dp))
@@ -1792,7 +1792,7 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onD
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
         item {
-            TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) })
+            TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) }, { pairSearch = ""; showPairSheet = true })
         }
         item {
             Row(
