@@ -149,6 +149,69 @@ app.get('/', (_req, res) => res.json({
 }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+const marketDataLimiter = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: true, legacyHeaders: false });
+let publicMarketCache = { at: 0, data: null };
+let publicMarketInFlight = null;
+
+app.get('/api/markets', marketDataLimiter, async (_req, res) => {
+  try {
+    if (publicMarketCache.data && Date.now() - publicMarketCache.at < 3000) {
+      res.set('Cache-Control', 'public, max-age=2');
+      return res.json(publicMarketCache.data);
+    }
+    if (!publicMarketInFlight) {
+      publicMarketInFlight = (async () => {
+        const hosts = ['https://api.binance.com', 'https://api1.binance.com', 'https://api2.binance.com'];
+        let lastError;
+        for (const host of hosts) {
+          try {
+            const [infoResponse, tickerResponse] = await Promise.all([
+              fetch(host + '/api/v3/exchangeInfo', { signal: AbortSignal.timeout(8000) }),
+              fetch(host + '/api/v3/ticker/24hr', { signal: AbortSignal.timeout(8000) })
+            ]);
+            if (!infoResponse.ok || !tickerResponse.ok) throw new Error('Market provider HTTP error');
+            const [info, tickers] = await Promise.all([infoResponse.json(), tickerResponse.json()]);
+            const allowed = new Set((info.symbols || [])
+              .filter(item => item.status === 'TRADING' && item.quoteAsset === 'USDT' &&
+                item.isSpotTradingAllowed !== false)
+              .map(item => item.symbol));
+            const names = {
+              BTC:'Bitcoin', ETH:'Ethereum', BNB:'BNB', SOL:'Solana', XRP:'XRP',
+              DOGE:'Dogecoin', ADA:'Cardano', TRX:'TRON', TON:'Toncoin', LTC:'Litecoin',
+              BCH:'Bitcoin Cash', LINK:'Chainlink', DOT:'Polkadot', AVAX:'Avalanche',
+              POL:'POL', SHIB:'Shiba Inu', ATOM:'Cosmos', ETC:'Ethereum Classic',
+              UNI:'Uniswap', NEAR:'NEAR Protocol', USDC:'USD Coin'
+            };
+            const markets = (tickers || []).filter(row => allowed.has(row.symbol))
+              .map(row => {
+                const symbol = row.symbol.slice(0, -4);
+                const price = Number(row.lastPrice);
+                const change = Number(row.priceChangePercent);
+                if (!Number.isFinite(price) || price <= 0) return null;
+                return {
+                  symbol, name: names[symbol] || symbol,
+                  price: String(price), change: Number.isFinite(change) ? change : 0,
+                  up: Number.isFinite(change) ? change >= 0 : true,
+                  quoteVolume: Number(row.quoteVolume) || 0
+                };
+              }).filter(Boolean).sort((a, b) => b.quoteVolume - a.quoteVolume);
+            if (!markets.length) throw new Error('Market provider returned no USDT spot pairs');
+            return { ok: true, source: 'BINANCE_SPOT', updatedAt: Date.now(), markets };
+          } catch (error) { lastError = error; }
+        }
+        throw lastError || new Error('Market data unavailable');
+      })().finally(() => { publicMarketInFlight = null; });
+    }
+    const data = await publicMarketInFlight;
+    publicMarketCache = { at: Date.now(), data };
+    res.set('Cache-Control', 'public, max-age=2');
+    res.json(data);
+  } catch (error) {
+    console.error('APEX market data error:', error.message);
+    res.status(502).json({ error: 'Live market data is temporarily unavailable.' });
+  }
+});
+
 
 app.post('/api/admin/notifications', requireFirebaseAuth, requireApexAdmin, adminNotificationLimiter, async (req, res) => {
   try {

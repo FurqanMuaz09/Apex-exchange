@@ -365,7 +365,23 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 liveMarkets = latest
                 loading = false
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            loading = false
+        }
+
+        // Poll the APEX market proxy as a reliable fallback if the phone cannot reach Binance WebSocket.
+        val marketFallback = launch {
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                delay(3000)
+                try {
+                    val latest = fetchLiveMarkets(forceRefresh = true)
+                    if (latest.isNotEmpty()) {
+                        liveMarkets = latest
+                        loading = false
+                    }
+                } catch (_: Exception) { }
+            }
+        }
 
         val client = OkHttpClient()
         while (true) {
@@ -424,6 +440,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             socket.cancel()
             delay(3000)
         }
+        marketFallback.cancel()
     }
 
     LaunchedEffect(signedInUser?.uid, refreshKey) {
@@ -534,7 +551,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             verticalAlignment = Alignment.Bottom
                         ) {
                             Text(
-                                if (signedInUser != null && !balanceHidden && walletBalance != null) "\$balanceParts" else balanceParts,
+                                if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts,
                                 color = White,
                                 fontSize = 26.sp,
                                 fontWeight = FontWeight.ExtraBold,
@@ -878,83 +895,47 @@ private fun calculateWalletTotalUsdt(balances: JSONObject): Double {
 
 private suspend fun fetchLiveMarkets(forceRefresh: Boolean = false): List<Coin> = withContext(Dispatchers.IO) {
     val cached = cachedLiveMarkets
-    if (!forceRefresh && !cached.isNullOrEmpty() && System.currentTimeMillis() - cachedLiveMarketsAt < 30000L) {
+    if (!forceRefresh && !cached.isNullOrEmpty() && System.currentTimeMillis() - cachedLiveMarketsAt < 3000L) {
         return@withContext cached
     }
-    fun getJson(url: String): String {
-        val connection = (URL(url).openConnection() as java.net.HttpURLConnection)
-        try {
-            connection.connectTimeout = 7000
-            connection.readTimeout = 9000
-            connection.requestMethod = "GET"
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("Binance market API HTTP ${connection.responseCode}")
-            }
-            return connection.inputStream.bufferedReader().use { it.readText() }
-        } finally {
-            connection.disconnect()
+    require(APEX_API_BASE_URL.isNotBlank()) { "APEX backend URL is not configured." }
+    val connection = (URL(APEX_API_BASE_URL.trimEnd('/') + "/api/markets").openConnection() as java.net.HttpURLConnection)
+    try {
+        connection.connectTimeout = 8000
+        connection.readTimeout = 12000
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("Cache-Control", "no-cache")
+        val code = connection.responseCode
+        val raw = (if (code in 200..299) connection.inputStream else connection.errorStream)
+            ?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (code !in 200..299) throw IllegalStateException("APEX market API HTTP $code")
+        val payload = JSONObject(raw)
+        val rows = payload.optJSONArray("markets") ?: JSONArray()
+        val result = (0 until rows.length()).mapNotNull { index ->
+            val row = rows.optJSONObject(index) ?: return@mapNotNull null
+            val symbol = row.optString("symbol")
+            val priceValue = row.optString("price").toDoubleOrNull() ?: return@mapNotNull null
+            if (symbol.isBlank() || !priceValue.isFinite() || priceValue <= 0.0) return@mapNotNull null
+            val change = row.optDouble("change", 0.0)
+            Coin(
+                symbol = symbol,
+                name = row.optString("name", symbol),
+                price = String.format(java.util.Locale.US, "%,.8f", priceValue).trimEnd('0').trimEnd('.'),
+                change = String.format(java.util.Locale.US, "%+.2f%%", change),
+                up = row.optBoolean("up", change >= 0.0)
+            )
         }
+        if (result.isEmpty()) throw IllegalStateException("No live USDT market pairs returned.")
+        cachedUsdtSpotSymbols = result.map { it.symbol + "USDT" }.toSet()
+        cachedLiveMarkets = result
+        cachedLiveMarketsAt = System.currentTimeMillis()
+        result
+    } finally {
+        connection.disconnect()
     }
-
-    // Fetch exchange metadata and all 24h tickers concurrently on first load.
-    val infoText = if (cachedUsdtSpotSymbols == null) {
-        kotlinx.coroutines.coroutineScope {
-            val infoTask = async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/exchangeInfo") }
-            val tickerTask = async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/ticker/24hr") }
-            val infoResult = infoTask.await()
-            val tickerResult = tickerTask.await()
-            val symbols = JSONObject(infoResult).getJSONArray("symbols")
-            val found = (0 until symbols.length()).mapNotNull { index ->
-                val item = symbols.getJSONObject(index)
-                val symbol = item.optString("symbol")
-                if (item.optString("status") == "TRADING" &&
-                    item.optString("quoteAsset") == "USDT" &&
-                    item.optBoolean("isSpotTradingAllowed", true) &&
-                    symbol.isNotBlank()
-                ) symbol else null
-            }.toSet()
-            cachedUsdtSpotSymbols = found
-            tickerResult
-        }
-    } else {
-        getJson("https://api.binance.com/api/v3/ticker/24hr")
-    }
-    val rows = JSONArray(infoText)
-    val names = mapOf(
-        "BTC" to "Bitcoin", "ETH" to "Ethereum", "BNB" to "BNB",
-        "SOL" to "Solana", "XRP" to "XRP", "DOGE" to "Dogecoin",
-        "ADA" to "Cardano", "TRX" to "TRON", "TON" to "Toncoin",
-        "LTC" to "Litecoin", "BCH" to "Bitcoin Cash", "LINK" to "Chainlink",
-        "DOT" to "Polkadot", "AVAX" to "Avalanche", "MATIC" to "Polygon",
-        "POL" to "POL", "SHIB" to "Shiba Inu", "ATOM" to "Cosmos",
-        "ETC" to "Ethereum Classic", "UNI" to "Uniswap", "NEAR" to "NEAR Protocol"
-    )
-    val allowedSymbols = cachedUsdtSpotSymbols.orEmpty()
-    val result = (0 until rows.length()).mapNotNull { index ->
-        val row = rows.getJSONObject(index)
-        val fullSymbol = row.optString("symbol")
-        if (fullSymbol !in allowedSymbols) return@mapNotNull null
-        val symbol = fullSymbol.removeSuffix("USDT")
-        val price = row.optString("lastPrice").toDoubleOrNull() ?: return@mapNotNull null
-        val change = row.optString("priceChangePercent").toDoubleOrNull() ?: 0.0
-        Coin(
-            symbol = symbol,
-            name = names[symbol] ?: symbol,
-            price = String.format(java.util.Locale.US, "%,.8f", price).trimEnd('0').trimEnd('.'),
-            change = String.format(java.util.Locale.US, "%+.2f%%", change),
-            up = change >= 0
-        )
-    }.sortedByDescending { coin ->
-        rows.let { arr ->
-            (0 until arr.length()).firstOrNull {
-                arr.getJSONObject(it).optString("symbol") == coin.symbol + "USDT"
-            }?.let { arr.getJSONObject(it).optString("quoteVolume").toDoubleOrNull() } ?: 0.0
-        }
-    }
-    cachedLiveMarkets = result
-    cachedLiveMarketsAt = System.currentTimeMillis()
-    result
 }
+
 private val sampleMarkets = listOf(
     Coin("BTC", "Bitcoin", "—", "—", true),
     Coin("ETH", "Ethereum", "—", "—", true),
@@ -987,7 +968,7 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
             } finally {
                 loading = false
             }
-            delay(10000)
+            delay(3000)
         }
     }
 
