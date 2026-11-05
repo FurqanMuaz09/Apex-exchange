@@ -650,6 +650,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                     horizontalAlignment = Alignment.End
                                 ) {
                                     Text(coin.price, color = White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                    Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                                 }
                                 Spacer(Modifier.width(8.dp))
                                 Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
@@ -745,6 +746,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             }
                             Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
                                 Text(coin.price, color = White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                             }
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
@@ -757,6 +759,16 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         }
     }
 }
+private fun coinUsdPriceLabel(price: String): String {
+    val value = price.replace(",", "").replace("$", "").trim().toDoubleOrNull()
+        ?: return "≈ $—"
+    return "≈ $" + when {
+        value >= 1.0 -> String.format(java.util.Locale.US, "%,.2f", value)
+        value >= 0.01 -> String.format(java.util.Locale.US, "%.4f", value)
+        else -> String.format(java.util.Locale.US, "%.6f", value)
+    }
+}
+
 private data class Coin(val symbol: String, val name: String, val price: String, val change: String, val up: Boolean)
 
 private fun marketChangeColor(change: String): Color = when {
