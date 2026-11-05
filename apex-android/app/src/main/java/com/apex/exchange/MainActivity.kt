@@ -16,6 +16,7 @@ import com.google.firebase.firestore.SetOptions
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -899,8 +900,8 @@ private suspend fun fetchLiveMarkets(forceRefresh: Boolean = false): List<Coin> 
     // Fetch exchange metadata and all 24h tickers concurrently on first load.
     val infoText = if (cachedUsdtSpotSymbols == null) {
         kotlinx.coroutines.coroutineScope {
-            val infoTask = kotlinx.coroutines.async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/exchangeInfo") }
-            val tickerTask = kotlinx.coroutines.async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/ticker/24hr") }
+            val infoTask = async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/exchangeInfo") }
+            val tickerTask = async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/ticker/24hr") }
             val infoResult = infoTask.await()
             val tickerResult = tickerTask.await()
             val symbols = JSONObject(infoResult).getJSONArray("symbols")
@@ -1649,6 +1650,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     if (showPairSheet) {
         LaunchedEffect(showPairSheet) {
             if (showPairSheet) {
+                cachedLiveMarkets?.let { if (it.isNotEmpty()) allPairMarkets = it }
                 pairLoading = allPairMarkets.isEmpty()
                 pairLoadError = null
                 try {
