@@ -3354,7 +3354,7 @@ private fun AuthScreen(onSuccess: () -> Unit) {
                 CircularProgressIndicator(modifier = Modifier.size(19.dp), color = Color(0xFF4285F4), strokeWidth = 2.dp)
             } else {
                 androidx.compose.foundation.Canvas(Modifier.size(25.dp)) {
-                    val stroke = androidx.compose.ui.graphics.Stroke(width = 4.2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Butt)
+                    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Butt)
                     drawArc(Color(0xFF4285F4), -45f, 90f, false, style = stroke)
                     drawArc(Color(0xFF34A853), 45f, 90f, false, style = stroke)
                     drawArc(Color(0xFFFBBC05), 135f, 90f, false, style = stroke)
