@@ -1182,7 +1182,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var availableUsdt by remember { mutableStateOf("0.00") }
     var availableUsdc by remember { mutableStateOf("0.00") }
     var availableBase by remember { mutableStateOf("0.00") }
-    var holdingPnl by remember { mutableStateOf<Double?>(null) }
+    var holdingCostBasis by remember { mutableStateOf<Double?>(null) }
+    var holdingTrackedQuantity by remember { mutableStateOf(0.0) }
+    var holdingRealizedPnl by remember { mutableStateOf(0.0) }
     var holdingPnlPercent by remember { mutableStateOf<Double?>(null) }
     var holdingBreakeven by remember { mutableStateOf<Double?>(null) }
     var holdingMetricsError by remember { mutableStateOf<String?>(null) }
@@ -1232,15 +1234,17 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     }
     LaunchedEffect(pair, selectedOrdersTab) {
         if (selectedOrdersTab == "Holdings" && FirebaseAuth.getInstance().currentUser != null) {
-            holdingPnl = null
+            holdingCostBasis = null
+            holdingTrackedQuantity = 0.0
+            holdingRealizedPnl = 0.0
             holdingPnlPercent = null
             holdingBreakeven = null
             holdingMetricsError = null
             try {
                 val metrics = apexApiRequest("/api/holdings/metrics?symbol=${pair.replace("/", "")}")
-                val unrealized = metrics.optDouble("unrealizedPnl", 0.0)
-                val realized = metrics.optDouble("realizedPnl", 0.0)
-                holdingPnl = unrealized + realized
+                holdingCostBasis = metrics.optDouble("costBasis", 0.0)
+                holdingTrackedQuantity = metrics.optDouble("trackedQuantity", 0.0)
+                holdingRealizedPnl = metrics.optDouble("realizedPnl", 0.0)
                 holdingPnlPercent = metrics.optDouble("pnlPercent", 0.0)
                 holdingBreakeven = metrics.optDouble("averageEntryPrice", 0.0).takeIf { it > 0.0 }
             } catch (e: Exception) {
@@ -1716,8 +1720,9 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             }
                             Spacer(Modifier.height(3.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                val pnlValue = if (isStable) null else holdingPnl
-                                val pnlPct = if (isStable) null else holdingPnlPercent
+                                val unrealizedNow = (livePriceValue * holdingTrackedQuantity) - (holdingCostBasis ?: 0.0)
+                                val pnlValue = if (isStable || holdingCostBasis == null) null else holdingRealizedPnl + unrealizedNow
+                                val pnlPct = if (isStable || holdingCostBasis == null) null else holdingPnlPercent
                                 val pnlColor = if ((pnlValue ?: 0.0) >= 0.0) Color(0xFF0ECB81) else Color(0xFFEA4778)
                                 Text(
                                     pnlValue?.let { String.format(java.util.Locale.US, "%+.4f", it) } ?: if (holdingMetricsError != null && !isStable) "Unavailable" else "—",
