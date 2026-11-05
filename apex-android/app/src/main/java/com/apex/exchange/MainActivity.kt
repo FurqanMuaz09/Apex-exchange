@@ -38,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
@@ -875,6 +876,8 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
 @Volatile
 private var cachedUsdtSpotSymbols: Set<String>? = null
 @Volatile
+@Volatile
+private var pinnedTradingPair: String = "BTC/USDT"
 private var cachedAssetBalances: List<Pair<String, String>> = emptyList()
 private var cachedAssetTotalUsdt: Double = 0.0
 private var cachedAssetBalancesAt: Long = 0L
@@ -1161,7 +1164,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
-    var pair by remember { mutableStateOf("BTC/USDT") }
+    var pair by remember { mutableStateOf(pinnedTradingPair) }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
     var allPairMarkets by remember { mutableStateOf(cachedLiveMarkets ?: emptyList()) }
@@ -2265,11 +2268,55 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             Text("No funded assets returned.", color = Muted, modifier = Modifier.padding(18.dp))
         } else {
             balances.forEach { coin ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    MarketCoinIcon(coin.first, 30.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Text(coin.first, color = White, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                    Text(coin.second, color = White, fontWeight = FontWeight.Medium)
+                val asset = coin.first
+                val quantity = coin.second.toDoubleOrNull() ?: 0.0
+                val market = cachedLiveMarkets?.firstOrNull { it.symbol.equals(asset, true) }
+                val marketPrice = if (asset == "USDT" || asset == "USDC" || asset == "FDUSD" || asset == "BUSD") 1.0
+                    else market?.price?.replace(",", "")?.toDoubleOrNull() ?: 0.0
+                val equity = quantity * marketPrice
+                val pair = "${asset}/USDT"
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)
+                        .pointerInput(asset) {
+                            detectTapGestures(onLongPress = {
+                                if (marketPrice > 0.0 && asset !in listOf("USDT", "USDC", "FDUSD", "BUSD")) {
+                                    pinnedTradingPair = pair
+                                    android.widget.Toast.makeText(context, "$pair pinned for Trading", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            })
+                        }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MarketCoinIcon(asset, 34.dp)
+                        Spacer(Modifier.width(9.dp))
+                        Text(asset, color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(15.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Spot PnL (USDT)", color = Muted, fontSize = 12.sp)
+                        Text("Spot PnL%", color = Muted, fontSize = 12.sp)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("—", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("—", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text("Equity", color = Muted, fontSize = 12.sp)
+                            Text(String.format(java.util.Locale.US, "%.8f  $%.2f", quantity, equity), color = White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Balance", color = Muted, fontSize = 12.sp)
+                            Text(coin.second, color = White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    if (asset !in listOf("USDT", "USDC", "FDUSD", "BUSD")) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("Spot breakeven price (USDT)", color = Muted, fontSize = 12.sp)
+                        Text("—", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Long press to pin ${asset}/USDT for Trading", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 5.dp))
+                    }
                 }
                 HorizontalDivider(color = Panel)
             }
