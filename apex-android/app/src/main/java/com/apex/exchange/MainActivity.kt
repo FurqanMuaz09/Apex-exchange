@@ -876,7 +876,6 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
 @Volatile
 private var cachedUsdtSpotSymbols: Set<String>? = null
 @Volatile
-@Volatile
 private var pinnedAssetSymbol: String? = null
 private var cachedAssetBalances: List<Pair<String, String>> = emptyList()
 private var cachedAssetTotalUsdt: Double = 0.0
@@ -2410,43 +2409,41 @@ private fun ProfileScreen(onDetail: (String) -> Unit) {
     }
 }
 
+
 @Composable
 private fun NativeDetail(title: String, onBack: () -> Unit) {
-    if (title == "Login / Sign up" || title == "Account Login") {
-        AuthScreen(onBack)
-    } else if (title == "Profile Details") {
-        ProfileDetailsScreen(onBack)
-    } else if (title == "Identity Verification (KYC)") {
-        KycScreen(onBack)
-    } else if (title == "Notifications") {
-        NotificationsScreen(onBack)
-    } else if (title == "Deposit") {
-        WalletActionScreen("Deposit", onBack)
-    } else if (title == "Withdraw") {
-        WalletActionScreen("Withdraw", onBack)
-    } else if (title == "Wallet Transactions") {
-        WalletTransactionsScreen(onBack)
-    } else if (title == "Security") {
-        SecurityScreen(onBack)
-    } else if (title == "Order History" || title == "Open Orders") {
-        OrderHistoryScreen(title, onBack)
-    } else if (title == "Help & Support") {
-        HelpScreen(onBack)
-    } else {
-        Column(Modifier.fillMaxSize()) {
+    when (title) {
+        "Login / Sign up", "Account Login" -> AuthScreen(onBack)
+        "Profile Details" -> ProfileDetailsScreen(onBack)
+        "Identity Verification (KYC)" -> KycScreen(onBack)
+        "Notifications" -> NotificationsScreen(onBack)
+        "Deposit" -> WalletActionScreen("Deposit", onBack)
+        "Withdraw" -> WalletActionScreen("Withdraw", onBack)
+        "Wallet Transactions" -> WalletTransactionsScreen(onBack)
+        "Security" -> SecurityScreen(onBack)
+        "Order History", "Open Orders" -> OrderHistoryScreen(title, onBack)
+        "Help & Support" -> HelpScreen(onBack)
+        else -> Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = White) }
                 Text(title, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             Box(Modifier.fillMaxWidth().weight(1f).padding(20.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(title, color = White, 
+                    Text(title, color = White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("This native section will be connected next.", color = Muted, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun WalletActionScreen(title: String, onBack: () -> Unit) {
     val isDeposit = title == "Deposit"
     val scope = rememberCoroutineScope()
-    var amount by remember { mutableStateOf(if (isDeposit) "100" else "") }
+    var amount by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -2463,10 +2460,11 @@ private fun WalletActionScreen(title: String, onBack: () -> Unit) {
                 Text(if (isDeposit) "Claim demo balance" else "Simulate a withdrawal",
                     color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
-                Text(if (isDeposit)
-                    "Claim 100 demo USDT once per day. This credit has no cash value and is not a real deposit."
+                Text(
+                    if (isDeposit) "Claim 100 demo USDT once per day. This has no cash value and is not a real deposit."
                     else "The amount is deducted from your internal demo ledger. No crypto is sent to any network.",
-                    color = Muted, fontSize = 13.sp)
+                    color = Muted, fontSize = 13.sp
+                )
                 if (!isDeposit) {
                     Spacer(Modifier.height(16.dp))
                     OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount (USDT)") },
@@ -2475,13 +2473,13 @@ private fun WalletActionScreen(title: String, onBack: () -> Unit) {
                     OutlinedTextField(value = destination, onValueChange = { destination = it },
                         label = { Text("Destination label (demo only)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
-                if (message != null) {
+                message?.let {
                     Spacer(Modifier.height(12.dp))
-                    Text(message!!, color = if (message!!.startsWith("Success")) Green else Red, fontSize = 12.sp)
+                    Text(it, color = if (it.startsWith("Success")) Green else Red, fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(16.dp))
                 Button(
-                    enabled = !busy && (isDeposit || (amount.toDoubleOrNull()?.let { it > 0.0 } == true && destination.trim().length >= 8)),
+                    enabled = !busy && (isDeposit || ((amount.toDoubleOrNull() ?: 0.0) > 0.0 && destination.trim().length >= 8)),
                     onClick = {
                         scope.launch {
                             busy = true
@@ -2493,11 +2491,11 @@ private fun WalletActionScreen(title: String, onBack: () -> Unit) {
                                     payload.put("amount", amount.toDouble())
                                     payload.put("destination", destination.trim())
                                 }
-                                val result = apexApiRequest(
+                                val response = apexApiRequest(
                                     if (isDeposit) "/api/wallet/testnet/deposit" else "/api/wallet/testnet/withdraw",
                                     "POST", payload
                                 )
-                                message = "Success: " + result.optString("message", "Demo transaction recorded.")
+                                message = "Success: " + response.optString("message", "Demo transaction recorded.")
                             } catch (e: Exception) {
                                 message = e.localizedMessage ?: "Testnet demo transaction failed."
                             } finally { busy = false }
@@ -2512,7 +2510,7 @@ private fun WalletActionScreen(title: String, onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.height(12.dp))
-        Text("Important: These controls do not generate deposit addresses or send/receive blockchain funds. Real-money custody remains disabled.",
+        Text("These controls do not generate deposit addresses or send blockchain funds. Real-money custody remains disabled.",
             color = Red, fontSize = 11.sp)
     }
 }
@@ -2527,8 +2525,9 @@ private fun WalletTransactionsScreen(onBack: () -> Unit) {
             val response = apexApiRequest("/api/wallet/transactions")
             val rows = response.optJSONArray("transactions") ?: JSONArray()
             transactions = (0 until rows.length()).map { rows.getJSONObject(it) }
-        } catch (e: Exception) { error = e.localizedMessage ?: "Could not load wallet transactions." }
-        finally { loading = false }
+        } catch (e: Exception) {
+            error = e.localizedMessage ?: "Could not load wallet transactions."
+        } finally { loading = false }
     }
     Column(Modifier.fillMaxSize().padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2537,7 +2536,7 @@ private fun WalletTransactionsScreen(onBack: () -> Unit) {
         }
         when {
             loading -> CircularProgressIndicator(color = Yellow, modifier = Modifier.padding(24.dp))
-            error != null -> Text(error!!, color = Red, modifier = Modifier.padding(12.dp))
+            error != null -> Text(error ?: "Could not load transactions.", color = Red, modifier = Modifier.padding(12.dp))
             transactions.isEmpty() -> Text("No wallet transactions yet.", color = Muted, modifier = Modifier.padding(12.dp))
             else -> LazyColumn {
                 items(transactions) { item ->
@@ -2551,15 +2550,6 @@ private fun WalletTransactionsScreen(onBack: () -> Unit) {
                         Text(item.optString("createdAt", "Date unavailable"), color = Muted, fontSize = 10.sp)
                     }
                     HorizontalDivider(color = Panel)
-                }
-            }
-        }
-    }
-}
-
-fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    Text("This native section will be connected next.", color = Muted, fontSize = 13.sp)
                 }
             }
         }
