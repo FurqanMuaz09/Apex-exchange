@@ -404,6 +404,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         }
                         if (updated.isNotEmpty()) {
                             liveMarkets = updated
+                            cachedLiveMarkets = updated
+                            cachedLiveMarketsAt = System.currentTimeMillis()
                             loading = false
                         }
                     } catch (_: Exception) { }
@@ -869,13 +871,21 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
 
 @Volatile
 private var cachedUsdtSpotSymbols: Set<String>? = null
+@Volatile
+private var cachedLiveMarkets: List<Coin>? = null
+@Volatile
+private var cachedLiveMarketsAt: Long = 0L
 
-private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO) {
+private suspend fun fetchLiveMarkets(forceRefresh: Boolean = false): List<Coin> = withContext(Dispatchers.IO) {
+    val cached = cachedLiveMarkets
+    if (!forceRefresh && !cached.isNullOrEmpty() && System.currentTimeMillis() - cachedLiveMarketsAt < 30000L) {
+        return@withContext cached
+    }
     fun getJson(url: String): String {
         val connection = (URL(url).openConnection() as java.net.HttpURLConnection)
         try {
-            connection.connectTimeout = 15000
-            connection.readTimeout = 20000
+            connection.connectTimeout = 7000
+            connection.readTimeout = 9000
             connection.requestMethod = "GET"
             if (connection.responseCode !in 200..299) {
                 throw IllegalStateException("Binance market API HTTP ${connection.responseCode}")
@@ -886,25 +896,30 @@ private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO)
         }
     }
 
-    // Load the complete list of active, spot-tradable USDT pairs once per app process.
-    val allowedSymbols = cachedUsdtSpotSymbols ?: run {
-        val info = JSONObject(getJson("https://api.binance.com/api/v3/exchangeInfo"))
-        val symbols = info.getJSONArray("symbols")
-        val found = (0 until symbols.length()).mapNotNull { index ->
-            val item = symbols.getJSONObject(index)
-            val symbol = item.optString("symbol")
-            if (item.optString("status") == "TRADING" &&
-                item.optString("quoteAsset") == "USDT" &&
-                item.optBoolean("isSpotTradingAllowed", true) &&
-                symbol.isNotBlank()
-            ) symbol else null
-        }.toSet()
-        cachedUsdtSpotSymbols = found
-        found
+    // Fetch exchange metadata and all 24h tickers concurrently on first load.
+    val infoText = if (cachedUsdtSpotSymbols == null) {
+        kotlinx.coroutines.coroutineScope {
+            val infoTask = kotlinx.coroutines.async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/exchangeInfo") }
+            val tickerTask = kotlinx.coroutines.async(Dispatchers.IO) { getJson("https://api.binance.com/api/v3/ticker/24hr") }
+            val infoResult = infoTask.await()
+            val tickerResult = tickerTask.await()
+            val symbols = JSONObject(infoResult).getJSONArray("symbols")
+            val found = (0 until symbols.length()).mapNotNull { index ->
+                val item = symbols.getJSONObject(index)
+                val symbol = item.optString("symbol")
+                if (item.optString("status") == "TRADING" &&
+                    item.optString("quoteAsset") == "USDT" &&
+                    item.optBoolean("isSpotTradingAllowed", true) &&
+                    symbol.isNotBlank()
+                ) symbol else null
+            }.toSet()
+            cachedUsdtSpotSymbols = found
+            tickerResult
+        }
+    } else {
+        getJson("https://api.binance.com/api/v3/ticker/24hr")
     }
-
-    // One public ticker request supplies the latest price and 24h change for every pair.
-    val rows = JSONArray(getJson("https://api.binance.com/api/v3/ticker/24hr"))
+    val rows = JSONArray(infoText)
     val names = mapOf(
         "BTC" to "Bitcoin", "ETH" to "Ethereum", "BNB" to "BNB",
         "SOL" to "Solana", "XRP" to "XRP", "DOGE" to "Dogecoin",
@@ -914,7 +929,8 @@ private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO)
         "POL" to "POL", "SHIB" to "Shiba Inu", "ATOM" to "Cosmos",
         "ETC" to "Ethereum Classic", "UNI" to "Uniswap", "NEAR" to "NEAR Protocol"
     )
-    (0 until rows.length()).mapNotNull { index ->
+    val allowedSymbols = cachedUsdtSpotSymbols.orEmpty()
+    val result = (0 until rows.length()).mapNotNull { index ->
         val row = rows.getJSONObject(index)
         val fullSymbol = row.optString("symbol")
         if (fullSymbol !in allowedSymbols) return@mapNotNull null
@@ -935,6 +951,9 @@ private suspend fun fetchLiveMarkets(): List<Coin> = withContext(Dispatchers.IO)
             }?.let { arr.getJSONObject(it).optString("quoteVolume").toDoubleOrNull() } ?: 0.0
         }
     }
+    cachedLiveMarkets = result
+    cachedLiveMarketsAt = System.currentTimeMillis()
+    result
 }
 private val sampleMarkets = listOf(
     Coin("BTC", "Bitcoin", "—", "—", true),
@@ -1138,7 +1157,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var pair by remember { mutableStateOf("BTC/USDT") }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
-    var allPairMarkets by remember { mutableStateOf(emptyList<Coin>()) }
+    var allPairMarkets by remember { mutableStateOf(cachedLiveMarkets ?: emptyList()) }
     var pairLoading by remember { mutableStateOf(false) }
     var pairLoadError by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableStateOf("") }
@@ -1627,47 +1646,73 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             }
         }
     }
-    if (showDecimalSheet) {
-        if (showPairSheet) {
-            LaunchedEffect(showPairSheet) {
-                pairLoading = true
+    if (showPairSheet) {
+        LaunchedEffect(showPairSheet) {
+            if (showPairSheet) {
+                pairLoading = allPairMarkets.isEmpty()
                 pairLoadError = null
-                try { allPairMarkets = fetchLiveMarkets() } catch (e: Exception) { pairLoadError = e.message ?: "Markets unavailable" }
-                pairLoading = false
-            }
-            ModalBottomSheet(onDismissRequest = { showPairSheet = false }, containerColor = Panel, contentColor = White) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    Text("Select Market Pair", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(value = pairSearch, onValueChange = { pairSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("Search coin or pair") })
-                    Spacer(Modifier.height(8.dp))
-                    when {
-                        pairLoading -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Yellow) }
-                        pairLoadError != null -> Text(pairLoadError ?: "Markets unavailable", color = Red, modifier = Modifier.padding(12.dp))
-                        else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
-                            items(allPairMarkets.filter { (it.symbol + "/USDT " + it.name).contains(pairSearch.trim(), ignoreCase = true) }) { coin ->
-                                Row(Modifier.fillMaxWidth().clickable {
-                                    pair = coin.symbol + "/USDT"
-                                    amount = ""; limitPrice = ""; percent = 0f
-                                    showPairSheet = false; pairSearch = ""
-                                }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(coin.symbol + "/USDT", color = White, fontWeight = FontWeight.SemiBold)
-                                        Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                    }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(coin.price, color = White, fontSize = 13.sp)
-                                        MarketChangeBadge(coin.change)
-                                    }
-                                }
-                                HorizontalDivider(color = Color(0xFF30343B))
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(18.dp))
+                try {
+                    val latest = fetchLiveMarkets(forceRefresh = true)
+                    if (latest.isNotEmpty()) allPairMarkets = latest
+                } catch (e: Exception) {
+                    pairLoadError = e.message ?: "Markets unavailable"
+                } finally {
+                    pairLoading = false
                 }
             }
         }
+        ModalBottomSheet(onDismissRequest = { showPairSheet = false }, containerColor = Panel, contentColor = White) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(value = pairSearch, onValueChange = { pairSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("Search coin or pair") })
+                Spacer(Modifier.height(8.dp))
+                when {
+                    allPairMarkets.isEmpty() && pairLoading -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+                        items(7) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(42.dp).background(Color(0xFF252A32), CircleShape))
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(Modifier.fillMaxWidth(0.48f).height(14.dp).background(Color(0xFF252A32), RoundedCornerShape(6.dp)))
+                                    Box(Modifier.fillMaxWidth(0.28f).height(10.dp).background(Color(0xFF252A32), RoundedCornerShape(5.dp)))
+                                }
+                                Spacer(Modifier.width(14.dp))
+                                Box(Modifier.width(62.dp).height(13.dp).background(Color(0xFF252A32), RoundedCornerShape(5.dp)))
+                                Spacer(Modifier.width(16.dp))
+                                Box(Modifier.width(78.dp).height(38.dp).background(Color(0xFF252A32), RoundedCornerShape(9.dp)))
+                            }
+                        }
+                    }
+                    allPairMarkets.isEmpty() && pairLoadError != null ->
+                        Text(pairLoadError ?: "Markets unavailable", color = Red, modifier = Modifier.padding(12.dp))
+                    else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+                        items(allPairMarkets.filter { (it.symbol + "/USDT " + it.name).contains(pairSearch.trim(), ignoreCase = true) }) { coin ->
+                            Row(Modifier.fillMaxWidth().clickable {
+                                pair = coin.symbol + "/USDT"
+                                amount = ""; limitPrice = ""; totalInput = ""; percent = 0f
+                                showPairSheet = false; pairSearch = ""
+                            }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                MarketCoinIcon(coin.symbol, 40.dp)
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(coin.symbol + "/USDT", color = White, fontWeight = FontWeight.SemiBold)
+                                    Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(coin.price, color = White, fontSize = 13.sp)
+                                    MarketChangeBadge(coin.change)
+                                }
+                            }
+                            HorizontalDivider(color = Color(0xFF30343B))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+            }
+        }
+    }
+    if (showDecimalSheet) {
         ModalBottomSheet(onDismissRequest = { showDecimalSheet = false }, containerColor = Panel, contentColor = White) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
                 Text("Order Book Decimal Precision", fontSize = 17.sp, fontWeight = FontWeight.Bold)
