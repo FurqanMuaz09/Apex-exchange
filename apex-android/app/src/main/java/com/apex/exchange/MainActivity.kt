@@ -362,7 +362,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     var balanceHidden by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
-    var liveMarkets by remember { mutableStateOf(sampleMarkets) }
+    var liveMarkets by remember { mutableStateOf(cachedLiveMarkets?.takeIf { it.isNotEmpty() } ?: sampleMarkets) }
     var loading by remember { mutableStateOf(true) }
     var sheetSearch by remember { mutableStateOf("") }
     var sheetFilter by remember { mutableStateOf("All") }
@@ -929,6 +929,11 @@ private fun parseTickerWebSocketMarkets(payload: String): List<Coin> {
         "UNI" to "Uniswap", "NEAR" to "NEAR Protocol"
     )
     val allowed = cachedUsdtSpotSymbols.orEmpty()
+    val quoteVolumes = HashMap<String, Double>(rows.length())
+    for (index in 0 until rows.length()) {
+        val row = rows.optJSONObject(index) ?: continue
+        quoteVolumes[row.optString("s")] = row.optString("q").toDoubleOrNull() ?: 0.0
+    }
     return (0 until rows.length()).mapNotNull { index ->
         val row = rows.optJSONObject(index) ?: return@mapNotNull null
         val full = row.optString("s")
@@ -944,10 +949,7 @@ private fun parseTickerWebSocketMarkets(payload: String): List<Coin> {
             change = String.format(java.util.Locale.US, "%+.2f%%", change),
             up = change >= 0.0
         )
-    }.sortedByDescending { coin ->
-        (0 until rows.length()).firstOrNull { rows.optJSONObject(it)?.optString("s") == coin.symbol + "USDT" }
-            ?.let { rows.optJSONObject(it)?.optString("q")?.toDoubleOrNull() } ?: 0.0
-    }
+    }.sortedByDescending { coin -> quoteVolumes[coin.symbol + "USDT"] ?: 0.0 }
 }
 
 private val sampleMarkets = listOf(
