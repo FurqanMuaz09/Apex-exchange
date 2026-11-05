@@ -774,15 +774,15 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
     Box(
         modifier = Modifier
             .width(90.dp)
-            .height(38.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .height(26.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(tint),
         contentAlignment = Alignment.Center
     ) {
         Text(
             change,
             color = White,
-            fontSize = maxOf(fontSize.value, 12f).sp,
+            fontSize = maxOf(fontSize.value, 11f).sp,
             fontWeight = FontWeight.Bold,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
