@@ -27,6 +27,9 @@ import okhttp3.Request
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okhttp3.Response
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.tasks.await
 import java.net.URLEncoder
 import java.net.URL
@@ -162,29 +165,38 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
 
 private const val APEX_API_BASE_URL = BuildConfig.APEX_API_BASE_URL
 
+// Shared HTTP connection pool: reuse TLS connections and keep API calls snappy.
+private val APEX_HTTP_CLIENT: OkHttpClient = OkHttpClient.Builder()
+    .connectTimeout(5, TimeUnit.SECONDS)
+    .readTimeout(8, TimeUnit.SECONDS)
+    .writeTimeout(8, TimeUnit.SECONDS)
+    .callTimeout(10, TimeUnit.SECONDS)
+    .retryOnConnectionFailure(true)
+    .connectionPool(okhttp3.ConnectionPool(8, 5, TimeUnit.MINUTES))
+    .build()
+
 private suspend fun apexApiRequest(path: String, method: String = "GET", body: JSONObject? = null): JSONObject =
     withContext(Dispatchers.IO) {
         require(APEX_API_BASE_URL.isNotBlank()) { "APEX backend URL is not configured. Hosting is required first." }
         val user = FirebaseAuth.getInstance().currentUser ?: throw IllegalStateException("Please login first.")
         val token = user.getIdToken(false).await().token ?: throw IllegalStateException("Could not get login token.")
-        val connection = (URL(APEX_API_BASE_URL.trimEnd('/') + path).openConnection() as java.net.HttpURLConnection)
-        try {
-            connection.requestMethod = method
-            connection.connectTimeout = 15000
-            connection.readTimeout = 20000
-            connection.setRequestProperty("Authorization", "Bearer $token")
-            connection.setRequestProperty("Content-Type", "application/json")
-            if (body != null) {
-                connection.doOutput = true
-                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            }
-            val code = connection.responseCode
-            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            val raw = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        val requestBuilder = Request.Builder()
+            .url(APEX_API_BASE_URL.trimEnd('/') + path)
+            .header("Authorization", "Bearer $token")
+            .header("Accept", "application/json")
+            .method(method, if (body != null) {
+                body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+            } else if (method == "GET" || method == "DELETE") null else {
+                ByteArray(0).toRequestBody(null)
+            })
+        APEX_HTTP_CLIENT.newCall(requestBuilder.build()).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
             val result = if (raw.isBlank()) JSONObject() else JSONObject(raw)
-            if (code !in 200..299) throw IllegalStateException(result.optString("error", "API request failed ($code)."))
+            if (!response.isSuccessful) {
+                throw IllegalStateException(result.optString("error", "API request failed (${response.code})."))
+            }
             result
-        } finally { connection.disconnect() }
+        }
     }
 
 private val Bg = Color(0xFF0B0E11)
@@ -369,22 +381,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             loading = false
         }
 
-        // Poll the APEX market proxy as a reliable fallback if the phone cannot reach Binance WebSocket.
-        val marketFallback = launch {
-            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-                delay(3000)
-                try {
-                    val latest = fetchLiveMarkets(forceRefresh = true)
-                    if (latest.isNotEmpty()) {
-                        liveMarkets = latest
-                        loading = false
-                    }
-                } catch (_: Exception) { }
-            }
-        }
-
         val client = OkHttpClient()
-        while (true) {
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             val closed = kotlinx.coroutines.CompletableDeferred<Unit>()
             val request = Request.Builder()
                 .url("wss://stream.binance.com:9443/ws/!ticker@arr")
@@ -392,36 +390,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             val socket = client.newWebSocket(request, object : WebSocketListener() {
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     try {
-                        val rows = JSONArray(text)
-                        val names = mapOf(
-                            "BTC" to "Bitcoin", "ETH" to "Ethereum", "BNB" to "BNB",
-                            "SOL" to "Solana", "XRP" to "XRP", "DOGE" to "Dogecoin",
-                            "ADA" to "Cardano", "TRX" to "TRON", "TON" to "Toncoin",
-                            "LTC" to "Litecoin", "BCH" to "Bitcoin Cash", "LINK" to "Chainlink",
-                            "DOT" to "Polkadot", "AVAX" to "Avalanche", "POL" to "POL",
-                            "SHIB" to "Shiba Inu", "ATOM" to "Cosmos", "ETC" to "Ethereum Classic",
-                            "UNI" to "Uniswap", "NEAR" to "NEAR Protocol"
-                        )
-                        val allowed = cachedUsdtSpotSymbols.orEmpty()
-                        val updated = (0 until rows.length()).mapNotNull { index ->
-                            val row = rows.getJSONObject(index)
-                            val full = row.optString("s")
-                            if (!full.endsWith("USDT") || (allowed.isNotEmpty() && full !in allowed)) return@mapNotNull null
-                            val base = full.removeSuffix("USDT")
-                            val price = row.optString("c").toDoubleOrNull() ?: return@mapNotNull null
-                            val change = row.optString("P").toDoubleOrNull() ?: 0.0
-                            Coin(
-                                symbol = base,
-                                name = names[base] ?: base,
-                                price = String.format(java.util.Locale.US, "%,.8f", price).trimEnd('0').trimEnd('.'),
-                                change = String.format(java.util.Locale.US, "%+.2f%%", change),
-                                up = change >= 0
-                            )
-                        }.sortedByDescending { coin ->
-                            val rowIndex = (0 until rows.length()).firstOrNull { rows.getJSONObject(it).optString("s") == coin.symbol + "USDT" }
-                            rowIndex?.let { rows.getJSONObject(it).optString("q").toDoubleOrNull() } ?: 0.0
-                        }
-                        if (updated.isNotEmpty()) {
+                        val updated = parseTickerWebSocketMarkets(text)
+                        if (updated.isNotEmpty() && updated != cachedLiveMarkets) {
                             liveMarkets = updated
                             cachedLiveMarkets = updated
                             cachedLiveMarketsAt = System.currentTimeMillis()
@@ -436,11 +406,15 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     closed.complete(Unit)
                 }
             })
-            closed.await()
+            kotlinx.coroutines.withTimeoutOrNull(25000) { closed.await() }
             socket.cancel()
-            delay(3000)
+            // REST snapshot only after stream disconnect; reconnect quickly.
+            try {
+                val latest = fetchLiveMarkets(forceRefresh = true)
+                if (latest.isNotEmpty()) { liveMarkets = latest; loading = false }
+            } catch (_: Exception) { }
+            delay(750)
         }
-        marketFallback.cancel()
     }
 
     DisposableEffect(signedInUser?.uid, refreshKey) {
@@ -912,17 +886,13 @@ private suspend fun fetchLiveMarkets(forceRefresh: Boolean = false): List<Coin> 
         return@withContext cached
     }
     require(APEX_API_BASE_URL.isNotBlank()) { "APEX backend URL is not configured." }
-    val connection = (URL(APEX_API_BASE_URL.trimEnd('/') + "/api/markets").openConnection() as java.net.HttpURLConnection)
-    try {
-        connection.connectTimeout = 8000
-        connection.readTimeout = 12000
-        connection.requestMethod = "GET"
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("Cache-Control", "no-cache")
-        val code = connection.responseCode
-        val raw = (if (code in 200..299) connection.inputStream else connection.errorStream)
-            ?.bufferedReader()?.use { it.readText() }.orEmpty()
-        if (code !in 200..299) throw IllegalStateException("APEX market API HTTP $code")
+    val request = Request.Builder()
+        .url(APEX_API_BASE_URL.trimEnd('/') + "/api/markets")
+        .header("Accept", "application/json")
+        .build()
+    APEX_HTTP_CLIENT.newCall(request).execute().use { response ->
+        val raw = response.body?.string().orEmpty()
+        if (!response.isSuccessful) throw IllegalStateException("APEX market API HTTP ${response.code}")
         val payload = JSONObject(raw)
         val rows = payload.optJSONArray("markets") ?: JSONArray()
         val result = (0 until rows.length()).mapNotNull { index ->
@@ -944,8 +914,6 @@ private suspend fun fetchLiveMarkets(forceRefresh: Boolean = false): List<Coin> 
         cachedLiveMarkets = result
         cachedLiveMarketsAt = System.currentTimeMillis()
         result
-    } finally {
-        connection.disconnect()
     }
 }
 
