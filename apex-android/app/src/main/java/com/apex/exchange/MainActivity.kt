@@ -2540,14 +2540,25 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
             try {
                 val response = apexApiRequest("/api/account")
                 val (found, walletBalances) = parseBinanceTestnetBalances(response)
-                fetchLiveMarkets()
-                val portfolioValue = calculateWalletTotalUsdt(walletBalances)
+
+                // Render the account balances immediately; market-price refresh must not block the wallet.
                 balances = found
-                totalUsdt = portfolioValue
                 cachedAssetBalances = found
-                cachedAssetTotalUsdt = portfolioValue
                 cachedAssetBalancesAt = System.currentTimeMillis()
+                val cachedValue = calculateWalletTotalUsdt(walletBalances)
+                totalUsdt = cachedValue
+                cachedAssetTotalUsdt = cachedValue
                 message = "Binance Spot Testnet · Available + Locked"
+
+                // Refresh prices independently, then update the portfolio valuation if successful.
+                try {
+                    fetchLiveMarkets()
+                    val updatedValue = calculateWalletTotalUsdt(walletBalances)
+                    totalUsdt = updatedValue
+                    cachedAssetTotalUsdt = updatedValue
+                } catch (_: Exception) {
+                    // Keep the balances and cached valuation visible when market data is unavailable.
+                }
             } catch (e: Exception) {
                 if (balances.isEmpty()) message = e.localizedMessage ?: "Wallet could not be loaded."
             } finally { busy = false; walletRequestInFlight = false }
