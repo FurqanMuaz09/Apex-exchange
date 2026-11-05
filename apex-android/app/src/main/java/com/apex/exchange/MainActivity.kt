@@ -3353,14 +3353,11 @@ private fun AuthScreen(onSuccess: () -> Unit) {
             if (busy) {
                 CircularProgressIndicator(modifier = Modifier.size(19.dp), color = Color(0xFF4285F4), strokeWidth = 2.dp)
             } else {
-                androidx.compose.foundation.Canvas(Modifier.size(25.dp)) {
-                    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Butt)
-                    drawArc(Color(0xFF4285F4), -45f, 90f, false, style = stroke)
-                    drawArc(Color(0xFF34A853), 45f, 90f, false, style = stroke)
-                    drawArc(Color(0xFFFBBC05), 135f, 90f, false, style = stroke)
-                    drawArc(Color(0xFFEA4335), 225f, 90f, false, style = stroke)
-                    drawLine(Color(0xFF4285F4), androidx.compose.ui.geometry.Offset(size.width * 0.52f, size.height * 0.5f), androidx.compose.ui.geometry.Offset(size.width, size.height * 0.5f), stroke.width)
-                }
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.google_g_logo),
+                    contentDescription = "Google",
+                    modifier = Modifier.size(28.dp)
+                )
                 Spacer(Modifier.width(12.dp))
                 Text("Continue with Google", color = Color(0xFF202124), fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
