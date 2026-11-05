@@ -204,6 +204,87 @@ app.post('/api/account/listen-key', requireFirebaseAuth, async (req, res) => {
   }
 });
 
+app.get('/api/holdings/metrics', requireFirebaseAuth, async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || '').toUpperCase();
+    if (!/^[A-Z0-9]{5,20}$/.test(symbol)) {
+      return res.status(400).json({ error: 'A valid trading pair symbol is required.' });
+    }
+
+    const [trades, tickerResponse] = await Promise.all([
+      binanceRequest('GET', '/api/v3/myTrades', { symbol, limit: 1000 }),
+      fetch(`${BASE}/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}`)
+    ]);
+    const ticker = await tickerResponse.json().catch(() => ({}));
+    if (!tickerResponse.ok || !Number.isFinite(Number(ticker.price))) {
+      throw new Error('Could not load the current market price for holdings.');
+    }
+
+    const baseAsset = symbol.replace(/(USDT|USDC|BTC|ETH|BNB|FDUSD|TUSD|USDP|DAI)$/, '');
+    const quoteAsset = symbol.slice(baseAsset.length);
+    const lots = [];
+    let realizedPnl = 0;
+    let matchedSells = 0;
+
+    trades.sort((a, b) => Number(a.time) - Number(b.time));
+    for (const trade of trades) {
+      const qty = Number(trade.qty);
+      const quoteQty = Number(trade.quoteQty);
+      const fee = Number(trade.commission || 0);
+      if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(quoteQty)) continue;
+
+      if (trade.isBuyer) {
+        const netQty = Math.max(0, qty - (trade.commissionAsset === baseAsset ? fee : 0));
+        const totalCost = quoteQty + (trade.commissionAsset === quoteAsset ? fee : 0);
+        if (netQty > 0) lots.push({ qty: netQty, unitCost: totalCost / netQty });
+        continue;
+      }
+
+      let remaining = qty + (trade.commissionAsset === baseAsset ? fee : 0);
+      const proceeds = Math.max(0, quoteQty - (trade.commissionAsset === quoteAsset ? fee : 0));
+      let allocatedCost = 0;
+      let matchedQty = 0;
+      while (remaining > 1e-12 && lots.length) {
+        const lot = lots[0];
+        const used = Math.min(remaining, lot.qty);
+        allocatedCost += used * lot.unitCost;
+        matchedQty += used;
+        lot.qty -= used;
+        remaining -= used;
+        if (lot.qty <= 1e-12) lots.shift();
+      }
+      if (matchedQty > 0) {
+        realizedPnl += proceeds * (matchedQty / (qty + (trade.commissionAsset === baseAsset ? fee : 0))) - allocatedCost;
+        matchedSells++;
+      }
+    }
+
+    const trackedQuantity = lots.reduce((sum, lot) => sum + lot.qty, 0);
+    const costBasis = lots.reduce((sum, lot) => sum + lot.qty * lot.unitCost, 0);
+    const averageEntryPrice = trackedQuantity > 0 ? costBasis / trackedQuantity : 0;
+    const currentPrice = Number(ticker.price);
+    const unrealizedPnl = trackedQuantity > 0 ? currentPrice * trackedQuantity - costBasis : 0;
+
+    res.json({
+      mode: 'TESTNET ONLY',
+      symbol,
+      baseAsset,
+      quoteAsset,
+      currentPrice,
+      trackedQuantity,
+      costBasis,
+      averageEntryPrice,
+      unrealizedPnl,
+      pnlPercent: costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : 0,
+      realizedPnl,
+      trades: trades.length,
+      matchedSells
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.get('/api/pnl/today', requireFirebaseAuth, async (req, res) => {
   try {
     const snapshot = await userOrders(req.user.uid).limit(500).get();
