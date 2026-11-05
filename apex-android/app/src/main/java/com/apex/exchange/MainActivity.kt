@@ -1188,6 +1188,10 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
     var holdingPnlPercent by remember { mutableStateOf<Double?>(null) }
     var holdingBreakeven by remember { mutableStateOf<Double?>(null) }
     var holdingMetricsError by remember { mutableStateOf<String?>(null) }
+    var openOrders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var openOrdersLoading by remember { mutableStateOf(false) }
+    var openOrdersError by remember { mutableStateOf<String?>(null) }
+    var cancellingOrderId by remember { mutableStateOf<String?>(null) }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
     val livePriceValue = marketPrice.replace(",", "").toDoubleOrNull() ?: 0.0
     val effectivePrice = if (orderType == "Limit") limitPrice.toDoubleOrNull() ?: livePriceValue else livePriceValue
@@ -1229,6 +1233,33 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             if (current != null && current > 0.0) {
                 limitPrice = java.math.BigDecimal.valueOf(current).stripTrailingZeros().toPlainString()
                 limitPriceAutoFilled = true
+            }
+        }
+    }
+    LaunchedEffect(selectedOrdersTab) {
+        if (selectedOrdersTab == "Open Orders") {
+            if (FirebaseAuth.getInstance().currentUser == null) {
+                openOrders = emptyList()
+                openOrdersError = "Login to view your open orders."
+            } else {
+                while (true) {
+                    openOrdersLoading = openOrders.isEmpty()
+                    try {
+                        val response = apexApiRequest("/api/orders")
+                        val rows = response.optJSONArray("orders") ?: JSONArray()
+                        openOrders = (0 until rows.length()).mapNotNull { index ->
+                            rows.optJSONObject(index)?.takeIf {
+                                it.optString("status") in listOf("NEW", "PARTIALLY_FILLED")
+                            }
+                        }
+                        openOrdersError = null
+                    } catch (e: Exception) {
+                        openOrdersError = e.message ?: "Could not load open orders."
+                    } finally {
+                        openOrdersLoading = false
+                    }
+                    delay(5000)
+                }
             }
         }
     }
@@ -1656,7 +1687,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                             Modifier.clickable { selectedOrdersTab = tab }.padding(top = 2.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(if (tab == "Open Orders") "Open Orders (0)" else "Holdings", color = if (selectedOrdersTab == tab) White else Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text(if (tab == "Open Orders") "Open Orders (${openOrders.size})" else "Holdings", color = if (selectedOrdersTab == tab) White else Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
                             Box(Modifier.width(92.dp).height(3.dp).background(if (selectedOrdersTab == tab) Yellow else Color.Transparent, RoundedCornerShape(2.dp)))
                         }
@@ -1672,21 +1703,138 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
                 if (selectedOrdersTab == "Open Orders") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("☐  Show current", color = Muted, fontSize = 12.sp)
-                        Spacer(Modifier.width(18.dp))
-                        Text("All types  ▾", color = Muted, fontSize = 12.sp)
+                        Text("Current pair: $pair", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.weight(1f))
-                        Text("Cancel all", color = Muted, fontSize = 12.sp,
-                            modifier = Modifier.background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 7.dp))
+                        Text(
+                            "Refresh",
+                            color = Yellow,
+                            fontSize = 12.sp,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Panel)
+                                .clickable {
+                                    orderScope.launch {
+                                        openOrdersLoading = true
+                                        try {
+                                            val response = apexApiRequest("/api/orders")
+                                            val rows = response.optJSONArray("orders") ?: JSONArray()
+                                            openOrders = (0 until rows.length()).mapNotNull { index ->
+                                                rows.optJSONObject(index)?.takeIf { it.optString("status") in listOf("NEW", "PARTIALLY_FILLED") }
+                                            }
+                                            openOrdersError = null
+                                        } catch (e: Exception) {
+                                            openOrdersError = e.message ?: "Could not load open orders."
+                                        }
+                                        openOrdersLoading = false
+                                    }
+                                }.padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
                     }
-                    Column(
-                        Modifier.fillMaxWidth().height(190.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(Icons.Filled.ReceiptLong, contentDescription = null, tint = Muted, modifier = Modifier.size(42.dp))
-                        Spacer(Modifier.height(12.dp))
-                        Text("No open orders", color = Muted, fontSize = 14.sp)
+                    Spacer(Modifier.height(12.dp))
+                    when {
+                        openOrdersLoading && openOrders.isEmpty() -> {
+                            Column(Modifier.fillMaxWidth().height(150.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                CircularProgressIndicator(color = Yellow, modifier = Modifier.size(25.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.height(10.dp))
+                                Text("Loading open orders…", color = Muted, fontSize = 12.sp)
+                            }
+                        }
+                        openOrders.isEmpty() -> {
+                            Column(Modifier.fillMaxWidth().height(150.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Icon(Icons.Filled.ReceiptLong, contentDescription = null, tint = Muted, modifier = Modifier.size(38.dp))
+                                Spacer(Modifier.height(10.dp))
+                                Text(if (openOrdersError != null) openOrdersError!! else "No open orders", color = Muted, fontSize = 13.sp)
+                            }
+                        }
+                        else -> {
+                            openOrders.forEach { order ->
+                                val orderSymbol = order.optString("symbol", pair.replace("/", ""))
+                                val orderSide = order.optString("side", "—")
+                                val orderStatus = order.optString("status", "—")
+                                val orderTypeLabel = order.optString("type", "—")
+                                val orderPrice = order.optString("price", "0")
+                                val orderQty = order.optString("origQty", "0")
+                                val filledQty = order.optString("executedQty", "0")
+                                val quoteFilled = order.optString("cummulativeQuoteQty", "0")
+                                val orderId = order.optString("orderId", "")
+                                val sideColor = if (orderSide == "BUY") Green else Red
+                                val quantityNumber = orderQty.toDoubleOrNull() ?: 0.0
+                                val filledNumber = filledQty.toDoubleOrNull() ?: 0.0
+                                val fillPercent = if (quantityNumber > 0.0) (filledNumber / quantityNumber * 100.0).coerceIn(0.0, 100.0) else 0.0
+                                Column(
+                                    Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(12.dp))
+                                        .background(Panel).padding(13.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(orderSymbol.chunked(3).joinToString("/"), color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(orderSide, color = sideColor, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(sideColor.copy(alpha = 0.12f)).padding(horizontal = 7.dp, vertical = 4.dp))
+                                        Spacer(Modifier.weight(1f))
+                                        Text(orderStatus.replace("_", " "), color = Yellow, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Spacer(Modifier.height(13.dp))
+                                    @Composable
+                                    fun OrderMetric(label: String, value: String, alignEnd: Boolean = false) {
+                                        Column(Modifier.weight(1f), horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start) {
+                                            Text(label, color = Muted, fontSize = 10.sp)
+                                            Spacer(Modifier.height(3.dp))
+                                            Text(value, color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                        }
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        OrderMetric("Order type", orderTypeLabel)
+                                        OrderMetric("Limit price", if (orderPrice.toDoubleOrNull() == 0.0) "Market" else "$orderPrice USDT", true)
+                                    }
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(Modifier.fillMaxWidth()) {
+                                        OrderMetric("Amount", "$orderQty ${orderSymbol.removeSuffix("USDT")}")
+                                        OrderMetric("Filled", "$filledQty (${String.format(java.util.Locale.US, "%.1f", fillPercent)}%)", true)
+                                    }
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(Modifier.fillMaxWidth()) {
+                                        OrderMetric("Executed value", "$quoteFilled USDT")
+                                        OrderMetric("Order ID", orderId, true)
+                                    }
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Fill progress", color = Muted, fontSize = 10.sp)
+                                        Spacer(Modifier.width(8.dp))
+                                        Box(Modifier.weight(1f).height(5.dp).clip(CircleShape).background(Color(0xFF343943))) {
+                                            Box(Modifier.fillMaxWidth((fillPercent / 100.0).toFloat()).fillMaxHeight().background(Green))
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(String.format(java.util.Locale.US, "%.1f%%", fillPercent), color = White, fontSize = 10.sp)
+                                    }
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                        Text(
+                                            if (cancellingOrderId == orderId) "Cancelling…" else "Cancel order",
+                                            color = Red,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Red.copy(alpha = 0.10f))
+                                                .clickable(enabled = cancellingOrderId == null) {
+                                                    cancellingOrderId = orderId
+                                                    orderScope.launch {
+                                                        try {
+                                                            apexApiRequest("/api/order/$orderSymbol/$orderId", "DELETE")
+                                                            val response = apexApiRequest("/api/orders")
+                                                            val rows = response.optJSONArray("orders") ?: JSONArray()
+                                                            openOrders = (0 until rows.length()).mapNotNull { index ->
+                                                                rows.optJSONObject(index)?.takeIf { it.optString("status") in listOf("NEW", "PARTIALLY_FILLED") }
+                                                            }
+                                                            openOrdersError = null
+                                                        } catch (e: Exception) {
+                                                            openOrdersError = e.message ?: "Could not cancel order."
+                                                        } finally {
+                                                            cancellingOrderId = null
+                                                        }
+                                                    }
+                                                }.padding(horizontal = 13.dp, vertical = 8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else {
                     val baseQuantity = availableBase.toDoubleOrNull() ?: 0.0
