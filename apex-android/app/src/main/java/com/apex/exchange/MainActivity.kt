@@ -1242,23 +1242,96 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 openOrders = emptyList()
                 openOrdersError = "Login to view your open orders."
             } else {
-                while (true) {
+                val client = OkHttpClient()
+                var socket: WebSocket? = null
+                try {
                     openOrdersLoading = openOrders.isEmpty()
-                    try {
-                        val response = apexApiRequest("/api/orders")
-                        val rows = response.optJSONArray("orders") ?: JSONArray()
-                        openOrders = (0 until rows.length()).mapNotNull { index ->
-                            rows.optJSONObject(index)?.takeIf {
-                                it.optString("status") in listOf("NEW", "PARTIALLY_FILLED")
-                            }
+                    val response = apexApiRequest("/api/orders")
+                    val rows = response.optJSONArray("orders") ?: JSONArray()
+                    openOrders = (0 until rows.length()).mapNotNull { index ->
+                        rows.optJSONObject(index)?.takeIf {
+                            it.optString("status") in listOf("NEW", "PARTIALLY_FILLED")
                         }
-                        openOrdersError = null
-                    } catch (e: Exception) {
-                        openOrdersError = e.message ?: "Could not load open orders."
-                    } finally {
-                        openOrdersLoading = false
                     }
-                    delay(5000)
+                    openOrdersError = null
+                    openOrdersLoading = false
+
+                    while (true) {
+                        try {
+                            val stream = apexApiRequest("/api/account/listen-key")
+                            val listenKey = stream.getString("listenKey")
+                            val connected = kotlinx.coroutines.CompletableDeferred<Unit>()
+                            val request = Request.Builder()
+                                .url("wss://stream.testnet.binance.vision/ws/$listenKey")
+                                .build()
+                            socket = client.newWebSocket(request, object : WebSocketListener() {
+                                override fun onOpen(webSocket: WebSocket, response: Response) {
+                                    connected.complete(Unit)
+                                }
+                                override fun onMessage(webSocket: WebSocket, text: String) {
+                                    try {
+                                        val event = JSONObject(text)
+                                        if (event.optString("e") != "executionReport") return
+                                        val symbol = event.optString("s")
+                                        val id = event.optString("i")
+                                        val status = event.optString("X")
+                                        val executed = event.optString("z", "0")
+                                        val quoteExecuted = event.optString("Z", "0")
+                                        val eventOrder = JSONObject().apply {
+                                            put("symbol", symbol)
+                                            put("orderId", id)
+                                            put("side", event.optString("S"))
+                                            put("type", event.optString("o"))
+                                            put("price", event.optString("p"))
+                                            put("origQty", event.optString("q"))
+                                            put("executedQty", executed)
+                                            put("cummulativeQuoteQty", quoteExecuted)
+                                            put("status", status)
+                                        }
+                                        orderScope.launch {
+                                            val active = status == "NEW" || status == "PARTIALLY_FILLED"
+                                            openOrders = if (active) {
+                                                val index = openOrders.indexOfFirst {
+                                                    it.optString("symbol") == symbol && it.optString("orderId") == id
+                                                }
+                                                if (index >= 0) openOrders.toMutableList().also { it[index] = eventOrder }
+                                                else listOf(eventOrder) + openOrders
+                                            } else {
+                                                openOrders.filterNot {
+                                                    it.optString("symbol") == symbol && it.optString("orderId") == id
+                                                }
+                                            }
+                                            openOrdersError = null
+                                        }
+                                    } catch (_: Exception) { }
+                                }
+                                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                                    if (!connected.isCompleted) connected.complete(Unit)
+                                }
+                                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                                    if (!connected.isCompleted) connected.complete(Unit)
+                                }
+                            })
+                            connected.await()
+                            awaitCancellation()
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            openOrdersError = e.message ?: "Live order stream reconnecting…"
+                            delay(1000)
+                        } finally {
+                            socket?.close(1000, "Open orders screen closed")
+                            socket = null
+                        }
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    openOrdersError = e.message ?: "Could not load open orders."
+                    openOrdersLoading = false
+                } finally {
+                    socket?.close(1000, "Open orders screen closed")
+                    client.dispatcher.executorService.shutdown()
                 }
             }
         }
@@ -1816,11 +1889,19 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                                                     cancellingOrderId = orderId
                                                     orderScope.launch {
                                                         try {
-                                                            apexApiRequest("/api/order/$orderSymbol/$orderId", "DELETE")
-                                                            val response = apexApiRequest("/api/orders")
-                                                            val rows = response.optJSONArray("orders") ?: JSONArray()
-                                                            openOrders = (0 until rows.length()).mapNotNull { index ->
-                                                                rows.optJSONObject(index)?.takeIf { it.optString("status") in listOf("NEW", "PARTIALLY_FILLED") }
+                                                            val cancelled = apexApiRequest("/api/order/$orderSymbol/$orderId", "DELETE")
+                                                            val finalStatus = cancelled.optJSONObject("order")?.optString("status") ?: "CANCELED"
+                                                            if (finalStatus !in listOf("NEW", "PARTIALLY_FILLED")) {
+                                                                openOrders = openOrders.filterNot {
+                                                                    it.optString("symbol") == orderSymbol && it.optString("orderId") == orderId
+                                                                }
+                                                            } else {
+                                                                openOrders = openOrders.map { existing ->
+                                                                    if (existing.optString("symbol") == orderSymbol && existing.optString("orderId") == orderId) {
+                                                                        existing.put("status", finalStatus)
+                                                                        existing
+                                                                    } else existing
+                                                                }
                                                             }
                                                             openOrdersError = null
                                                         } catch (e: Exception) {
