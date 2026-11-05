@@ -233,8 +233,11 @@ private fun ApexNativeApp() {
     var tab by remember { mutableStateOf("Home") }
     var detail by remember { mutableStateOf<String?>(null) }
     var selectedTradingPair by remember { mutableStateOf("BTC/USDT") }
+    var showTradeOrderEntry by remember { mutableStateOf(false) }
     var refreshKey by remember { mutableIntStateOf(0) }
-    BackHandler(enabled = detail != null) { detail = null }
+    BackHandler(enabled = detail != null || (tab == "Trade" && showTradeOrderEntry)) {
+        if (detail != null) detail = null else showTradeOrderEntry = false
+    }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -256,7 +259,7 @@ private fun ApexNativeApp() {
                     destinations.forEach { (label, icon, route) ->
                         NavigationBarItem(
                             selected = tab == route && detail == null,
-                            onClick = { tab = route; detail = null },
+                            onClick = { tab = route; detail = null; if (route == "Trade") showTradeOrderEntry = false },
                             icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp)) },
                             label = { Text(label, fontSize = 9.sp, lineHeight = 10.sp) },
                             colors = NavigationBarItemDefaults.colors(
@@ -304,8 +307,8 @@ private fun ApexNativeApp() {
                             onTrade = { tab = "Trade" },
                             onDetail = { detail = it }
                         )
-                        "Markets" -> MarketsScreen(favorites, refreshKey) { symbol -> selectedTradingPair = "$symbol/USDT"; tab = "Trade"; detail = null }
-                        "Trade" -> TradeScreen(favorites = favorites, initialPair = selectedTradingPair, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
+                        "Markets" -> MarketsScreen(favorites, refreshKey) { symbol -> selectedTradingPair = "$symbol/USDT"; showTradeOrderEntry = false; tab = "Trade"; detail = null }
+                        "Trade" -> TradeScreen(favorites = favorites, initialPair = selectedTradingPair, chartOnly = !showTradeOrderEntry, onOpenOrderEntry = { showTradeOrderEntry = true }, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
                         "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen(refreshKey = refreshKey) { detail = it }
                         else -> ProfileScreen { detail = it }
@@ -1348,7 +1351,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
+private fun TradeScreen(favorites: MutableList<String>, initialPair: String, chartOnly: Boolean, onOpenOrderEntry: () -> Unit, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
     var pair by remember(initialPair) { mutableStateOf(initialPair) }
@@ -1792,9 +1795,17 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onD
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
-        item {
-            TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) }, { pairSearch = ""; showPairSheet = true })
-        }
+        if (chartOnly) {
+            item {
+                TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) }, { pairSearch = ""; showPairSheet = true })
+            }
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { side = "Buy"; onOpenOrderEntry() }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Bg)) { Text("Buy", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+                    Button(onClick = { side = "Sell"; onOpenOrderEntry() }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = White)) { Text("Sell", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
+        } else {
         item {
             Row(
                 Modifier.fillMaxWidth(),
@@ -2308,6 +2319,7 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, onD
                 }
             }
             HorizontalDivider(color = Color(0xFF252A32), thickness = 1.dp)
+        }
         }
     }
     if (showPairSheet) {
