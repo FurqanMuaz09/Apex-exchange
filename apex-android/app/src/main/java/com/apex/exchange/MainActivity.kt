@@ -2206,7 +2206,7 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
                 balances = found
                 totalUsdt = portfolioValue
                 cachedAssetBalances = found
-                cachedAssetTotalUsdt = usdt
+                cachedAssetTotalUsdt = portfolioValue
                 cachedAssetBalancesAt = System.currentTimeMillis()
                 val walletStatus = response.optString("status", "PENDING_CUSTODY_INFRASTRUCTURE")
                 message = if (walletStatus == "ACTIVE") "APEX Wallet · Live ledger"
