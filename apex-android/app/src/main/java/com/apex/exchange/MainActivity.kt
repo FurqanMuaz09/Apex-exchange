@@ -1477,7 +1477,7 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                 }
 
                 Column(
-                    Modifier.weight(0.82f).height(430.dp).background(Panel, RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 9.dp)
+                    Modifier.weight(0.82f).height(440.dp).background(Panel, RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 8.dp)
                 ) {
                     Text("ORDER BOOK", color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(2.dp))
@@ -1488,14 +1488,14 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                     if (asks.isEmpty()) {
                         repeat(9) {
                             Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-                                Text("···", color = Red, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.weight(0.58f))
-                                Text("···", color = Muted, fontSize = 10.sp, lineHeight = 17.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
+                                Text("···", color = Red, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.weight(0.58f))
+                                Text("···", color = Muted, fontSize = 10.sp, lineHeight = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                             }
                         }
                     } else asks.asReversed().take(9).forEach { level ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 10.sp, lineHeight = 17.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
-                            Text(String.format(java.util.Locale.US, "%,.4f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 10.sp, lineHeight = 17.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
+                            Text(String.format(java.util.Locale.US, "%,.${bookDecimals}f", level.price.replace(",", "").toDoubleOrNull() ?: 0.0), color = Red, fontSize = 10.sp, lineHeight = 15.sp, maxLines = 1, modifier = Modifier.weight(0.58f))
+                            Text(String.format(java.util.Locale.US, "%,.4f", level.quantity.replace(",", "").toDoubleOrNull() ?: 0.0), color = White, fontSize = 10.sp, lineHeight = 15.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(0.42f))
                         }
                     }
                     Box(Modifier.fillMaxWidth().padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
@@ -1515,20 +1515,29 @@ private fun TradeScreen(onDetail: (String) -> Unit) {
                         }
                     }
                     IconButton(onClick = { showDecimalSheet = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Filled.Tune, contentDescription = "Decimal precision", tint = Muted, modifier = Modifier.size(15.dp)) }
-                    val buyDepth = bids.sumOf { it.quantity.replace(",", "").toDoubleOrNull() ?: 0.0 }
-                    val sellDepth = asks.sumOf { it.quantity.replace(",", "").toDoubleOrNull() ?: 0.0 }
+                    // Live buy/sell depth is calculated from the quote value (price × quantity)
+                    // of the visible order-book levels, and refreshes with bids/asks every 3 seconds.
+                    val buyDepth = bids.sumOf {
+                        (it.price.replace(",", "").toDoubleOrNull() ?: 0.0) *
+                            (it.quantity.replace(",", "").toDoubleOrNull() ?: 0.0)
+                    }
+                    val sellDepth = asks.sumOf {
+                        (it.price.replace(",", "").toDoubleOrNull() ?: 0.0) *
+                            (it.quantity.replace(",", "").toDoubleOrNull() ?: 0.0)
+                    }
                     val totalDepth = buyDepth + sellDepth
-                    val buyPercent = if (totalDepth > 0.0) (buyDepth / totalDepth * 100.0).toInt().coerceIn(0, 100) else 50
+                    val buyRatio = if (totalDepth > 0.0) (buyDepth / totalDepth).coerceIn(0.0, 1.0) else 0.5
+                    val buyPercent = (buyRatio * 100.0).toInt().coerceIn(0, 100)
                     val sellPercent = 100 - buyPercent
-                    Row(Modifier.fillMaxWidth().padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("B $buyPercent%", color = Color(0xFF0ECB81), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.width(4.dp))
-                        Row(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(4.dp))) {
-                            Box(Modifier.weight(buyPercent.coerceAtLeast(1).toFloat()).fillMaxHeight().background(Color(0xFF0ECB81)))
-                            Box(Modifier.weight(sellPercent.coerceAtLeast(1).toFloat()).fillMaxHeight().background(Color(0xFFEA4778)))
+                    Row(Modifier.fillMaxWidth().padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("B $buyPercent%", color = Color(0xFF0ECB81), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Spacer(Modifier.width(5.dp))
+                        Row(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(6.dp))) {
+                            if (buyRatio > 0.0) Box(Modifier.weight(buyRatio.toFloat()).fillMaxHeight().background(Color(0xFF0ECB81)))
+                            if (buyRatio < 1.0) Box(Modifier.weight((1.0 - buyRatio).toFloat()).fillMaxHeight().background(Color(0xFFEA4778)))
                         }
-                        Spacer(Modifier.width(4.dp))
-                        Text("$sellPercent% S", color = Color(0xFFEA4778), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.width(5.dp))
+                        Text("$sellPercent% S", color = Color(0xFFEA4778), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }
