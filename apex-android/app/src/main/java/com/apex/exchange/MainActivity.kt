@@ -303,9 +303,9 @@ private fun ApexNativeApp() {
                             onDetail = { detail = it }
                         )
                         "Markets" -> MarketsScreen(favorites, refreshKey) { detail = it }
-                        "Trade" -> TradeScreen(onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
+                        "Trade" -> TradeScreen(favorites = favorites, onDetail = { detail = it }, onTradeUpdate = { refreshKey++ })
                         "Futures" -> NativeDetail("Futures Trading · Coming Soon") { detail = null }
-                        "Assets" -> AssetsScreen { detail = it }
+                        "Assets" -> if (FirebaseAuth.getInstance().currentUser == null) NativeDetail("Login / Sign up") { detail = null } else AssetsScreen { detail = it }
                         else -> ProfileScreen { detail = it }
                     }
                 }
@@ -455,10 +455,11 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     if (response.has("pnl") && !response.isNull("pnl")) todayPnl = response.optDouble("pnl")
                 } catch (_: Exception) { }
                 try {
-                    val wallet = apexApiRequest("/api/wallet")
-                    val balances = wallet.optJSONObject("balances") ?: JSONObject()
+                    val account = apexApiRequest("/api/account")
+                    val (testnetAssets, balances) = parseBinanceTestnetBalances(account)
                     val total = calculateWalletTotalUsdt(balances)
                     walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
+                    cachedAssetBalances = testnetAssets
                     cachedAssetTotalUsdt = total
                     cachedAssetBalancesAt = System.currentTimeMillis()
                 } catch (_: Exception) { }
@@ -548,7 +549,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 softWrap = false,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
-                            if (signedInUser != null && !balanceHidden && walletBalance != null) {
+                            if (signedInUser != null) {
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     "USDT",
@@ -649,6 +650,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                     horizontalAlignment = Alignment.End
                                 ) {
                                     Text(coin.price, color = White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                    Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                                 }
                                 Spacer(Modifier.width(8.dp))
                                 Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
@@ -668,13 +670,14 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
 
     if (showAllPairs) {
         ModalBottomSheet(
-            onDismissRequest = { showAllPairs = false; sheetSearch = "" },
+            onDismissRequest = { showAllPairs = false; sheetSearch = ""; sheetFilter = "All" },
+            modifier = Modifier.fillMaxHeight(0.96f),
             sheetState = sheetState,
             containerColor = Panel,
             contentColor = White,
             dragHandle = { BottomSheetDefaults.DragHandle(color = Muted) }
         ) {
-            Column(Modifier.fillMaxWidth().fillMaxHeight(0.96f)) {
+            Column(Modifier.fillMaxWidth().fillMaxSize()) {
                 Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
                 OutlinedTextField(
@@ -695,7 +698,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         .padding(horizontal = 18.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    listOf("All", "Gainer", "Loser").forEach { category ->
+                    listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach { category ->
                         Text(
                             category,
                             color = if (sheetFilter == category) Yellow else Muted,
@@ -706,13 +709,20 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     }
                 }
                 val allPairResults = liveMarkets
-                    .filter { it.symbol.contains(sheetSearch, true) || it.name.contains(sheetSearch, true) }
+                    .filter { coin ->
+                        (coin.symbol.contains(sheetSearch, true) || coin.name.contains(sheetSearch, true)) &&
+                            when (sheetFilter) {
+                                "Favorite" -> coin.symbol in favorites
+                                "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE")
+                                "Gainer" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) > 0.0
+                                "Loser" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) < 0.0
+                                else -> true
+                            }
+                    }
                     .let { coins ->
                         when (sheetFilter) {
-                            "Gainer" -> coins.filter { it.change.removeSuffix("%").toDoubleOrNull()?.let { value -> value > 0.0 } == true }
-                                .sortedByDescending { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
-                            "Loser" -> coins.filter { it.change.removeSuffix("%").toDoubleOrNull()?.let { value -> value < 0.0 } == true }
-                                .sortedBy { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                            "Gainer" -> coins.sortedByDescending { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                            "Loser" -> coins.sortedBy { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
                             else -> coins
                         }
                     }
@@ -744,10 +754,25 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             }
                             Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
                                 Text(coin.price, color = White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                             }
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
                                 MarketChangeBadge(coin.change)
+                            }
+                            androidx.compose.material3.IconButton(
+                                onClick = {
+                                    if (coin.symbol in favorites) favorites.remove(coin.symbol)
+                                    else favorites.add(coin.symbol)
+                                },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (coin.symbol in favorites) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                    contentDescription = if (coin.symbol in favorites) "Remove from favorites" else "Add to favorites",
+                                    tint = if (coin.symbol in favorites) Yellow else Muted,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
                     }
@@ -756,6 +781,16 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         }
     }
 }
+private fun coinUsdPriceLabel(price: String): String {
+    val value = price.replace(",", "").replace("$", "").trim().toDoubleOrNull()
+        ?: return "≈ $—"
+    return "≈ $" + when {
+        value >= 1.0 -> String.format(java.util.Locale.US, "%,.2f", value)
+        value >= 0.01 -> String.format(java.util.Locale.US, "%.4f", value)
+        else -> String.format(java.util.Locale.US, "%.6f", value)
+    }
+}
+
 private data class Coin(val symbol: String, val name: String, val price: String, val change: String, val up: Boolean)
 
 private fun marketChangeColor(change: String): Color = when {
@@ -865,6 +900,24 @@ private val sharedLiveMarketsState = androidx.compose.runtime.mutableStateOf<Lis
 private var cachedLiveMarketsAt: Long = 0L
 
 // Convert every credited wallet asset into a USDT portfolio value using current spot prices.
+private fun parseBinanceTestnetBalances(response: JSONObject): Pair<List<Pair<String, String>>, JSONObject> {
+    val rows = response.optJSONArray("balances") ?: JSONArray()
+    val amounts = JSONObject()
+    val found = mutableListOf<Pair<String, String>>()
+    for (i in 0 until rows.length()) {
+        val row = rows.optJSONObject(i) ?: continue
+        val asset = row.optString("asset").uppercase()
+        val free = row.optDouble("free", 0.0)
+        val locked = row.optDouble("locked", 0.0)
+        val total = free + locked
+        if (asset.isNotBlank() && total > 0.0 && total.isFinite()) {
+            amounts.put(asset, total)
+            found.add(asset to String.format(java.util.Locale.US, "%.8f", total))
+        }
+    }
+    return found to amounts
+}
+
 private fun calculateWalletTotalUsdt(balances: JSONObject): Double {
     var total = 0.0
     val keys = balances.keys()
@@ -1001,6 +1054,7 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
                         if (updated.isNotEmpty()) {
                             liveMarkets = updated
                             cachedLiveMarkets = updated
+                            sharedLiveMarketsState.value = updated
                             cachedLiveMarketsAt = System.currentTimeMillis()
                             loading = false
                             error = null
@@ -1199,12 +1253,13 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
+private fun TradeScreen(favorites: MutableList<String>, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember { mutableStateOf("Buy") }
     var orderType by remember { mutableStateOf("Limit") }
     var pair by remember { mutableStateOf("BTC/USDT") }
     var showPairSheet by remember { mutableStateOf(false) }
     var pairSearch by remember { mutableStateOf("") }
+    var pairSheetFilter by remember { mutableStateOf("All") }
     var allPairMarkets by remember { mutableStateOf(sharedLiveMarketsState.value.ifEmpty { cachedLiveMarkets ?: emptyList() }) }
     LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) allPairMarkets = it } }
     var pairLoading by remember { mutableStateOf(false) }
@@ -2281,6 +2336,7 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                                 if (updated.isNotEmpty()) {
                                     allPairMarkets = updated
                                     cachedLiveMarkets = updated
+                                    sharedLiveMarketsState.value = updated
                                     cachedLiveMarketsAt = System.currentTimeMillis()
                                     pairLoading = false
                                     pairLoadError = null
@@ -2304,6 +2360,7 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                         if (latest.isNotEmpty()) {
                             allPairMarkets = latest
                             cachedLiveMarkets = latest
+                            sharedLiveMarketsState.value = latest
                             cachedLiveMarketsAt = System.currentTimeMillis()
                             pairLoading = false
                         }
@@ -2316,54 +2373,120 @@ private fun TradeScreen(onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
                 client.connectionPool.evictAll()
             }
         }
-        ModalBottomSheet(onDismissRequest = { showPairSheet = false }, containerColor = Panel, contentColor = White) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(value = pairSearch, onValueChange = { pairSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("Search coin or pair") })
-                Spacer(Modifier.height(8.dp))
-                when {
-                    allPairMarkets.isEmpty() && pairLoading -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
-                        items(7) {
-                            Row(Modifier.fillMaxWidth().padding(vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(42.dp).background(Color(0xFF252A32), CircleShape))
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Box(Modifier.fillMaxWidth(0.48f).height(14.dp).background(Color(0xFF252A32), RoundedCornerShape(6.dp)))
-                                    Box(Modifier.fillMaxWidth(0.28f).height(10.dp).background(Color(0xFF252A32), RoundedCornerShape(5.dp)))
-                                }
-                                Spacer(Modifier.width(14.dp))
-                                Box(Modifier.width(62.dp).height(13.dp).background(Color(0xFF252A32), RoundedCornerShape(5.dp)))
-                                Spacer(Modifier.width(16.dp))
-                                Box(Modifier.width(78.dp).height(38.dp).background(Color(0xFF252A32), RoundedCornerShape(9.dp)))
-                            }
+        ModalBottomSheet(
+            onDismissRequest = { showPairSheet = false; pairSearch = ""; pairSheetFilter = "All" },
+            modifier = Modifier.fillMaxHeight(0.96f),
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Panel,
+            contentColor = White,
+            dragHandle = { BottomSheetDefaults.DragHandle(color = Muted) }
+        ) {
+            Column(Modifier.fillMaxWidth().fillMaxSize()) {
+                Text("All Market Pairs", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+                OutlinedTextField(
+                    value = pairSearch, onValueChange = { pairSearch = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).height(50.dp),
+                    placeholder = { Text("Search coin or pair", color = Muted, fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted) },
+                    singleLine = true, shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF292D35),
+                        focusedTextColor = White, unfocusedTextColor = White,
+                        unfocusedContainerColor = Color(0xFF111419),
+                        focusedContainerColor = Color(0xFF111419)
+                    )
+                )
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    listOf("All", "Favorite", "Hot", "Gainer", "Loser").forEach { category ->
+                        Text(
+                            category,
+                            color = if (pairSheetFilter == category) Yellow else Muted,
+                            fontSize = 14.sp,
+                            fontWeight = if (pairSheetFilter == category) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.clickable { pairSheetFilter = category }.padding(vertical = 7.dp)
+                        )
+                    }
+                }
+                val tradePairResults = allPairMarkets.filter { coin ->
+                    (coin.symbol.contains(pairSearch, true) || coin.name.contains(pairSearch, true)) &&
+                        when (pairSheetFilter) {
+                            "Favorite" -> coin.symbol in favorites
+                            "Hot" -> coin.symbol in setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE")
+                            "Gainer" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) > 0.0
+                            "Loser" -> (coin.change.removeSuffix("%").toDoubleOrNull() ?: 0.0) < 0.0
+                            else -> true
+                        }
+                }.let { coins ->
+                    when (pairSheetFilter) {
+                        "Gainer" -> coins.sortedByDescending { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                        "Loser" -> coins.sortedBy { it.change.removeSuffix("%").toDoubleOrNull() ?: 0.0 }
+                        else -> coins
+                    }
+                }
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Spacer(Modifier.width(8.dp))
+                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(86.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Spacer(Modifier.width(30.dp))
                         }
                     }
-                    allPairMarkets.isEmpty() && pairLoadError != null ->
-                        Text(pairLoadError ?: "Markets unavailable", color = Red, modifier = Modifier.padding(12.dp))
-                    else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
-                        items(allPairMarkets.filter { (it.symbol + "/USDT " + it.name).contains(pairSearch.trim(), ignoreCase = true) }) { coin ->
-                            Row(Modifier.fillMaxWidth().clickable {
-                                pair = coin.symbol + "/USDT"
-                                amount = ""; limitPrice = ""; totalInput = ""; percent = 0f
-                                showPairSheet = false; pairSearch = ""
-                            }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                MarketCoinIcon(coin.symbol, 40.dp)
-                                Spacer(Modifier.width(12.dp))
+                    items(tradePairResults) { coin ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                Modifier.weight(1f).clickable {
+                                    pair = coin.symbol + "/USDT"
+                                    amount = ""; limitPrice = ""; totalInput = ""; percent = 0f
+                                    showPairSheet = false; pairSearch = ""; pairSheetFilter = "All"
+                                },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                MarketCoinIcon(coin.symbol, 34.dp)
+                                Spacer(Modifier.width(8.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text(coin.symbol + "/USDT", color = White, fontWeight = FontWeight.SemiBold)
+                                    Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                     Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                 }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(coin.price, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                    MarketChangeBadge(coin.change)
-                                }
                             }
-                            HorizontalDivider(color = Color(0xFF30343B))
+                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
+                                Text(coin.price, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.width(86.dp), horizontalAlignment = Alignment.End) {
+                                MarketChangeBadge(coin.change)
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (coin.symbol in favorites) favorites.remove(coin.symbol)
+                                    else favorites.add(coin.symbol)
+                                },
+                                modifier = Modifier.size(30.dp)
+                            ) {
+                                Icon(
+                                    if (coin.symbol in favorites) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                    contentDescription = "Toggle favorite",
+                                    tint = if (coin.symbol in favorites) Yellow else Muted,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
                         }
                     }
                 }
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -2411,25 +2534,16 @@ private fun AssetsScreen(onDetail: (String) -> Unit) {
         if (balances.isEmpty()) busy = true
         scope.launch {
             try {
-                val response = apexApiRequest("/api/wallet")
-                val walletBalances = response.optJSONObject("balances") ?: JSONObject()
+                val response = apexApiRequest("/api/account")
+                val (found, walletBalances) = parseBinanceTestnetBalances(response)
                 fetchLiveMarkets()
-                val found = mutableListOf<Pair<String, String>>()
-                val keys = walletBalances.keys()
-                while (keys.hasNext()) {
-                    val asset = keys.next().uppercase()
-                    val amount = walletBalances.optDouble(asset, 0.0)
-                    if (amount > 0.0 && amount.isFinite()) found.add(asset to String.format(java.util.Locale.US, "%.8f", amount))
-                }
                 val portfolioValue = calculateWalletTotalUsdt(walletBalances)
                 balances = found
                 totalUsdt = portfolioValue
                 cachedAssetBalances = found
                 cachedAssetTotalUsdt = portfolioValue
                 cachedAssetBalancesAt = System.currentTimeMillis()
-                val walletStatus = response.optString("status", "PENDING_CUSTODY_INFRASTRUCTURE")
-                message = if (walletStatus == "ACTIVE") "APEX Wallet · Live ledger"
-                    else "APEX Testnet Wallet · Demo ledger"
+                message = "Binance Spot Testnet · Available + Locked"
             } catch (e: Exception) {
                 if (balances.isEmpty()) message = e.localizedMessage ?: "Wallet could not be loaded."
             } finally { busy = false; walletRequestInFlight = false }
