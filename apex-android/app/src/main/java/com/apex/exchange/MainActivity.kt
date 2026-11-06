@@ -1336,7 +1336,6 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 }
 
 @Composable
-@Composable
 private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, compactPrice: String, compactChange: String, showCompactPrice: Boolean) {
     Column(Modifier.fillMaxWidth().background(Bg)) {
             Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1371,6 +1370,7 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
     }
 }
 
+@Composable
 private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, showHeader: Boolean = true) {
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
     val changeValue = change.toDoubleOrNull() ?: 0.0
