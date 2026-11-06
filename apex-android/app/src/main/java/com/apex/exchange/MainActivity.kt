@@ -518,19 +518,6 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             todayPnl = null
             onDispose { }
         } else {
-            val walletListener = FirebaseFirestore.getInstance()
-                .collection("wallets").document(uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error == null && snapshot != null && snapshot.exists()) {
-                        val balances = snapshot.get("spotBalances") as? Map<*, *>
-                            ?: snapshot.get("balances") as? Map<*, *> ?: emptyMap<String, Any>()
-                        val json = JSONObject(balances)
-                        val total = calculateWalletTotalUsdt(json)
-                        walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
-                        cachedAssetTotalUsdt = total
-                        cachedAssetBalancesAt = System.currentTimeMillis()
-                    }
-                }
             val ordersListener = FirebaseFirestore.getInstance()
                 .collection("users").document(uid).collection("orders")
                 .addSnapshotListener { _, error ->
@@ -556,10 +543,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     cachedAssetBalancesAt = System.currentTimeMillis()
                 } catch (_: Exception) { }
             }
-            onDispose {
-                walletListener.remove()
-                ordersListener.remove()
-            }
+            onDispose { ordersListener.remove() }
         }
     }
 
@@ -1019,7 +1003,10 @@ private fun parseBinanceTestnetBalances(response: JSONObject): Pair<List<Pair<St
     return found to amounts
 }
 
-private fun calculateWalletTotalUsdt(balances: JSONObject): Double {
+private fun calculateWalletTotalUsdt(
+    balances: JSONObject,
+    markets: List<Coin> = cachedLiveMarkets.orEmpty()
+): Double {
     var total = 0.0
     val keys = balances.keys()
     while (keys.hasNext()) {
@@ -1028,8 +1015,7 @@ private fun calculateWalletTotalUsdt(balances: JSONObject): Double {
         if (!amount.isFinite() || amount <= 0.0) continue
         val price = when (asset) {
             "USDT", "USDC", "FDUSD", "BUSD" -> 1.0
-            else -> cachedLiveMarkets.orEmpty()
-                .firstOrNull { it.symbol.equals(asset, ignoreCase = true) }
+            else -> markets.firstOrNull { it.symbol.equals(asset, ignoreCase = true) }
                 ?.price?.replace(",", "")?.toDoubleOrNull() ?: 0.0
         }
         if (price.isFinite() && price > 0.0) total += amount * price
@@ -2933,7 +2919,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     LaunchedEffect(livePrices, balances) {
         val walletAmounts = JSONObject()
         balances.forEach { (asset, amount) -> walletAmounts.put(asset, amount.toDoubleOrNull() ?: 0.0) }
-        val value = calculateWalletTotalUsdt(walletAmounts)
+        val value = calculateWalletTotalUsdt(walletAmounts, livePrices)
         if (value.isFinite()) {
             totalUsdt = value
             cachedAssetTotalUsdt = value
@@ -2994,27 +2980,11 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                         try {
                             val event = JSONObject(text)
                             when (event.optString("e")) {
-                                "outboundAccountPosition", "outboundAccountInfo" -> {
-                                    val rows = event.optJSONArray("B") ?: event.optJSONArray("balances") ?: JSONArray()
-                                    val normalized = JSONArray()
-                                    for (i in 0 until rows.length()) {
-                                        val row = rows.optJSONObject(i) ?: continue
-                                        normalized.put(JSONObject()
-                                            .put("asset", row.optString("a", row.optString("asset")))
-                                            .put("free", row.optString("f", row.optString("free", "0")))
-                                            .put("locked", row.optString("l", row.optString("locked", "0"))))
-                                    }
-                                    val (found, amounts) = parseBinanceTestnetBalances(JSONObject().put("balances", normalized))
-                                    scope.launch {
-                                        balances = found
-                                        cachedAssetBalances = found
-                                        cachedAssetBalancesAt = System.currentTimeMillis()
-                                        val value = calculateWalletTotalUsdt(amounts)
-                                        totalUsdt = value
-                                        cachedAssetTotalUsdt = value
-                                    }
+                                "outboundAccountPosition", "outboundAccountInfo", "executionReport" -> {
+                                    // Account-stream payloads are partial updates. Fetch a complete signed
+                                    // REST snapshot instead of replacing the whole wallet with partial rows.
+                                    scope.launch { walletRefreshSignal++ }
                                 }
-                                "executionReport" -> scope.launch { walletRefreshSignal++ }
                             }
                         } catch (_: Exception) { }
                     }
@@ -3055,7 +3025,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                 balances = found
                 cachedAssetBalances = found
                 cachedAssetBalancesAt = System.currentTimeMillis()
-                val cachedValue = calculateWalletTotalUsdt(walletBalances)
+                val cachedValue = calculateWalletTotalUsdt(walletBalances, livePrices)
                 totalUsdt = cachedValue
                 cachedAssetTotalUsdt = cachedValue
                 message = "Binance Spot Testnet · Available + Locked"
@@ -3063,7 +3033,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                 // Refresh prices independently, then update the portfolio valuation if successful.
                 try {
                     fetchLiveMarkets()
-                    val updatedValue = calculateWalletTotalUsdt(walletBalances)
+                    val updatedValue = calculateWalletTotalUsdt(walletBalances, livePrices)
                     totalUsdt = updatedValue
                     cachedAssetTotalUsdt = updatedValue
                 } catch (_: Exception) {
@@ -3088,31 +3058,6 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
         } else {
             balances = cachedAssetBalances
             totalUsdt = cachedAssetTotalUsdt
-            val walletListener = FirebaseFirestore.getInstance()
-                .collection("wallets").document(uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error == null && snapshot != null && snapshot.exists()) {
-                        val walletMap = snapshot.get("spotBalances") as? Map<*, *>
-                            ?: snapshot.get("balances") as? Map<*, *> ?: emptyMap<String, Any>()
-                        val json = JSONObject(walletMap)
-                        val found = mutableListOf<Pair<String, String>>()
-                        val keys = json.keys()
-                        while (keys.hasNext()) {
-                            val symbol = keys.next().uppercase()
-                            val amount = json.optDouble(symbol, 0.0)
-                            if (amount > 0.0 && amount.isFinite()) {
-                                found.add(symbol to String.format(java.util.Locale.US, "%.8f", amount))
-                            }
-                        }
-                        val value = calculateWalletTotalUsdt(json)
-                        balances = found
-                        totalUsdt = value
-                        cachedAssetBalances = found
-                        cachedAssetTotalUsdt = value
-                        cachedAssetBalancesAt = System.currentTimeMillis()
-                        busy = false
-                    }
-                }
             val ordersListener = FirebaseFirestore.getInstance()
                 .collection("users").document(uid).collection("orders")
                 .addSnapshotListener { _, error ->
@@ -3120,7 +3065,6 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                 }
             scope.launch { refreshWallet() }
             onDispose {
-                walletListener.remove()
                 ordersListener.remove()
             }
         }
