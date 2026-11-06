@@ -1379,7 +1379,7 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
 @Composable
 private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, showHeader: Boolean = true) {
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
-    val priceDecimals = price.replace(",", "").substringAfter(".", "").takeIf { price.contains(".") }?.length?.coerceIn(0, 12) ?: 0
+    val priceDecimals = 2
     val axisPriceFormat = "%,.${priceDecimals}f"
     val changeValue = change.toDoubleOrNull() ?: 0.0
     val closes = candles.map { it.close }
@@ -1462,7 +1462,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(99): ${movingAverage(99)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp).pointerInput(chartCandles) {
+            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp).pointerInput(candles.size, p) {
                 detectTapGestures(
                     onTap = { tap ->
                         if (chartCandles.isNotEmpty() && size.width > 0f) {
@@ -1481,7 +1481,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         isPriceDragging = false
                     }
                 )
-            }.pointerInput(chartCandles, candleScrollOffset, maxCandleScroll, p) {
+            }.pointerInput(candles.size, maxCandleScroll, p) {
                 var horizontalRemainder = 0f
                 detectDragGesturesAfterLongPress(
                     onDragStart = { start ->
@@ -1503,10 +1503,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     if (kotlin.math.abs(drag.x) > kotlin.math.abs(drag.y)) {
                         val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
                         horizontalRemainder += drag.x
-                        val steps = (horizontalRemainder / slotWidth).toInt()
+                        val stepWidth = (slotWidth * 0.55f).coerceAtLeast(1f)
+                        val steps = (horizontalRemainder / stepWidth).toInt()
                         if (steps != 0) {
                             candleScrollOffset = (candleScrollOffset + steps).coerceIn(0, maxCandleScroll)
-                            horizontalRemainder -= steps * slotWidth
+                            horizontalRemainder -= steps * stepWidth
                         }
                     } else {
                         selectedPriceY = (selectedPriceY + drag.y).coerceIn(0f, size.height.toFloat())
@@ -1542,9 +1543,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.58f).coerceAtLeast(2f))
                     }
                     if (hasCrosshair) {
-                        val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(7f, 6f))
-                        drawLine(Color(0xFFB8C1D1), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
-                        drawLine(Color(0xFFB8C1D1), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.2f, pathEffect = dash)
+                        val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f))
+                        drawLine(Color(0xFFEAECEF), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
+                        drawLine(Color(0xFFEAECEF), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.2f, pathEffect = dash)
                         drawCircle(Color.White, 4f, Offset(crosshairX, crosshairY))
                     }
                 }
@@ -1568,9 +1569,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val plotMax = rawMax + pad
                         val plotRange = (plotMax - plotMin).coerceAtLeast(0.000001f)
                         val currentFraction = ((plotMax - p.toFloat()) / plotRange).coerceIn(0f, 1f)
-                        val badgeFraction = if (isPriceDragging && selectedPriceY >= 0f) (selectedPriceY / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
+                        val badgeFraction = if (hasCrosshair && selectedPriceY >= 0f) (selectedPriceY / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
                         val badgeY = badgeFraction * size.height
-                        drawLine(Color(0xFFB8C1D1), Offset(0f, badgeY), Offset(size.width, badgeY), 1.2f)
+                        drawLine(Color(0xFFEAECEF), Offset(0f, badgeY), Offset(size.width, badgeY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
                     }
                 }
                 val axisHeight = maxHeight
@@ -1593,7 +1594,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
                 if (p > 0.0) {
                     val currentFraction = ((plotMax - p.toFloat()) / plotRange).coerceIn(0f, 1f)
-                    val badgeFraction = if (isPriceDragging && selectedPriceY >= 0f) (selectedPriceY / with(density) { maxHeight.toPx() }.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
+                    val badgeFraction = if (hasCrosshair && selectedPriceY >= 0f) (selectedPriceY / with(density) { maxHeight.toPx() }.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
                     val badgePrice = plotMax - (plotRange * badgeFraction)
                     val badgeChange = ((badgePrice - p.toFloat()) / p.toFloat()) * 100f
                     Column(
@@ -1605,7 +1606,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.Black, fontSize = if (isPriceDragging) 10.sp else 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                        if (isPriceDragging) {
+                        if (hasCrosshair && selectedPriceY >= 0f) {
                             Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
