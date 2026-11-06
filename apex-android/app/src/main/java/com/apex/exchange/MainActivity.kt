@@ -1391,6 +1391,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var crosshairY by remember(pair, interval) { mutableFloatStateOf(0f) }
     var hasCrosshair by remember(pair, interval) { mutableStateOf(false) }
     var draggedPriceOffset by remember(pair, interval) { mutableFloatStateOf(0f) }
+    var selectedPriceY by remember(pair, interval) { mutableFloatStateOf(-1f) }
+    var isPriceDragging by remember(pair, interval) { mutableStateOf(false) }
     var candleScrollOffset by remember(pair, interval) { mutableIntStateOf(0) }
     val visibleCandleCount = minOf(48, candles.size)
     val maxCandleScroll = (candles.size - visibleCandleCount).coerceAtLeast(0)
@@ -1459,9 +1461,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(25): ${movingAverage(25)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFFE92BA8), fontSize = 11.sp)
             Text("MA(99): ${movingAverage(99)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
-        var currentPriceBadgeDragY by remember(pair) { mutableFloatStateOf(0f) }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp).pointerInput(chartCandles) {
+            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp).pointerInput(chartCandles) {
                 detectTapGestures(
                     onTap = { tap ->
                         if (chartCandles.isNotEmpty() && size.width > 0f) {
@@ -1470,31 +1471,62 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             crosshairX = tap.x.coerceIn(0f, size.width.toFloat())
                             crosshairY = tap.y.coerceIn(0f, size.height.toFloat())
                             hasCrosshair = true
+                            selectedPriceY = tap.y.coerceIn(0f, size.height.toFloat())
                         }
                     },
-                    onDoubleTap = { selectedCandleIndex = null; hasCrosshair = false }
-                )
-            }.pointerInput(chartCandles, candleScrollOffset, maxCandleScroll) {
-                var dragRemainder = 0f
-                detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        dragRemainder = 0f
+                    onDoubleTap = {
                         selectedCandleIndex = null
                         hasCrosshair = false
+                        selectedPriceY = -1f
+                        isPriceDragging = false
                     }
+                )
+            }.pointerInput(chartCandles, candleScrollOffset, maxCandleScroll, p) {
+                var horizontalRemainder = 0f
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { start ->
+                        horizontalRemainder = 0f
+                        isPriceDragging = true
+                        hasCrosshair = true
+                        crosshairX = start.x.coerceIn(0f, size.width.toFloat())
+                        crosshairY = start.y.coerceIn(0f, size.height.toFloat())
+                        selectedPriceY = crosshairY
+                        if (chartCandles.isNotEmpty()) {
+                            val slot = size.width / chartCandles.size
+                            selectedCandleIndex = (start.x / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                        }
+                    },
+                    onDragEnd = { isPriceDragging = false },
+                    onDragCancel = { isPriceDragging = false }
                 ) { change, drag ->
                     change.consume()
-                    val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
-                    dragRemainder += drag.x
-                    val candleSteps = (dragRemainder / slotWidth).toInt()
-                    if (candleSteps != 0) {
-                        candleScrollOffset = (candleScrollOffset + candleSteps).coerceIn(0, maxCandleScroll)
-                        dragRemainder -= candleSteps * slotWidth
+                    if (kotlin.math.abs(drag.x) > kotlin.math.abs(drag.y)) {
+                        val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
+                        horizontalRemainder += drag.x
+                        val steps = (horizontalRemainder / slotWidth).toInt()
+                        if (steps != 0) {
+                            candleScrollOffset = (candleScrollOffset + steps).coerceIn(0, maxCandleScroll)
+                            horizontalRemainder -= steps * slotWidth
+                        }
+                    } else {
+                        selectedPriceY = (selectedPriceY + drag.y).coerceIn(0f, size.height.toFloat())
+                        crosshairY = selectedPriceY
+                    }
+                    crosshairX = (crosshairX + drag.x).coerceIn(0f, size.width.toFloat())
+                    if (chartCandles.isNotEmpty()) {
+                        val slot = size.width / chartCandles.size
+                        selectedCandleIndex = (crosshairX / slot).toInt().coerceIn(0, chartCandles.lastIndex)
                     }
                 }
             }) {
                 if (chartCandles.isNotEmpty()) {
-                    val minP = chartCandles.minOf { it.low }; val maxP = chartCandles.maxOf { it.high }; val range = (maxP - minP).coerceAtLeast(0.000001f); val slot = size.width / chartCandles.size
+                    val rawMin = minOf(chartCandles.minOf { it.low }, p.toFloat())
+                    val rawMax = maxOf(chartCandles.maxOf { it.high }, p.toFloat())
+                    val padding = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
+                    val minP = rawMin - padding
+                    val maxP = rawMax + padding
+                    val range = (maxP - minP).coerceAtLeast(0.000001f)
+                    val slot = size.width / chartCandles.size
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
                     chartCandles.forEachIndexed { i, candle ->
                         val x = slot * i + slot / 2f
@@ -1514,7 +1546,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }
             BoxWithConstraints(
-                Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp).background(Color(0xFF0B0E11))
+                Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp).background(Color.Black)
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     // Keep the price scale aligned with the chart grid and separated by a vertical axis.
@@ -1525,58 +1557,51 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                     if (high != null && low != null && p > 0.0) {
                         val range = (high - low).coerceAtLeast(0.000001f)
-                        val baseFraction = ((high - p.toFloat()) / range).coerceIn(0f, 1f)
-                        val draggedFraction = (baseFraction + (draggedPriceOffset + currentPriceBadgeDragY) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
-                        val draggedY = draggedFraction * size.height
-                        drawLine(if (draggedFraction <= baseFraction) Green.copy(alpha = 0.9f) else Red.copy(alpha = 0.9f), Offset(0f, draggedY), Offset(size.width, draggedY), 1.2f)
+                        val rawMin = minOf(candles.minOfOrNull { it.low } ?: low, p.toFloat())
+                        val rawMax = maxOf(candles.maxOfOrNull { it.high } ?: high, p.toFloat())
+                        val pad = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
+                        val plotMin = rawMin - pad
+                        val plotMax = rawMax + pad
+                        val plotRange = (plotMax - plotMin).coerceAtLeast(0.000001f)
+                        val currentFraction = ((plotMax - p.toFloat()) / plotRange).coerceIn(0f, 1f)
+                        val badgeFraction = if (isPriceDragging && selectedPriceY >= 0f) (selectedPriceY / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
+                        val badgeY = badgeFraction * size.height
+                        drawLine(Color(0xFFB8C1D1), Offset(0f, badgeY), Offset(size.width, badgeY), 1.2f)
                     }
                 }
                 val axisHeight = maxHeight
-                Column(
-                    Modifier.fillMaxSize().padding(start = 5.dp, end = 3.dp)
-                ) {
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val rawMin = minOf(candles.minOfOrNull { it.low } ?: (low ?: 0f), p.toFloat())
+                val rawMax = maxOf(candles.maxOfOrNull { it.high } ?: (high ?: 1f), p.toFloat())
+                val plotPadding = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
+                val plotMin = rawMin - plotPadding
+                val plotMax = rawMax + plotPadding
+                val plotRange = (plotMax - plotMin).coerceAtLeast(0.000001f)
+                Column(Modifier.fillMaxSize().padding(start = 5.dp, end = 3.dp)) {
                     (0..4).forEach { i ->
                         Text(
-                            if (high != null && low != null) String.format(java.util.Locale.US, axisPriceFormat, high - ((high - low) * i / 4f)) else "—",
-                            color = Muted,
-                            fontSize = 9.sp,
-                            maxLines = 1,
-                            softWrap = false,
+                            String.format(java.util.Locale.US, axisPriceFormat, plotMax - (plotRange * i / 4f)),
+                            color = Muted, fontSize = 9.sp, maxLines = 1, softWrap = false,
                             textAlign = androidx.compose.ui.text.style.TextAlign.End,
                             modifier = Modifier.fillMaxWidth().offset(y = axisHeight * i / 4f - 6.dp)
                         )
                     }
                 }
-                if (p > 0.0 && high != null && low != null) {
-                    val range = (high - low).coerceAtLeast(0.000001f)
-                    val currentFraction = ((high - p.toFloat()) / range).coerceIn(0f, 1f)
-                    val chartHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx() }
-                    val draggedFraction = (currentFraction + (draggedPriceOffset + currentPriceBadgeDragY) / chartHeightPx.coerceAtLeast(1f)).coerceIn(0f, 1f)
-                    val draggedLevelPrice = high - (range * draggedFraction)
-                    val draggedLevelChange = if (p > 0.0) ((draggedLevelPrice - p.toFloat()) / p.toFloat()) * 100f else 0f
+                if (p > 0.0) {
+                    val currentFraction = ((plotMax - p.toFloat()) / plotRange).coerceIn(0f, 1f)
+                    val badgeFraction = if (isPriceDragging && selectedPriceY >= 0f) (selectedPriceY / with(density) { maxHeight.toPx() }.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
+                    val badgePrice = plotMax - (plotRange * badgeFraction)
+                    val badgeChange = ((badgePrice - p.toFloat()) / p.toFloat()) * 100f
                     Column(
                         Modifier.align(Alignment.TopEnd)
-                            .offset {
-                                val baseY = (maxHeight * draggedFraction - 11.dp).roundToPx()
-                                IntOffset(0, baseY)
-                            }
-                            .pointerInput(maxHeight) {
-                                detectDragGestures(
-                                    onDragEnd = { draggedPriceOffset += currentPriceBadgeDragY; currentPriceBadgeDragY = 0f },
-                                    onDragCancel = { draggedPriceOffset += currentPriceBadgeDragY; currentPriceBadgeDragY = 0f }
-                                ) { change, dragAmount ->
-                                    change.consume()
-                                    val limit = (maxHeight.toPx() - 24.dp.toPx()).coerceAtLeast(0f)
-                                    currentPriceBadgeDragY = (currentPriceBadgeDragY + dragAmount.y).coerceIn(-limit, limit)
-                                }
-                            }
+                            .offset { IntOffset(0, (maxHeight * badgeFraction - 11.dp).roundToPx().coerceIn(0, (maxHeight - 28.dp).roundToPx().coerceAtLeast(0))) }
                             .clip(RoundedCornerShape(5.dp))
                             .background(Color.White)
                             .padding(horizontal = 5.dp, vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(String.format(java.util.Locale.US, axisPriceFormat, draggedLevelPrice), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                        Text(String.format(java.util.Locale.US, "%+.2f%%", draggedLevelChange), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }
