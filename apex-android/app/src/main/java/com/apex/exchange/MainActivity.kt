@@ -1376,6 +1376,8 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
 @Composable
 private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, showHeader: Boolean = true) {
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
+    val priceDecimals = price.substringAfter(".", "").takeIf { price.contains(".") }?.length?.coerceIn(2, 8) ?: 2
+    val axisPriceFormat = "%,.${priceDecimals}f"
     val changeValue = change.toDoubleOrNull() ?: 0.0
     val closes = candles.map { it.close }
     fun movingAverage(period: Int): Float? = closes.takeLast(period).takeIf { it.isNotEmpty() }?.average()?.toFloat()
@@ -1502,6 +1504,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp).background(Color(0xFF0B0E11))
             ) {
                 Canvas(Modifier.fillMaxSize()) {
+                    // Keep the price scale aligned with the chart grid and separated by a vertical axis.
+                    drawLine(Color(0xFF343A44), Offset(0f, 0f), Offset(0f, size.height), 1.4f)
                     for (i in 0..4) {
                         val y = size.height * i / 4f
                         drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f)
@@ -1514,11 +1518,19 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         drawLine(if (draggedFraction <= baseFraction) Green.copy(alpha = 0.9f) else Red.copy(alpha = 0.9f), Offset(0f, draggedY), Offset(size.width, draggedY), 1.2f)
                     }
                 }
-                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
+                Column(
+                    Modifier.fillMaxSize().padding(start = 5.dp, end = 3.dp),
+                    verticalArrangement = Arrangement.SpaceEvenly,
+                    horizontalAlignment = Alignment.End
+                ) {
                     (0..4).forEach { i ->
                         Text(
-                            if (high != null && low != null) String.format(java.util.Locale.US, "%,.0f", high - ((high - low) * i / 4f)) else "—",
-                            color = Muted, fontSize = 9.sp, maxLines = 1
+                            if (high != null && low != null) String.format(java.util.Locale.US, axisPriceFormat, high - ((high - low) * i / 4f)) else "—",
+                            color = Muted,
+                            fontSize = 9.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.End
                         )
                     }
                 }
