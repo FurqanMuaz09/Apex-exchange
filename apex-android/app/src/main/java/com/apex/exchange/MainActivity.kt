@@ -633,8 +633,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         val displayedBalance = if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts
                         BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                             val fittedFontSize = if (displayedBalance.isNotEmpty()) {
-                                (maxWidth.value / displayedBalance.length.coerceAtLeast(1) * 1.55f)
-                                    .coerceIn(18f, 32f).sp
+                                (maxWidth.value / displayedBalance.length.coerceAtLeast(1) * 1.8f)
+                                    .coerceIn(20f, 38f).sp
                             } else 32.sp
                             Text(
                                 displayedBalance,
@@ -728,17 +728,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             ) {
                                 MarketCoinIcon(coin.symbol, 34.dp)
                                 Spacer(Modifier.width(8.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                    Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                }
-                                Column(
-                                    modifier = Modifier.width(88.dp),
-                                    horizontalAlignment = Alignment.End
-                                ) {
-                                    Text(coin.price, color = White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                                    Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                                }
+                                CompactMarketPairName("${coin.symbol}/USDT", coin.name, pairSize = 14.sp)
+                                CompactMarketPrice(coin.price, Modifier.width(88.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
                                     MarketChangeBadge(coin.change)
@@ -835,14 +826,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         ) {
                             MarketCoinIcon(coin.symbol, 34.dp)
                             Spacer(Modifier.width(8.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            }
-                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
-                                Text(coin.price, color = White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                                Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            }
+                            CompactMarketPairName("${coin.symbol}/USDT", coin.name)
+                            CompactMarketPrice(coin.price, Modifier.width(88.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
                                 MarketChangeBadge(coin.change)
@@ -868,6 +853,65 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         }
     }
 }
+@Composable
+private fun CompactMarketPairName(
+    pair: String,
+    coinName: String,
+    pairSize: androidx.compose.ui.unit.TextUnit = 14.sp
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        Text(
+            pair,
+            color = White,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = pairSize,
+            lineHeight = (pairSize.value + 1f).sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
+        Text(
+            coinName,
+            color = Muted,
+            fontSize = 11.sp,
+            lineHeight = 12.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun CompactMarketPrice(
+    price: String,
+    modifier: Modifier = Modifier,
+    secondLineSize: androidx.compose.ui.unit.TextUnit = 10.sp
+) {
+    Column(modifier, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        Text(
+            price,
+            color = White,
+            fontSize = 15.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            maxLines = 1,
+            softWrap = false
+        )
+        Text(
+            coinUsdPriceLabel(price),
+            color = Muted,
+            fontSize = secondLineSize,
+            lineHeight = (secondLineSize.value + 1f).sp,
+            fontWeight = FontWeight.Normal,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
 private fun coinUsdPriceLabel(price: String): String {
     val value = price.replace(",", "").replace("$", "").trim().toDoubleOrNull()
         ?: return "≈ $—"
@@ -1262,17 +1306,8 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
                             .padding(start = 16.dp, end = 10.dp, top = 11.dp, bottom = 11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(coin.symbol, color = White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Text("/USDT", color = Muted, fontSize = 10.sp)
-                            }
-                            Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(coin.price, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("USDT", color = Muted, fontSize = 9.sp)
-                        }
+                        CompactMarketPairName("${coin.symbol}/USDT", coin.name, pairSize = 14.sp)
+                        CompactMarketPrice(coin.price, secondLineSize = 9.sp)
                         Spacer(Modifier.width(12.dp))
                         Box(Modifier.width(72.dp), contentAlignment = Alignment.CenterEnd) {
                             MarketChangeBadge(coin.change)
