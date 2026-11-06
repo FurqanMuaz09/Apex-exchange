@@ -1502,7 +1502,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             visibleCandleCount = nextCount
                             candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - nextCount).coerceAtLeast(0))
                         }
-                        val slotWidth = (size.width / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
+                        val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
                         // One-finger horizontal movement pans the candle window immediately;
                         // the crosshair snaps to the candle under the finger on every frame.
                         panRemainder += pan.x
