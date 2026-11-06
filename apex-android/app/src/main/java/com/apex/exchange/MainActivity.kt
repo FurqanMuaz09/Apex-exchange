@@ -730,7 +730,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 Spacer(Modifier.width(8.dp))
                                 CompactMarketPairName("${coin.symbol}/USDT", coin.name, pairSize = 14.sp)
                                 CompactMarketPrice(coin.price, Modifier.width(88.dp))
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(4.dp))
                                 Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
                                     MarketChangeBadge(coin.change)
                                 }
@@ -828,7 +828,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             Spacer(Modifier.width(8.dp))
                             CompactMarketPairName("${coin.symbol}/USDT", coin.name)
                             CompactMarketPrice(coin.price, Modifier.width(88.dp))
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(4.dp))
                             Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
                                 MarketChangeBadge(coin.change)
                             }
@@ -952,7 +952,9 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
             color = White,
             fontSize = maxOf(fontSize.value, 11f).sp,
             fontWeight = FontWeight.ExtraBold,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -1413,7 +1415,9 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
 @Composable
 private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, showHeader: Boolean = true) {
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
-    val priceDecimals = price.substringAfterLast(".", "").takeIf { price.contains(".") }?.length?.coerceIn(0, 8) ?: 0
+    // Match the meaningful decimal precision supplied by the live ticker.
+    val normalizedLivePrice = price.replace(",", "").trim()
+    val priceDecimals = if (normalizedLivePrice.contains(".")) normalizedLivePrice.substringAfter(".").trimEnd('0').length.coerceIn(0, 8) else 0
     val axisPriceFormat = "%,.${priceDecimals}f"
     val changeValue = change.toDoubleOrNull() ?: 0.0
     val closes = candles.map { it.close }
@@ -1479,9 +1483,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1.1f)) {
-                Text(if (p > 0) String.format(java.util.Locale.US, "%,.2f", p) else "—", color = if (changeValue >= 0) Green else Red, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(if (p > 0) String.format(java.util.Locale.US, axisPriceFormat, p) else "—", color = if (changeValue >= 0) Green else Red, fontSize = 31.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (p > 0) "$" + String.format(java.util.Locale.US, "%,.2f", p) else "—", color = White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (p > 0) "$" + String.format(java.util.Locale.US, axisPriceFormat, p) else "—", color = White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                     Spacer(Modifier.width(8.dp))
                     Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = if (changeValue >= 0) Green else Red, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
@@ -1489,7 +1493,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 Text("Payments  ›   Vol  ›   Prv  ›", color = Muted, fontSize = 14.sp)
             }
             Column(Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                listOf("24h High" to (high?.let { String.format(java.util.Locale.US, "%,.2f", it) } ?: "—"), "24h Low" to (low?.let { String.format(java.util.Locale.US, "%,.2f", it) } ?: "—"), "24h Vol(BTC)" to "—", "24h Vol(USDT)" to "—").forEach { (label, value) ->
+                listOf("24h High" to (high?.let { String.format(java.util.Locale.US, axisPriceFormat, it) } ?: "—"), "24h Low" to (low?.let { String.format(java.util.Locale.US, axisPriceFormat, it) } ?: "—"), "24h Vol(BTC)" to "—", "24h Vol(USDT)" to "—").forEach { (label, value) ->
                     Row(verticalAlignment = Alignment.CenterVertically) { Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f), maxLines = 1); Text(value, color = White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
                 }
             }
@@ -1505,9 +1509,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         }
         HorizontalDivider(color = Color(0xFF292D35))
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text("MA(7): ${movingAverage(7)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Yellow, fontSize = 11.sp)
-            Text("MA(25): ${movingAverage(25)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFFE92BA8), fontSize = 11.sp)
-            Text("MA(99): ${movingAverage(99)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
+            Text("MA(7): ${movingAverage(7)?.let { candlePrice(it) } ?: "—"}", color = Yellow, fontSize = 11.sp)
+            Text("MA(25): ${movingAverage(25)?.let { candlePrice(it) } ?: "—"}", color = Color(0xFFE92BA8), fontSize = 11.sp)
+            Text("MA(99): ${movingAverage(99)?.let { candlePrice(it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
             Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp).pointerInput(candles.size, p) {
