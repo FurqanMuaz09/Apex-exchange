@@ -630,38 +630,22 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             else -> walletBalance ?: "—"
                         }
                         val balanceParts = balanceLabel.removeSuffix(" USDT")
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            val displayedBalance = if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts
+                        val displayedBalance = if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts
+                        BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                            val fittedFontSize = if (displayedBalance.isNotEmpty()) {
+                                (maxWidth.value / displayedBalance.length.coerceAtLeast(1) * 1.55f)
+                                    .coerceIn(18f, 32f).sp
+                            } else 32.sp
                             Text(
                                 displayedBalance,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth(),
                                 color = White,
-                                fontSize = when {
-                                    displayedBalance.length > 13 -> 18.sp
-                                    displayedBalance.length > 11 -> 21.sp
-                                    displayedBalance.length > 9 -> 25.sp
-                                    else -> 32.sp
-                                },
+                                fontSize = fittedFontSize,
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                                 softWrap = false,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Clip
                             )
-                            if (signedInUser != null) {
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "USDT",
-                                    color = Muted,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(bottom = 3.dp)
-                                )
-                            }
                         }
                         Button(
                             onClick = {
@@ -1413,8 +1397,14 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     LaunchedEffect(candles.size) { visibleCandleCount = visibleCandleCount.coerceIn(1, candles.size.coerceAtLeast(1)); candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0)) }
     val maxCandleScroll = (candles.size - visibleCandleCount).coerceAtLeast(0)
     val visibleStart = (candles.size - visibleCandleCount - candleScrollOffset).coerceIn(0, maxCandleScroll)
+    // The chart screen opens before its first REST candle snapshot arrives.
+    // Never subList an empty candle list: that previously crashed the whole app.
     val chartCandles = remember(candles, visibleStart, visibleCandleCount) {
-        if (visibleCandleCount > 0) candles.subList(visibleStart, visibleStart + visibleCandleCount) else emptyList()
+        if (candles.isNotEmpty() && visibleCandleCount > 0) {
+            val safeStart = visibleStart.coerceIn(0, candles.lastIndex)
+            val safeEnd = (safeStart + visibleCandleCount).coerceIn(safeStart + 1, candles.size)
+            candles.subList(safeStart, safeEnd)
+        } else emptyList()
     }
     val selectedCandle = selectedCandleIndex?.let { chartCandles.getOrNull(it) }
     fun candleTime(timestamp: Long): String = if (timestamp > 0L) {
