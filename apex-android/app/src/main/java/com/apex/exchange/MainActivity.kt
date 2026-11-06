@@ -450,6 +450,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         onDispose { auth.removeAuthStateListener(listener) }
     }
     var walletBalance by remember { mutableStateOf<String?>(null) }
+    var homeAccountBalances by remember { mutableStateOf(JSONObject()) }
     var todayPnl by remember { mutableStateOf<Double?>(null) }
     var balanceHidden by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf("Hot") }
@@ -515,6 +516,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
         val uid = signedInUser?.uid
         if (uid == null) {
             walletBalance = null
+            homeAccountBalances = JSONObject()
             todayPnl = null
             onDispose { }
         } else {
@@ -536,14 +538,21 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 try {
                     val account = apexApiRequest("/api/account")
                     val (testnetAssets, balances) = parseBinanceTestnetBalances(account)
-                    val total = calculateWalletTotalUsdt(balances)
-                    walletBalance = String.format(java.util.Locale.US, "%.2f USDT", total)
+                    homeAccountBalances = balances
                     cachedAssetBalances = testnetAssets
-                    cachedAssetTotalUsdt = total
+                    cachedAssetTotalUsdt = calculateWalletTotalUsdt(balances, liveMarkets)
                     cachedAssetBalancesAt = System.currentTimeMillis()
                 } catch (_: Exception) { }
             }
             onDispose { ordersListener.remove() }
+        }
+    }
+
+    LaunchedEffect(liveMarkets, homeAccountBalances) {
+        if (signedInUser != null && homeAccountBalances.length() > 0) {
+            val total = calculateWalletTotalUsdt(homeAccountBalances, liveMarkets)
+            walletBalance = String.format(java.util.Locale.US, "%,.2f USDT", total)
+            cachedAssetTotalUsdt = total
         }
     }
 
@@ -3078,7 +3087,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
             // of simultaneous API calls from freezing the Assets screen on large testnet accounts.
             val metricAssets = balances.filter { coin ->
                 coin.first !in listOf("USDT", "USDC", "FDUSD", "BUSD")
-            }.take(20)
+            }.take(8)
             for (coin in metricAssets) {
                 val asset = coin.first
                 val marketPair = livePrices
@@ -3097,7 +3106,11 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     val rankedBalances = balances.sortedWith(
         compareByDescending<Pair<String, String>> { it.first.equals("USDT", ignoreCase = true) }
             .thenByDescending { coin ->
-                assetMetrics[coin.first]?.optDouble("costBasis", 0.0) ?: 0.0
+                val amount = coin.second.toDoubleOrNull() ?: 0.0
+                val stable = coin.first in listOf("USDT", "USDC", "FDUSD", "BUSD")
+                val price = if (stable) 1.0 else livePrices.firstOrNull { it.symbol.equals(coin.first, true) }
+                    ?.price?.replace(",", "")?.toDoubleOrNull() ?: 0.0
+                amount * price
             }
     )
 
@@ -3108,7 +3121,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                 Column(Modifier.padding(18.dp)) {
                     Text("Estimated total value", color = Muted, fontSize = 13.sp)
                     Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                    Text("APEX Internal Wallet · Spot + Funding", color = Muted, fontSize = 10.sp)
+                    Text("Binance Spot Testnet · Free + Locked", color = Muted, fontSize = 10.sp)
                 }
             }
         }
