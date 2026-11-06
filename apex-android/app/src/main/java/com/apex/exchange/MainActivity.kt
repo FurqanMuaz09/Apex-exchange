@@ -633,8 +633,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         val displayedBalance = if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts
                         BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                             val fittedFontSize = if (displayedBalance.isNotEmpty()) {
-                                (maxWidth.value / displayedBalance.length.coerceAtLeast(1) * 1.8f)
-                                    .coerceIn(20f, 38f).sp
+                                (maxWidth.value / displayedBalance.length.coerceAtLeast(1) * 2.05f)
+                                    .coerceIn(23f, 44f).sp
                             } else 32.sp
                             Text(
                                 displayedBalance,
