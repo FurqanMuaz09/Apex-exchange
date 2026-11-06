@@ -1484,7 +1484,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                 ) { change, drag ->
                     change.consume()
-                    val slotWidth = (size.width / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
+                    val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
                     dragRemainder += drag.x
                     val candleSteps = (dragRemainder / slotWidth).toInt()
                     if (candleSteps != 0) {
@@ -1531,6 +1531,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         drawLine(if (draggedFraction <= baseFraction) Green.copy(alpha = 0.9f) else Red.copy(alpha = 0.9f), Offset(0f, draggedY), Offset(size.width, draggedY), 1.2f)
                     }
                 }
+                val axisHeight = maxHeight
                 Column(
                     Modifier.fillMaxSize().padding(start = 5.dp, end = 3.dp)
                 ) {
@@ -1542,7 +1543,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             maxLines = 1,
                             softWrap = false,
                             textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                            modifier = Modifier.align(Alignment.TopEnd).offset(y = maxHeight * i / 4f - 6.dp)
+                            modifier = Modifier.fillMaxWidth().offset(y = axisHeight * i / 4f - 6.dp)
                         )
                     }
                 }
