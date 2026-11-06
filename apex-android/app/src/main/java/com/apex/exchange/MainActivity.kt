@@ -276,6 +276,7 @@ private fun ApexNativeApp() {
     var tab by remember { mutableStateOf("Home") }
     var detail by remember { mutableStateOf<String?>(null) }
     var selectedTradingPair by remember { mutableStateOf("BTC/USDT") }
+    var selectedTradingSide by remember { mutableStateOf("Buy") }
     var chartPair by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     BackHandler(enabled = detail != null || chartPair != null) {
@@ -291,7 +292,13 @@ private fun ApexNativeApp() {
         Scaffold(
             containerColor = Bg,
             bottomBar = {
-                NavigationBar(modifier = Modifier.height(58.dp), containerColor = Panel, contentColor = White) {
+                if (chartPair != null && detail == null) {
+                    Row(Modifier.fillMaxWidth().height(88.dp).background(Bg).padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(onClick = { selectedTradingPair = chartPair!!; selectedTradingSide = "Buy"; chartPair = null; tab = "Trade" }, modifier = Modifier.weight(1f).fillMaxHeight(), shape = RoundedCornerShape(22.dp), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Bg)) { Text("Buy", fontSize = 21.sp, fontWeight = FontWeight.Bold) }
+                        Button(onClick = { selectedTradingPair = chartPair!!; selectedTradingSide = "Sell"; chartPair = null; tab = "Trade" }, modifier = Modifier.weight(1f).fillMaxHeight(), shape = RoundedCornerShape(22.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = White)) { Text("Sell", fontSize = 21.sp, fontWeight = FontWeight.Bold) }
+                    }
+                } else if (chartPair == null) {
+                    NavigationBar(modifier = Modifier.height(58.dp), containerColor = Panel, contentColor = White) {
                     val destinations = listOf(
                         Triple("Home", Icons.Filled.Home, "Home"),
                         Triple("Markets", Icons.Filled.ShowChart, "Markets"),
@@ -314,6 +321,7 @@ private fun ApexNativeApp() {
                             )
                         )
                     }
+                }
                 }
             }
         ) { padding ->
@@ -375,6 +383,7 @@ private fun ApexNativeApp() {
                             favorites = favorites,
                             initialPair = selectedTradingPair,
                             chartOnly = false,
+                            initialSide = selectedTradingSide,
                             onOpenOrderEntry = { selectedTradingPair = it; chartPair = null },
                             onDetail = { detail = it },
                             onTradeUpdate = { refreshKey++ }
@@ -1459,8 +1468,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TradeScreen(favorites: MutableList<String>, initialPair: String, chartOnly: Boolean, onOpenOrderEntry: (String) -> Unit, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
-    var side by remember { mutableStateOf("Buy") }
+private fun TradeScreen(favorites: MutableList<String>, initialPair: String, chartOnly: Boolean, initialSide: String = "Buy", onOpenOrderEntry: (String) -> Unit, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
+    var side by remember(initialPair, chartOnly) { mutableStateOf(initialSide) }
     var orderType by remember { mutableStateOf("Limit") }
     var pair by remember(initialPair) { mutableStateOf(initialPair) }
     var showPairSheet by remember { mutableStateOf(false) }
@@ -1921,12 +1930,6 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
             }
             item {
                 TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) }, { pairSearch = ""; showPairSheet = true }, showHeader = false)
-            }
-            item {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { side = "Buy"; onOpenOrderEntry(pair) }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Green, contentColor = Bg)) { Text("Buy", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
-                    Button(onClick = { side = "Sell"; onOpenOrderEntry(pair) }, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = White)) { Text("Sell", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
-                }
             }
         } else {
         item {
