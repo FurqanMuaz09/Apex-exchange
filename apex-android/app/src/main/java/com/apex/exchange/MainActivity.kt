@@ -1466,8 +1466,43 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                 }
             }
-            Column(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(60.dp), verticalArrangement = Arrangement.SpaceEvenly) {
-                (0..4).forEach { i -> Text(if (high != null && low != null) String.format(java.util.Locale.US, "%,.0f", high - ((high - low) * i / 4f)) else "—", color = Muted, fontSize = 10.sp) }
+            BoxWithConstraints(
+                Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp).background(Color(0xFF0B0E11))
+            ) {
+                Canvas(Modifier.fillMaxSize()) {
+                    for (i in 0..4) {
+                        val y = size.height * i / 4f
+                        drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f)
+                    }
+                    if (high != null && low != null && p > 0.0) {
+                        val range = (high - low).coerceAtLeast(0.000001f)
+                        val currentY = ((high - p.toFloat()) / range).coerceIn(0f, 1f) * size.height
+                        drawLine(Green.copy(alpha = 0.8f), Offset(0f, currentY), Offset(size.width, currentY), 1.2f)
+                    }
+                }
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
+                    (0..4).forEach { i ->
+                        Text(
+                            if (high != null && low != null) String.format(java.util.Locale.US, "%,.0f", high - ((high - low) * i / 4f)) else "—",
+                            color = Muted, fontSize = 9.sp, maxLines = 1
+                        )
+                    }
+                }
+                if (p > 0.0 && high != null && low != null) {
+                    val range = (high - low).coerceAtLeast(0.000001f)
+                    val currentFraction = ((high - p.toFloat()) / range).coerceIn(0f, 1f)
+                    Column(
+                        Modifier.align(Alignment.TopStart)
+                            .offset(y = (maxHeight * currentFraction - 11.dp).coerceAtLeast(0.dp))
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(if (changeValue >= 0f) Green else Red)
+                            .padding(horizontal = 4.dp, vertical = 3.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(String.format(java.util.Locale.US, "%,.2f", p), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+                }
             }
             if (selectedCandle != null) {
                 val candleChange = if (selectedCandle.open != 0f) (selectedCandle.close - selectedCandle.open) / selectedCandle.open * 100f else 0f
