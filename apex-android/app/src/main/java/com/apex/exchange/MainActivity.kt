@@ -529,6 +529,14 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             val response = apexApiRequest("/api/pnl/today")
                             if (response.has("pnl") && !response.isNull("pnl")) todayPnl = response.optDouble("pnl")
                         } catch (_: Exception) { }
+                        try {
+                            val account = apexApiRequest("/api/account")
+                            val (testnetAssets, amounts) = parseBinanceTestnetBalances(account)
+                            homeAccountBalances = amounts
+                            cachedAssetBalances = testnetAssets
+                            cachedAssetTotalUsdt = calculateWalletTotalUsdt(amounts, liveMarkets)
+                            cachedAssetBalancesAt = System.currentTimeMillis()
+                        } catch (_: Exception) { }
                     }
                 }
             scope.launch {
