@@ -1528,6 +1528,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
                     val slot = size.width / chartCandles.size
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
+                    if (p > 0.0) {
+                        val liveY = size.height - ((p.toFloat() - minP) / range) * size.height
+                        drawLine(Color.White.copy(alpha = 0.8f), Offset(0f, liveY), Offset(size.width, liveY), 1f)
+                    }
                     chartCandles.forEachIndexed { i, candle ->
                         val x = slot * i + slot / 2f
                         val yH = size.height - ((candle.high - minP) / range) * size.height
@@ -1571,8 +1575,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
                 val axisHeight = maxHeight
                 val density = androidx.compose.ui.platform.LocalDensity.current
-                val rawMin = minOf(candles.minOfOrNull { it.low } ?: (low ?: 0f), p.toFloat())
-                val rawMax = maxOf(candles.maxOfOrNull { it.high } ?: (high ?: 1f), p.toFloat())
+                val rawMin = minOf(chartCandles.minOfOrNull { it.low } ?: (low ?: 0f), p.toFloat())
+                val rawMax = maxOf(chartCandles.maxOfOrNull { it.high } ?: (high ?: 1f), p.toFloat())
                 val plotPadding = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
                 val plotMin = rawMin - plotPadding
                 val plotMax = rawMax + plotPadding
