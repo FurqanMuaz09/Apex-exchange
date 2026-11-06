@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.debounce
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
@@ -456,7 +457,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     var filter by remember { mutableStateOf("Hot") }
     var search by remember { mutableStateOf("") }
     var liveMarkets by remember { mutableStateOf(cachedLiveMarkets?.takeIf { it.isNotEmpty() } ?: sampleMarkets) }
-    LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.collect { if (it.isNotEmpty()) liveMarkets = it } }
+    LaunchedEffect(Unit) { androidx.compose.runtime.snapshotFlow { sharedLiveMarketsState.value }.debounce(350).collect { if (it.isNotEmpty()) liveMarkets = it } }
     var loading by remember { mutableStateOf(!hasUsableMarketPrices(cachedLiveMarkets.orEmpty())) }
     var sheetSearch by remember { mutableStateOf("") }
     var sheetFilter by remember { mutableStateOf("All") }
@@ -2920,7 +2921,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     var walletRefreshSignal by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
-        snapshotFlow { sharedLiveMarketsState.value }.collect { markets: List<Coin> ->
+        snapshotFlow { sharedLiveMarketsState.value }.debounce(350).collect { markets: List<Coin> ->
             if (markets.isNotEmpty()) livePrices = markets
         }
     }
