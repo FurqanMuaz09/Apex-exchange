@@ -1382,6 +1382,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     val high = candles.maxOfOrNull { it.high }
     val low = candles.minOfOrNull { it.low }
     var selectedCandleIndex by remember(pair, interval) { mutableStateOf<Int?>(null) }
+    var crosshairX by remember(pair, interval) { mutableFloatStateOf(0f) }
+    var crosshairY by remember(pair, interval) { mutableFloatStateOf(0f) }
+    var hasCrosshair by remember(pair, interval) { mutableStateOf(false) }
+    var draggedPriceOffset by remember(pair, interval) { mutableFloatStateOf(0f) }
     val selectedCandle = selectedCandleIndex?.let { candles.getOrNull(it) }
     fun candleTime(timestamp: Long): String = if (timestamp > 0L) {
         java.text.SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
@@ -1451,10 +1455,28 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         if (candles.isNotEmpty() && size.width > 0f) {
                             val slotWidth = size.width / candles.size
                             selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
+                            crosshairX = tap.x.coerceIn(0f, size.width)
+                            crosshairY = tap.y.coerceIn(0f, size.height)
+                            hasCrosshair = true
                         }
                     },
-                    onDoubleTap = { selectedCandleIndex = null }
+                    onDoubleTap = { selectedCandleIndex = null; hasCrosshair = false }
                 )
+            }.pointerInput(candles) {
+                detectDragGestures(onDragStart = { point ->
+                    if (candles.isNotEmpty()) {
+                        val slotWidth = size.width / candles.size
+                        crosshairX = point.x.coerceIn(0f, size.width)
+                        crosshairY = point.y.coerceIn(0f, size.height)
+                        selectedCandleIndex = (point.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
+                        hasCrosshair = true
+                    }
+                }) { change, drag ->
+                    change.consume()
+                    crosshairX = (crosshairX + drag.x).coerceIn(0f, size.width)
+                    crosshairY = (crosshairY + drag.y).coerceIn(0f, size.height)
+                    if (candles.isNotEmpty() && size.width > 0f) selectedCandleIndex = (crosshairX / (size.width / candles.size)).toInt().coerceIn(0, candles.lastIndex)
+                }
             }) {
                 if (candles.isNotEmpty()) {
                     val minP = candles.minOf { it.low }; val maxP = candles.maxOf { it.high }; val range = (maxP - minP).coerceAtLeast(0.000001f); val slot = size.width / candles.size
@@ -1467,6 +1489,12 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val yC = size.height - ((candle.close - minP) / range) * size.height
                         val c = if (candle.close >= candle.open) Green else Red
                         drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.58f).coerceAtLeast(2f))
+                    }
+                    if (hasCrosshair) {
+                        val dash = PathEffect.dashPathEffect(floatArrayOf(7f, 6f))
+                        drawLine(Color(0xFFB8C1D1), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
+                        drawLine(Color(0xFFB8C1D1), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.2f, pathEffect = dash)
+                        drawCircle(Color.White, 4f, Offset(crosshairX, crosshairY))
                     }
                 }
             }
@@ -1499,12 +1527,12 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         Modifier.align(Alignment.TopStart)
                             .offset {
                                 val baseY = (maxHeight * currentFraction - 11.dp).roundToPx()
-                                IntOffset(0, baseY + currentPriceBadgeDragY.roundToInt())
+                                IntOffset(0, baseY + draggedPriceOffset.roundToInt() + currentPriceBadgeDragY.roundToInt())
                             }
                             .pointerInput(maxHeight) {
                                 detectDragGestures(
-                                    onDragEnd = { currentPriceBadgeDragY = 0f },
-                                    onDragCancel = { currentPriceBadgeDragY = 0f }
+                                    onDragEnd = { draggedPriceOffset += currentPriceBadgeDragY; currentPriceBadgeDragY = 0f },
+                                    onDragCancel = { draggedPriceOffset += currentPriceBadgeDragY; currentPriceBadgeDragY = 0f }
                                 ) { change, dragAmount ->
                                     change.consume()
                                     val limit = (maxHeight.toPx() - 24.dp.toPx()).coerceAtLeast(0f)
@@ -1525,8 +1553,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 val candleChange = if (selectedCandle.open != 0f) (selectedCandle.close - selectedCandle.open) / selectedCandle.open * 100f else 0f
                 Column(
                     Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 8.dp)
+                        .widthIn(max = 210.dp)
                         .background(Color(0xEE171B22), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 9.dp, vertical = 7.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("$pair · $interval", color = White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -1535,7 +1565,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                     Text("O  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.open)}    H  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.high)}", color = White, fontSize = 10.sp)
                     Text("L  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.low)}    C  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.close)}", color = White, fontSize = 10.sp)
-                    Text("Change  ${String.format(java.util.Locale.US, "%+.2f%%", candleChange)}", color = if (candleChange >= 0f) Green else Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Change  ${String.format(java.util.Locale.US, "%+.4f", selectedCandle.close - selectedCandle.open)}   ${String.format(java.util.Locale.US, "%+.2f%%", candleChange)}", color = if (candleChange >= 0f) Green else Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
