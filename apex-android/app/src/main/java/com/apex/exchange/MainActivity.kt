@@ -42,6 +42,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
@@ -62,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
@@ -70,6 +72,7 @@ import coil.request.ImageRequest
 import coil.disk.DiskCache
 import coil.request.CachePolicy
 import java.io.File
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 
@@ -1440,6 +1443,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(25): ${movingAverage(25)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFFE92BA8), fontSize = 11.sp)
             Text("MA(99): ${movingAverage(99)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
+        var currentPriceBadgeDragY by remember(pair) { mutableFloatStateOf(0f) }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
             Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp).pointerInput(candles) {
                 detectTapGestures(
@@ -1493,7 +1497,20 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val currentFraction = ((high - p.toFloat()) / range).coerceIn(0f, 1f)
                     Column(
                         Modifier.align(Alignment.TopStart)
-                            .offset(y = (maxHeight * currentFraction - 11.dp).coerceAtLeast(0.dp))
+                            .offset {
+                                val baseY = (maxHeight * currentFraction - 11.dp).roundToPx()
+                                IntOffset(0, baseY + currentPriceBadgeDragY.roundToInt())
+                            }
+                            .pointerInput(maxHeight) {
+                                detectDragGestures(
+                                    onDragEnd = { currentPriceBadgeDragY = 0f },
+                                    onDragCancel = { currentPriceBadgeDragY = 0f }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    val limit = (maxHeight.toPx() - 24.dp.toPx()).coerceAtLeast(0f)
+                                    currentPriceBadgeDragY = (currentPriceBadgeDragY + dragAmount.y).coerceIn(-limit, limit)
+                                }
+                            }
                             .clip(RoundedCornerShape(5.dp))
                             .background(if (changeValue >= 0f) Green else Red)
                             .padding(horizontal = 4.dp, vertical = 3.dp),
