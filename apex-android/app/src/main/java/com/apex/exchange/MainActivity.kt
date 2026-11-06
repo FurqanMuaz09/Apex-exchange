@@ -37,7 +37,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -1457,8 +1459,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         if (candles.isNotEmpty() && size.width > 0f) {
                             val slotWidth = size.width / candles.size
                             selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
-                            crosshairX = tap.x.coerceIn(0f, size.width)
-                            crosshairY = tap.y.coerceIn(0f, size.height)
+                            crosshairX = tap.x.coerceIn(0f, size.width.toFloat())
+                            crosshairY = tap.y.coerceIn(0f, size.height.toFloat())
                             hasCrosshair = true
                         }
                     },
@@ -1468,15 +1470,15 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 detectDragGestures(onDragStart = { point ->
                     if (candles.isNotEmpty()) {
                         val slotWidth = size.width / candles.size
-                        crosshairX = point.x.coerceIn(0f, size.width)
-                        crosshairY = point.y.coerceIn(0f, size.height)
+                        crosshairX = point.x.coerceIn(0f, size.width.toFloat())
+                        crosshairY = point.y.coerceIn(0f, size.height.toFloat())
                         selectedCandleIndex = (point.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
                         hasCrosshair = true
                     }
                 }) { change, drag ->
                     change.consume()
-                    crosshairX = (crosshairX + drag.x).coerceIn(0f, size.width)
-                    crosshairY = (crosshairY + drag.y).coerceIn(0f, size.height)
+                    crosshairX = (crosshairX + drag.x).coerceIn(0f, size.width.toFloat())
+                    crosshairY = (crosshairY + drag.y).coerceIn(0f, size.height.toFloat())
                     if (candles.isNotEmpty() && size.width > 0f) selectedCandleIndex = (crosshairX / (size.width / candles.size)).toInt().coerceIn(0, candles.lastIndex)
                 }
             }) {
@@ -1493,7 +1495,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.58f).coerceAtLeast(2f))
                     }
                     if (hasCrosshair) {
-                        val dash = PathEffect.dashPathEffect(floatArrayOf(7f, 6f))
+                        val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(7f, 6f))
                         drawLine(Color(0xFFB8C1D1), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
                         drawLine(Color(0xFFB8C1D1), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.2f, pathEffect = dash)
                         drawCircle(Color.White, 4f, Offset(crosshairX, crosshairY))
@@ -1537,7 +1539,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 if (p > 0.0 && high != null && low != null) {
                     val range = (high - low).coerceAtLeast(0.000001f)
                     val currentFraction = ((high - p.toFloat()) / range).coerceIn(0f, 1f)
-                    val draggedFraction = (currentFraction + (draggedPriceOffset + currentPriceBadgeDragY) / maxHeight.toPx().coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    val chartHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx() }
+                    val draggedFraction = (currentFraction + (draggedPriceOffset + currentPriceBadgeDragY) / chartHeightPx.coerceAtLeast(1f)).coerceIn(0f, 1f)
                     val draggedLevelPrice = high - (range * draggedFraction)
                     val draggedLevelChange = if (p > 0.0) ((draggedLevelPrice - p.toFloat()) / p.toFloat()) * 100f else 0f
                     Column(
