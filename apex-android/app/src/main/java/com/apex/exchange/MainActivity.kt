@@ -1403,7 +1403,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             HorizontalDivider(color = Color(0xFF292D35))
     
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1.1f)) {
                 Text(if (p > 0) String.format(java.util.Locale.US, "%,.2f", p) else "—", color = if (changeValue >= 0) Green else Red, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1411,10 +1411,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     Spacer(Modifier.width(8.dp))
                     Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = if (changeValue >= 0) Green else Red, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(2.dp))
                 Text("Payments  ›   Vol  ›   Prv  ›", color = Muted, fontSize = 14.sp)
             }
-            Column(Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Column(Modifier.weight(0.9f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 listOf("24h High" to (high?.let { String.format(java.util.Locale.US, "%,.2f", it) } ?: "—"), "24h Low" to (low?.let { String.format(java.util.Locale.US, "%,.2f", it) } ?: "—"), "24h Vol(BTC)" to "—", "24h Vol(USDT)" to "—").forEach { (label, value) ->
                     Row(verticalAlignment = Alignment.CenterVertically) { Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f), maxLines = 1); Text(value, color = White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
                 }
