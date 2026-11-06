@@ -1508,8 +1508,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                     if (high != null && low != null && p > 0.0) {
                         val range = (high - low).coerceAtLeast(0.000001f)
-                        val currentY = ((high - p.toFloat()) / range).coerceIn(0f, 1f) * size.height
-                        drawLine(Green.copy(alpha = 0.8f), Offset(0f, currentY), Offset(size.width, currentY), 1.2f)
+                        val baseFraction = ((high - p.toFloat()) / range).coerceIn(0f, 1f)
+                        val draggedFraction = (baseFraction + (draggedPriceOffset + currentPriceBadgeDragY) / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                        val draggedY = draggedFraction * size.height
+                        drawLine(if (draggedFraction <= baseFraction) Green.copy(alpha = 0.9f) else Red.copy(alpha = 0.9f), Offset(0f, draggedY), Offset(size.width, draggedY), 1.2f)
                     }
                 }
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
@@ -1523,11 +1525,14 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 if (p > 0.0 && high != null && low != null) {
                     val range = (high - low).coerceAtLeast(0.000001f)
                     val currentFraction = ((high - p.toFloat()) / range).coerceIn(0f, 1f)
+                    val draggedFraction = (currentFraction + (draggedPriceOffset + currentPriceBadgeDragY) / maxHeight.toPx().coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    val draggedLevelPrice = high - (range * draggedFraction)
+                    val draggedLevelChange = if (p > 0.0) ((draggedLevelPrice - p.toFloat()) / p.toFloat()) * 100f else 0f
                     Column(
                         Modifier.align(Alignment.TopStart)
                             .offset {
-                                val baseY = (maxHeight * currentFraction - 11.dp).roundToPx()
-                                IntOffset(0, baseY + draggedPriceOffset.roundToInt() + currentPriceBadgeDragY.roundToInt())
+                                val baseY = (maxHeight * draggedFraction - 11.dp).roundToPx()
+                                IntOffset(0, baseY)
                             }
                             .pointerInput(maxHeight) {
                                 detectDragGestures(
@@ -1544,8 +1549,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             .padding(horizontal = 4.dp, vertical = 3.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(String.format(java.util.Locale.US, "%,.2f", p), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        Text(String.format(java.util.Locale.US, "%+.2f%%", changeValue), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(String.format(java.util.Locale.US, "%,.2f", draggedLevelPrice), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(String.format(java.util.Locale.US, "%+.2f%%", draggedLevelChange), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }
