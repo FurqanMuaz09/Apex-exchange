@@ -910,7 +910,7 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
     }
 }
 
-private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float)
+private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float, val openTime: Long = 0L)
 
 private data class BookLevel(val price: String, val quantity: String)
 private data class RecentTrade(val price: String, val quantity: String, val time: String, val buyerIsMaker: Boolean)
@@ -965,7 +965,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
         val high = row.getString(2).toFloatOrNull() ?: return@mapNotNull null
         val low = row.getString(3).toFloatOrNull() ?: return@mapNotNull null
         val close = row.getString(4).toFloatOrNull() ?: return@mapNotNull null
-        Candle(open, high, low, close)
+        Candle(open, high, low, close, row.optLong(0, 0L))
     }
     PairMarketData(ticker.getString("lastPrice"), ticker.optString("priceChangePercent", "0"), candles)
 }
@@ -1378,6 +1378,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     fun movingAverage(period: Int): Float? = closes.takeLast(period).takeIf { it.isNotEmpty() }?.average()?.toFloat()
     val high = candles.maxOfOrNull { it.high }
     val low = candles.minOfOrNull { it.low }
+    var selectedCandleIndex by remember(pair, interval) { mutableStateOf<Int?>(null) }
+    val selectedCandle = selectedCandleIndex?.let { candles.getOrNull(it) }
+    fun candleTime(timestamp: Long): String = if (timestamp > 0L) {
+        java.text.SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
+    } else "Time unavailable"
     Column(Modifier.fillMaxWidth().background(Bg)) {
         if (showHeader) {
             Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1436,7 +1441,14 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(99): ${movingAverage(99)?.let { String.format(java.util.Locale.US, "%,.0f", it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp)) {
+            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp).pointerInput(candles) {
+                detectTapGestures { tap ->
+                    if (candles.isNotEmpty() && size.width > 0f) {
+                        val slotWidth = size.width / candles.size
+                        selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
+                    }
+                }
+            }) {
                 if (candles.isNotEmpty()) {
                     val minP = candles.minOf { it.low }; val maxP = candles.maxOf { it.high }; val range = (maxP - minP).coerceAtLeast(0.000001f); val slot = size.width / candles.size
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
@@ -1453,6 +1465,23 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             }
             Column(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(60.dp), verticalArrangement = Arrangement.SpaceEvenly) {
                 (0..4).forEach { i -> Text(if (high != null && low != null) String.format(java.util.Locale.US, "%,.0f", high - ((high - low) * i / 4f)) else "—", color = Muted, fontSize = 10.sp) }
+            }
+            if (selectedCandle != null) {
+                val candleChange = if (selectedCandle.open != 0f) (selectedCandle.close - selectedCandle.open) / selectedCandle.open * 100f else 0f
+                Column(
+                    Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 8.dp)
+                        .background(Color(0xEE171B22), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("$pair · $interval", color = White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 10.sp)
+                        Text("×", color = Muted, fontSize = 14.sp, modifier = Modifier.clickable { selectedCandleIndex = null })
+                    }
+                    Text("O  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.open)}    H  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.high)}", color = White, fontSize = 10.sp)
+                    Text("L  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.low)}    C  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.close)}", color = White, fontSize = 10.sp)
+                    Text("Change  ${String.format(java.util.Locale.US, "%+.2f%%", candleChange)}", color = if (candleChange >= 0f) Green else Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Vol: —", color = Muted, fontSize = 12.sp); Text(interval, color = Muted, fontSize = 12.sp) }
@@ -1723,7 +1752,8 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
                                     kline.optString("o").toFloatOrNull() ?: return,
                                     kline.optString("h").toFloatOrNull() ?: return,
                                     kline.optString("l").toFloatOrNull() ?: return,
-                                    kline.optString("c").toFloatOrNull() ?: return
+                                    kline.optString("c").toFloatOrNull() ?: return,
+                                    kline.optLong("t", 0L)
                                 )
                                 candles = if (candles.isEmpty()) listOf(candle) else candles.dropLast(1) + candle
                                 marketError = null
