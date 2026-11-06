@@ -67,12 +67,36 @@ import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
+import coil.disk.DiskCache
+import coil.request.CachePolicy
+import java.io.File
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 
+private object ApexCoinImageLoader {
+    @Volatile private var shared: coil.ImageLoader? = null
+
+    fun get(context: android.content.Context): coil.ImageLoader {
+        return shared ?: synchronized(this) {
+            shared ?: coil.ImageLoader.Builder(context.applicationContext)
+                .components { add(coil.decode.SvgDecoder.Factory()) }
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .diskCache {
+                    DiskCache.Builder()
+                        .directory(File(context.applicationContext.filesDir, "apex_coin_logo_cache"))
+                        .maxSizeBytes(128L * 1024L * 1024L)
+                        .build()
+                }
+                .build()
+                .also { shared = it }
+        }
+    }
+}
+
 @Composable
 private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
-    val ticker = symbol.uppercase()
+    val ticker = symbol.uppercase().trim()
     val context = LocalContext.current
     val bundledSymbols = remember {
         setOf("BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA", "TRX", "USDC", "USDT", "LINK", "LTC", "BCH", "AVAX", "DOT", "ZEC", "UNI", "MATIC", "ATOM", "ETC", "FIL")
@@ -86,12 +110,8 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
     }
     val hasLocalAsset = ticker in bundledSymbols || ticker == "XBT" || ticker == "POL"
     var useLocalAsset by remember(ticker) { mutableStateOf(hasLocalAsset) }
-    var sourceIndex by remember(ticker) { mutableStateOf(0) }
-    val svgImageLoader = remember(context) {
-        coil.ImageLoader.Builder(context)
-            .components { add(coil.decode.SvgDecoder.Factory()) }
-            .build()
-    }
+    var sourceIndex by remember(ticker) { mutableIntStateOf(0) }
+    val svgImageLoader = remember(context) { ApexCoinImageLoader.get(context) }
 
     val tickerCandidates = remember(ticker) {
         val aliases = mapOf(
@@ -104,14 +124,31 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
             "USTC" to listOf("UST"),
             "POL" to listOf("MATIC"),
             "RNDR" to listOf("RENDER"),
-            "BTTOLD" to listOf("BTT")
+            "BTTOLD" to listOf("BTT"),
+            "DOG" to listOf("DOGE"),
+            "XNO" to listOf("NANO"),
+            "STR" to listOf("XLM"),
+            "BCCOIN" to listOf("BCC")
         )
         (listOf(ticker) + aliases[ticker].orEmpty()).distinct()
     }
+    val trustWalletChains = remember {
+        mapOf(
+            "BTC" to "bitcoin", "ETH" to "ethereum", "BNB" to "smartchain",
+            "SOL" to "solana", "XRP" to "ripple", "DOGE" to "dogecoin",
+            "ADA" to "cardano", "TRX" to "tron", "LTC" to "litecoin",
+            "BCH" to "bitcoincash", "AVAX" to "avalanchec", "DOT" to "polkadot",
+            "ATOM" to "cosmos", "XLM" to "stellar", "TON" to "ton"
+        )
+    }
     val sources = remember(ticker) {
+        val nativeTrustWallet = trustWalletChains[ticker]?.let { chain ->
+            "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/$chain/info/logo.png"
+        }
         tickerCandidates.flatMap { candidate ->
             val key = candidate.lowercase()
-            listOf(
+            listOfNotNull(
+                if (candidate == ticker) nativeTrustWallet else null,
                 "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/$key.png",
                 "https://assets.coincap.io/assets/icons/${key}@2x.png",
                 "https://coinicons-api.vercel.app/api/icon/$key",
@@ -136,7 +173,13 @@ private fun MarketCoinIcon(symbol: String, size: androidx.compose.ui.unit.Dp) {
             model = if (useLocalAsset) {
                 "file:///android_asset/coin-logos/$localAssetSymbol.svg"
             } else {
-                ImageRequest.Builder(context).data(sources[sourceIndex]).crossfade(true).build()
+                ImageRequest.Builder(context)
+                    .data(sources.getOrNull(sourceIndex))
+                    .crossfade(true)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .networkCachePolicy(CachePolicy.ENABLED)
+                    .build()
             },
             imageLoader = svgImageLoader,
             contentDescription = "$ticker coin logo",
