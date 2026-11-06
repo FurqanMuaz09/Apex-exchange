@@ -45,6 +45,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
@@ -963,7 +964,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
         }
     }
     val ticker = org.json.JSONObject(getJson("/api/v3/ticker/24hr?symbol=$pair"))
-    val klines = JSONArray(getJson("/api/v3/klines?symbol=$pair&interval=$interval&limit=48"))
+    val klines = JSONArray(getJson("/api/v3/klines?symbol=$pair&interval=$interval&limit=120"))
     val candles = (0 until klines.length()).mapNotNull { index ->
         val row = klines.getJSONArray(index)
         val open = row.getString(1).toFloatOrNull() ?: return@mapNotNull null
@@ -1390,7 +1391,14 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var crosshairY by remember(pair, interval) { mutableFloatStateOf(0f) }
     var hasCrosshair by remember(pair, interval) { mutableStateOf(false) }
     var draggedPriceOffset by remember(pair, interval) { mutableFloatStateOf(0f) }
-    val selectedCandle = selectedCandleIndex?.let { candles.getOrNull(it) }
+    var candleScrollOffset by remember(pair, interval) { mutableIntStateOf(0) }
+    val visibleCandleCount = minOf(48, candles.size)
+    val maxCandleScroll = (candles.size - visibleCandleCount).coerceAtLeast(0)
+    val visibleStart = (candles.size - visibleCandleCount - candleScrollOffset).coerceIn(0, maxCandleScroll)
+    val chartCandles = remember(candles, visibleStart, visibleCandleCount) {
+        if (visibleCandleCount > 0) candles.subList(visibleStart, visibleStart + visibleCandleCount) else emptyList()
+    }
+    val selectedCandle = selectedCandleIndex?.let { chartCandles.getOrNull(it) }
     fun candleTime(timestamp: Long): String = if (timestamp > 0L) {
         java.text.SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
     } else "Time unavailable"
@@ -1453,12 +1461,12 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         }
         var currentPriceBadgeDragY by remember(pair) { mutableFloatStateOf(0f) }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp).pointerInput(candles) {
+            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp).pointerInput(chartCandles) {
                 detectTapGestures(
                     onTap = { tap ->
-                        if (candles.isNotEmpty() && size.width > 0f) {
-                            val slotWidth = size.width / candles.size
-                            selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
+                        if (chartCandles.isNotEmpty() && size.width > 0f) {
+                            val slotWidth = size.width / chartCandles.size
+                            selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, chartCandles.lastIndex)
                             crosshairX = tap.x.coerceIn(0f, size.width.toFloat())
                             crosshairY = tap.y.coerceIn(0f, size.height.toFloat())
                             hasCrosshair = true
@@ -1466,26 +1474,29 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     },
                     onDoubleTap = { selectedCandleIndex = null; hasCrosshair = false }
                 )
-            }.pointerInput(candles) {
-                detectDragGestures(onDragStart = { point ->
-                    if (candles.isNotEmpty()) {
-                        val slotWidth = size.width / candles.size
-                        crosshairX = point.x.coerceIn(0f, size.width.toFloat())
-                        crosshairY = point.y.coerceIn(0f, size.height.toFloat())
-                        selectedCandleIndex = (point.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
-                        hasCrosshair = true
+            }.pointerInput(chartCandles, candleScrollOffset, maxCandleScroll) {
+                var dragRemainder = 0f
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        dragRemainder = 0f
+                        selectedCandleIndex = null
+                        hasCrosshair = false
                     }
-                }) { change, drag ->
+                ) { change, drag ->
                     change.consume()
-                    crosshairX = (crosshairX + drag.x).coerceIn(0f, size.width.toFloat())
-                    crosshairY = (crosshairY + drag.y).coerceIn(0f, size.height.toFloat())
-                    if (candles.isNotEmpty() && size.width > 0f) selectedCandleIndex = (crosshairX / (size.width / candles.size)).toInt().coerceIn(0, candles.lastIndex)
+                    val slotWidth = (size.width / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
+                    dragRemainder += drag.x
+                    val candleSteps = (dragRemainder / slotWidth).toInt()
+                    if (candleSteps != 0) {
+                        candleScrollOffset = (candleScrollOffset + candleSteps).coerceIn(0, maxCandleScroll)
+                        dragRemainder -= candleSteps * slotWidth
+                    }
                 }
             }) {
-                if (candles.isNotEmpty()) {
-                    val minP = candles.minOf { it.low }; val maxP = candles.maxOf { it.high }; val range = (maxP - minP).coerceAtLeast(0.000001f); val slot = size.width / candles.size
+                if (chartCandles.isNotEmpty()) {
+                    val minP = chartCandles.minOf { it.low }; val maxP = chartCandles.maxOf { it.high }; val range = (maxP - minP).coerceAtLeast(0.000001f); val slot = size.width / chartCandles.size
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
-                    candles.forEachIndexed { i, candle ->
+                    chartCandles.forEachIndexed { i, candle ->
                         val x = slot * i + slot / 2f
                         val yH = size.height - ((candle.high - minP) / range) * size.height
                         val yL = size.height - ((candle.low - minP) / range) * size.height
