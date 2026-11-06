@@ -1340,7 +1340,7 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 
 @Composable
 private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, compactPrice: String, compactChange: String, showCompactPrice: Boolean) {
-    Column(Modifier.fillMaxWidth().background(Bg)) {
+    Column(Modifier.fillMaxWidth().background(Color.Black)) {
             Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
                 Spacer(Modifier.width(15.dp))
@@ -1392,7 +1392,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     fun candleTime(timestamp: Long): String = if (timestamp > 0L) {
         java.text.SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
     } else "Time unavailable"
-    Column(Modifier.fillMaxWidth().background(Bg)) {
+    Column(Modifier.fillMaxWidth().background(Color.Black)) {
         if (showHeader) {
             Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
@@ -2045,7 +2045,7 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
 
     LazyColumn(
         state = chartScrollState,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().background(if (chartOnly) Color.Black else Bg),
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
         if (chartOnly) {
