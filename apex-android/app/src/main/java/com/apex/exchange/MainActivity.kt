@@ -633,8 +633,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         val displayedBalance = if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts
                         BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                             val fittedFontSize = if (displayedBalance.isNotEmpty()) {
-                                (maxWidth.value / displayedBalance.length.coerceAtLeast(1) * 2.05f)
-                                    .coerceIn(23f, 44f).sp
+                                (maxWidth.value / displayedBalance.length.coerceAtLeast(1) * 1.95f)
+                                    .coerceIn(22f, 41f).sp
                             } else 32.sp
                             Text(
                                 displayedBalance,
@@ -1512,15 +1512,23 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         Box(Modifier.fillMaxWidth().height(270.dp)) {
             Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp).pointerInput(candles.size, p) {
                 detectTapGestures(
-                    onTap = { tap ->
+                    onLongPress = { tap ->
                         if (chartCandles.isNotEmpty() && size.width > 0f) {
                             val slotWidth = size.width / chartCandles.size
                             selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, chartCandles.lastIndex)
-                            // Snap the vertical crosshair exactly to the selected candle's center.
+                            // Long-press snaps the vertical guide to the candle center.
                             crosshairX = (selectedCandleIndex!! + 0.5f) * slotWidth
                             crosshairY = tap.y.coerceIn(0f, size.height.toFloat())
+                            selectedPriceY = crosshairY
                             hasCrosshair = true
-                            selectedPriceY = tap.y.coerceIn(0f, size.height.toFloat())
+                        }
+                    },
+                    onTap = {
+                        // A normal tap never opens candle history; tap again to dismiss it.
+                        if (selectedCandleIndex != null) {
+                            selectedCandleIndex = null
+                            hasCrosshair = false
+                            selectedPriceY = -1f
                         }
                     },
                     onDoubleTap = {
@@ -1530,7 +1538,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         isPriceDragging = false
                     }
                 )
-            }.pointerInput(candles.size, visibleCandleCount, maxCandleScroll, hasCrosshair) {
+            }.pointerInput(candles.size, visibleCandleCount, maxCandleScroll) {
                 var panRemainder = 0f
                 detectTransformGestures { _, pan, zoom, _ ->
                     if (candles.isNotEmpty()) {
@@ -1539,25 +1547,22 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 .coerceIn(12.coerceAtMost(candles.size), candles.size)
                             visibleCandleCount = nextCount
                             candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - nextCount).coerceAtLeast(0))
+                            selectedCandleIndex = null
+                            hasCrosshair = false
+                            selectedPriceY = -1f
+                            panRemainder = 0f
                         }
+                        // Finger movement pans the candle window directly; it does not move
+                        // the live-price guide or accidentally open the candle-history panel.
                         val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
-                        // One-finger horizontal movement pans the candle window immediately;
-                        // the crosshair snaps to the candle under the finger on every frame.
                         panRemainder += pan.x
                         val steps = (panRemainder / slotWidth).toInt()
                         if (steps != 0) {
                             candleScrollOffset = (candleScrollOffset + steps).coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0))
                             panRemainder -= steps * slotWidth
-                        }
-                        val nextX = (crosshairX + pan.x).coerceIn(0f, size.width.toFloat())
-                        val nextIndex = (nextX / slotWidth).toInt().coerceIn(0, (visibleCandleCount - 1).coerceAtLeast(0))
-                        selectedCandleIndex = nextIndex.coerceAtMost((candles.size - visibleStart - 1).coerceAtLeast(0))
-                        crosshairX = (nextIndex + 0.5f) * slotWidth
-                        hasCrosshair = true
-                        if (kotlin.math.abs(pan.y) > 0.1f) {
-                            selectedPriceY = (selectedPriceY.takeIf { it >= 0f } ?: crosshairY) + pan.y
-                            selectedPriceY = selectedPriceY.coerceIn(0f, size.height.toFloat())
-                            crosshairY = selectedPriceY
+                            selectedCandleIndex = null
+                            hasCrosshair = false
+                            selectedPriceY = -1f
                         }
                     }
                 }
@@ -1688,33 +1693,34 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 val candleChangePercent = if (selectedCandle.open != 0f) candleChange / selectedCandle.open * 100f else 0f
                 val fluctuation = if (selectedCandle.open != 0f) (selectedCandle.high - selectedCandle.low) / selectedCandle.open * 100f else 0f
                 val detailColor = if (candleChange >= 0f) Green else Red
+                val historyAlignment = if ((selectedCandleIndex ?: 0) >= chartCandles.size / 2) Alignment.TopStart else Alignment.TopEnd
                 Column(
-                    Modifier.align(Alignment.TopStart).padding(start = 6.dp, top = 6.dp)
-                        .width(190.dp)
-                        .background(Color(0xEE171B22), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    Modifier.align(historyAlignment).padding(horizontal = 5.dp, vertical = 5.dp)
+                        .width(148.dp)
+                        .background(Color(0xEE111418), RoundedCornerShape(7.dp))
+                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(7.dp))
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("$pair · $interval", color = White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 8.sp)
+                            Text("$pair · $interval", color = White, fontSize = 7.5.sp, fontWeight = FontWeight.Bold)
+                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 7.5.sp)
                         }
-                        Text("×", color = Muted, fontSize = 14.sp, modifier = Modifier.clickable { selectedCandleIndex = null }.padding(start = 5.dp))
+                        Text("×", color = Muted, fontSize = 11.sp, modifier = Modifier.clickable { selectedCandleIndex = null }.padding(start = 5.dp))
                     }
-                    HorizontalDivider(color = Color(0xFF424956))
+                    HorizontalDivider(color = Color(0xFF424956), thickness = 0.5.dp)
                     @Composable fun detailRow(label: String, value: String, valueColor: Color = White) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(label, color = Muted, fontSize = 9.sp)
-                            Text(value, color = valueColor, fontSize = 9.sp, fontWeight = FontWeight.Medium)
+                            Text(label, color = Muted, fontSize = 7.5.sp)
+                            Text(value, color = valueColor, fontSize = 7.5.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                     detailRow("Open", candlePrice(selectedCandle.open))
                     detailRow("Close", candlePrice(selectedCandle.close))
                     detailRow("High", candlePrice(selectedCandle.high))
                     detailRow("Low", candlePrice(selectedCandle.low))
-                    HorizontalDivider(color = Color(0xFF424956))
+                    HorizontalDivider(color = Color(0xFF424956), thickness = 0.5.dp)
                     detailRow("% Change", String.format(java.util.Locale.US, "%+.2f%%", candleChangePercent), detailColor)
                     detailRow("Change", String.format(java.util.Locale.US, "%+,.2f", candleChange), detailColor)
                     detailRow("Fluctuation", String.format(java.util.Locale.US, "%.2f%%", fluctuation))
