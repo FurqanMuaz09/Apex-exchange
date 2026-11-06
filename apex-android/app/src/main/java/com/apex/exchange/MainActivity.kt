@@ -1542,6 +1542,34 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val c = if (candle.close >= candle.open) Green else Red
                         drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.58f).coerceAtLeast(2f))
                     }
+                    // Small labels for the highest and lowest visible candle prices.
+                    val highIndex = chartCandles.indices.maxByOrNull { chartCandles[it].high }
+                    val lowIndex = chartCandles.indices.minByOrNull { chartCandles[it].low }
+                    val labelPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                        color = android.graphics.Color.WHITE
+                        textSize = 10f * density
+                        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                    }
+                    highIndex?.let { index ->
+                        val candle = chartCandles[index]
+                        val x = slot * index + slot / 2f
+                        val y = size.height - ((candle.high - minP) / range) * size.height
+                        val label = String.format(java.util.Locale.US, "%,.${priceDecimals}f", candle.high)
+                        val labelX = if (x > size.width * 0.72f) x - labelPaint.measureText(label) - 7f else x + 7f
+                        val lineEnd = if (labelX < x) labelX + labelPaint.measureText(label) else labelX
+                        drawLine(Color.White, Offset(x, y), Offset(lineEnd, y), 1f)
+                        drawContext.canvas.nativeCanvas.drawText(label, labelX, (y - 5f).coerceAtLeast(12f), labelPaint)
+                    }
+                    lowIndex?.let { index ->
+                        val candle = chartCandles[index]
+                        val x = slot * index + slot / 2f
+                        val y = size.height - ((candle.low - minP) / range) * size.height
+                        val label = String.format(java.util.Locale.US, "%,.${priceDecimals}f", candle.low)
+                        val labelX = if (x > size.width * 0.72f) x - labelPaint.measureText(label) - 7f else x + 7f
+                        val lineEnd = if (labelX < x) labelX + labelPaint.measureText(label) else labelX
+                        drawLine(Color.White, Offset(x, y), Offset(lineEnd, y), 1f)
+                        drawContext.canvas.nativeCanvas.drawText(label, labelX, (y + 13f).coerceAtMost(size.height - 2f), labelPaint)
+                    }
                     if (hasCrosshair) {
                         val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f))
                         drawLine(Color(0xFFEAECEF), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
@@ -1599,13 +1627,13 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val badgeChange = ((badgePrice - p.toFloat()) / p.toFloat()) * 100f
                     Column(
                         Modifier.align(Alignment.TopEnd)
-                            .offset { IntOffset(0, (maxHeight * badgeFraction - if (isPriceDragging) 16.dp else 10.dp).roundToPx().coerceIn(0, (maxHeight - if (isPriceDragging) 38.dp else 20.dp).roundToPx().coerceAtLeast(0))) }
+                            .offset { IntOffset(0, (maxHeight * badgeFraction - if (hasCrosshair && selectedPriceY >= 0f) 16.dp else 10.dp).roundToPx().coerceIn(0, (maxHeight - if (hasCrosshair && selectedPriceY >= 0f) 38.dp else 20.dp).roundToPx().coerceAtLeast(0))) }
                             .clip(RoundedCornerShape(5.dp))
                             .background(Color.White)
-                            .padding(horizontal = if (isPriceDragging) 7.dp else 5.dp, vertical = if (isPriceDragging) 5.dp else 3.dp),
+                            .padding(horizontal = if (hasCrosshair && selectedPriceY >= 0f) 7.dp else 5.dp, vertical = if (hasCrosshair && selectedPriceY >= 0f) 5.dp else 3.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.Black, fontSize = if (isPriceDragging) 10.sp else 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.Black, fontSize = if (hasCrosshair && selectedPriceY >= 0f) 10.sp else 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         if (hasCrosshair && selectedPriceY >= 0f) {
                             Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
