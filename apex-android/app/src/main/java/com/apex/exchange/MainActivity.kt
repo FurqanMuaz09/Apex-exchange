@@ -1353,20 +1353,20 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
                 Spacer(Modifier.width(15.dp))
                 Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White, modifier = Modifier.size(26.dp))
             }
-            if (showCompactPrice) {
-                val compactPercent = compactChange.toDoubleOrNull() ?: 0.0
-                Row(Modifier.fillMaxWidth().height(34.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(compactPrice, color = if (compactPercent >= 0) Green else Red, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Spacer(Modifier.width(12.dp))
-                    Text(String.format(java.util.Locale.US, "%+.2f%%", compactPercent), color = if (compactPercent >= 0) Green else Red, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
             Row(Modifier.fillMaxWidth().height(39.dp).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
                 listOf("Price", "Info", "Data", "Square").forEachIndexed { index, label ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(label, color = if (index == 0) White else Muted, fontSize = 17.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium)
                         if (index == 0) Box(Modifier.padding(top = 4.dp).width(42.dp).height(3.dp).background(Yellow, RoundedCornerShape(3.dp)))
                     }
+                }
+            }
+            if (showCompactPrice) {
+                val compactPercent = compactChange.toDoubleOrNull() ?: 0.0
+                Row(Modifier.fillMaxWidth().height(34.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(compactPrice, color = if (compactPercent >= 0) Green else Red, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Spacer(Modifier.width(12.dp))
+                    Text(String.format(java.util.Locale.US, "%+.2f%%", compactPercent), color = if (compactPercent >= 0) Green else Red, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             HorizontalDivider(color = Color(0xFF292D35))
