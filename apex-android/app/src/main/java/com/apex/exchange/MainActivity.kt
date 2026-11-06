@@ -1477,7 +1477,8 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
     var percent by remember { mutableFloatStateOf(0f) }
     var chartInterval by remember { mutableStateOf("15m") }
     val chartScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val showCompactHeaderPrice = chartScrollState.firstVisibleItemIndex > 0 || chartScrollState.firstVisibleItemScrollOffset > 20
+    val overviewScrollOffset = chartScrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == 1 }?.offset ?: 0
+    val showCompactHeaderPrice = overviewScrollOffset < -95 || chartScrollState.firstVisibleItemIndex > 1
     var chartExpanded by remember { mutableStateOf(true) }
     var selectedOrdersTab by remember { mutableStateOf("Open Orders") }
     val base = pair.substringBefore("/")
