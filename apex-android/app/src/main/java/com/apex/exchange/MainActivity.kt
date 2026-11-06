@@ -1466,7 +1466,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         HorizontalDivider(color = Color(0xFF292D35))
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun TradeScreen(favorites: MutableList<String>, initialPair: String, chartOnly: Boolean, initialSide: String = "Buy", onOpenOrderEntry: (String) -> Unit, onDetail: (String) -> Unit, onTradeUpdate: () -> Unit) {
     var side by remember(initialPair, chartOnly) { mutableStateOf(initialSide) }
