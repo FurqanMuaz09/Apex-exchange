@@ -917,7 +917,7 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
     }
 }
 
-private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float, val openTime: Long = 0L)
+private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float, val openTime: Long = 0L, val volume: Float = 0f, val quoteVolume: Float = 0f)
 
 private data class BookLevel(val price: String, val quantity: String)
 private data class RecentTrade(val price: String, val quantity: String, val time: String, val buyerIsMaker: Boolean)
@@ -972,7 +972,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
         val high = row.getString(2).toFloatOrNull() ?: return@mapNotNull null
         val low = row.getString(3).toFloatOrNull() ?: return@mapNotNull null
         val close = row.getString(4).toFloatOrNull() ?: return@mapNotNull null
-        Candle(open, high, low, close, row.optLong(0, 0L))
+        Candle(open, high, low, close, row.optLong(0, 0L), row.optString(5).toFloatOrNull() ?: 0f, row.optString(7).toFloatOrNull() ?: 0f)
     }
     PairMarketData(ticker.getString("lastPrice"), ticker.optString("priceChangePercent", "0"), candles)
 }
@@ -1403,8 +1403,15 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     }
     val selectedCandle = selectedCandleIndex?.let { chartCandles.getOrNull(it) }
     fun candleTime(timestamp: Long): String = if (timestamp > 0L) {
-        java.text.SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
+        java.text.SimpleDateFormat("MMM d, yyyy  HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
     } else "Time unavailable"
+    fun compactVolume(value: Float): String = when {
+        value >= 1_000_000_000f -> String.format(java.util.Locale.US, "%.2fB", value / 1_000_000_000f)
+        value >= 1_000_000f -> String.format(java.util.Locale.US, "%.2fM", value / 1_000_000f)
+        value >= 1_000f -> String.format(java.util.Locale.US, "%.2fK", value / 1_000f)
+        else -> String.format(java.util.Locale.US, "%.2f", value)
+    }
+    fun candlePrice(value: Float): String = String.format(java.util.Locale.US, "%,.${priceDecimals}f", value)
     Column(Modifier.fillMaxWidth().background(Color.Black)) {
         if (showHeader) {
             Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1643,22 +1650,42 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }
             if (selectedCandle != null) {
-                val candleChange = if (selectedCandle.open != 0f) (selectedCandle.close - selectedCandle.open) / selectedCandle.open * 100f else 0f
+                val candleChange = selectedCandle.close - selectedCandle.open
+                val candleChangePercent = if (selectedCandle.open != 0f) candleChange / selectedCandle.open * 100f else 0f
+                val fluctuation = if (selectedCandle.open != 0f) (selectedCandle.high - selectedCandle.low) / selectedCandle.open * 100f else 0f
+                val detailColor = if (candleChange >= 0f) Green else Red
                 Column(
                     Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 8.dp)
-                        .widthIn(max = 210.dp)
-                        .background(Color(0xEE171B22), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 9.dp, vertical = 7.dp)
+                        .width(250.dp)
+                        .background(Color(0xEE171B22), RoundedCornerShape(10.dp))
+                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 13.dp, vertical = 11.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("$pair · $interval", color = White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 10.sp)
-                        Text("×", color = Muted, fontSize = 14.sp, modifier = Modifier.clickable { selectedCandleIndex = null })
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("$pair · $interval", color = White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 10.sp)
+                        }
+                        Text("×", color = Muted, fontSize = 17.sp, modifier = Modifier.clickable { selectedCandleIndex = null }.padding(start = 8.dp))
                     }
-                    Text("O  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.open)}    H  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.high)}", color = White, fontSize = 10.sp)
-                    Text("L  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.low)}    C  ${String.format(java.util.Locale.US, "%,.4f", selectedCandle.close)}", color = White, fontSize = 10.sp)
-                    Text("Change  ${String.format(java.util.Locale.US, "%+.4f", selectedCandle.close - selectedCandle.open)}   ${String.format(java.util.Locale.US, "%+.2f%%", candleChange)}", color = if (candleChange >= 0f) Green else Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    HorizontalDivider(color = Color(0xFF424956))
+                    @Composable fun detailRow(label: String, value: String, valueColor: Color = White) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, color = Muted, fontSize = 11.sp)
+                            Text(value, color = valueColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    detailRow("Open", candlePrice(selectedCandle.open))
+                    detailRow("Close", candlePrice(selectedCandle.close))
+                    detailRow("High", candlePrice(selectedCandle.high))
+                    detailRow("Low", candlePrice(selectedCandle.low))
+                    HorizontalDivider(color = Color(0xFF424956))
+                    detailRow("% Change", String.format(java.util.Locale.US, "%+.2f%%", candleChangePercent), detailColor)
+                    detailRow("Change", String.format(java.util.Locale.US, "%+,.2f", candleChange), detailColor)
+                    detailRow("Fluctuation", String.format(java.util.Locale.US, "%.2f%%", fluctuation))
+                    detailRow("Volume", compactVolume(selectedCandle.volume))
+                    detailRow("Trading vol", compactVolume(selectedCandle.quoteVolume))
                 }
             }
         }
@@ -1931,7 +1958,9 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
                                     kline.optString("h").toFloatOrNull() ?: return,
                                     kline.optString("l").toFloatOrNull() ?: return,
                                     kline.optString("c").toFloatOrNull() ?: return,
-                                    kline.optLong("t", 0L)
+                                    kline.optLong("t", 0L),
+                                    kline.optString("v").toFloatOrNull() ?: 0f,
+                                    kline.optString("q").toFloatOrNull() ?: 0f
                                 )
                                 candles = if (candles.isEmpty()) listOf(candle) else candles.dropLast(1) + candle
                                 marketError = null
