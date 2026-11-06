@@ -3105,7 +3105,8 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
     }
 
     val rankedBalances = balances.sortedWith(
-        compareByDescending<Pair<String, String>> { it.first.equals("USDT", ignoreCase = true) }
+        compareByDescending<Pair<String, String>> { it.first.equals(pinnedAssetSymbol, ignoreCase = true) }
+            .thenByDescending { it.first.equals("USDT", ignoreCase = true) }
             .thenByDescending { coin ->
                 val amount = coin.second.toDoubleOrNull() ?: 0.0
                 val stable = coin.first in listOf("USDT", "USDC", "FDUSD", "BUSD")
@@ -3121,7 +3122,26 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
             Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
                 Column(Modifier.padding(18.dp)) {
                     Text("Estimated total value", color = Muted, fontSize = 13.sp)
-                    Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    val totalLabel = String.format(java.util.Locale.US, "%,.2f", totalUsdt)
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            totalLabel,
+                            color = White,
+                            fontSize = when {
+                                totalLabel.length > 16 -> 18.sp
+                                totalLabel.length > 13 -> 21.sp
+                                totalLabel.length > 10 -> 24.sp
+                                else -> 28.sp
+                            },
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.weight(1f),
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text("USDT", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+                    }
                     Text("Binance Spot Testnet · Free + Locked", color = Muted, fontSize = 10.sp)
                 }
             }
@@ -3135,7 +3155,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
         }
         item {
             Text(message, color = if (message.startsWith("Binance")) Green else Muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
-            SectionTitle("My Internal Wallet Assets")
+            SectionTitle("My Spot Testnet Assets")
         }
         if (busy && balances.isEmpty()) {
             item {
