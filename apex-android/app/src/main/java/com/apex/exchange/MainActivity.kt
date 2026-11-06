@@ -1696,24 +1696,24 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 val historyAlignment = if ((selectedCandleIndex ?: 0) >= chartCandles.size / 2) Alignment.TopStart else Alignment.TopEnd
                 Column(
                     Modifier.align(historyAlignment).padding(horizontal = 5.dp, vertical = 5.dp)
-                        .width(148.dp)
-                        .background(Color(0xEE111418), RoundedCornerShape(7.dp))
-                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(7.dp))
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                        .width(112.dp)
+                        .background(Color(0xEE111418), RoundedCornerShape(6.dp))
+                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("$pair · $interval", color = White, fontSize = 7.5.sp, fontWeight = FontWeight.Bold)
-                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 7.5.sp)
+                            Text("$pair · $interval", color = White, fontSize = 6.5.sp, fontWeight = FontWeight.Bold)
+                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 6.5.sp)
                         }
                         Text("×", color = Muted, fontSize = 11.sp, modifier = Modifier.clickable { selectedCandleIndex = null }.padding(start = 5.dp))
                     }
                     HorizontalDivider(color = Color(0xFF424956), thickness = 0.5.dp)
                     @Composable fun detailRow(label: String, value: String, valueColor: Color = White) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(label, color = Muted, fontSize = 7.5.sp)
-                            Text(value, color = valueColor, fontSize = 7.5.sp, fontWeight = FontWeight.Medium)
+                            Text(label, color = Muted, fontSize = 6.2.sp, maxLines = 1, softWrap = false)
+                            Text(value, color = valueColor, fontSize = 6.2.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
                         }
                     }
                     detailRow("Open", candlePrice(selectedCandle.open))
