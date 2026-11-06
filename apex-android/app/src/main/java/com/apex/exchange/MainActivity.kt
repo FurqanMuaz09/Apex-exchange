@@ -306,7 +306,7 @@ private fun ApexNativeApp() {
                         Button(onClick = { selectedTradingPair = chartPair!!; selectedTradingSide = "Sell"; chartPair = null; tab = "Trade" }, modifier = Modifier.weight(1f).fillMaxHeight(), shape = RoundedCornerShape(22.dp), colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = White)) { Text("Sell", fontSize = 21.sp, fontWeight = FontWeight.Bold) }
                     }
                 } else if (chartPair == null) {
-                    NavigationBar(modifier = Modifier.height(58.dp), containerColor = Panel, contentColor = White) {
+                    NavigationBar(modifier = Modifier.fillMaxWidth(), containerColor = Panel, contentColor = White) {
                     val destinations = listOf(
                         Triple("Home", Icons.Filled.Home, "Home"),
                         Triple("Markets", Icons.Filled.ShowChart, "Markets"),
@@ -632,22 +632,31 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.Bottom
                         ) {
+                            val displayedBalance = if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts
                             Text(
-                                if (signedInUser != null && !balanceHidden && walletBalance != null) "\$" + balanceParts else balanceParts,
+                                displayedBalance,
+                                modifier = Modifier.weight(1f),
                                 color = White,
-                                fontSize = 32.sp,
+                                fontSize = when {
+                                    displayedBalance.length > 13 -> 18.sp
+                                    displayedBalance.length > 11 -> 21.sp
+                                    displayedBalance.length > 9 -> 25.sp
+                                    else -> 32.sp
+                                },
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                             if (signedInUser != null) {
-                                Spacer(Modifier.width(5.dp))
+                                Spacer(Modifier.width(4.dp))
                                 Text(
                                     "USDT",
                                     color = Muted,
-                                    fontSize = 12.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false,
                                     modifier = Modifier.padding(bottom = 3.dp)
                                 )
                             }
@@ -3117,77 +3126,85 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
         }
     }
 
-    LaunchedEffect(user?.uid, balances, walletTradeVersion) {
+    LaunchedEffect(user?.uid, balances.map { it.first }, walletTradeVersion) {
         if (user == null) {
             assetMetrics = emptyMap()
         } else {
-            balances.forEach { coin ->
+            // Fetch only the first 20 non-stable holdings, sequentially. This prevents hundreds
+            // of simultaneous API calls from freezing the Assets screen on large testnet accounts.
+            val metricAssets = balances.filter { coin ->
+                coin.first !in listOf("USDT", "USDC", "FDUSD", "BUSD")
+            }.take(20)
+            for (coin in metricAssets) {
                 val asset = coin.first
-                if (asset in listOf("USDT", "USDC", "FDUSD", "BUSD")) return@forEach
-                val marketPair = cachedLiveMarkets
-                    ?.firstOrNull { it.symbol.replace("/", "").equals("${asset}USDT", true) }
+                val marketPair = livePrices
+                    .firstOrNull { it.symbol.replace("/", "").equals("${asset}USDT", true) }
                     ?.symbol?.replace("/", "") ?: "${asset}USDT"
-                scope.launch {
-                    try {
-                        val metrics = apexApiRequest("/api/holdings/metrics?symbol=$marketPair")
-                        assetMetrics = assetMetrics + (asset to metrics)
-                    } catch (_: Exception) {
-                        // Mark failed lookups complete instead of leaving an endless loading label.
-                        assetMetrics = assetMetrics + (asset to JSONObject())
-                    }
+                try {
+                    val metrics = apexApiRequest("/api/holdings/metrics?symbol=$marketPair")
+                    assetMetrics = assetMetrics + (asset to metrics)
+                } catch (_: Exception) {
+                    assetMetrics = assetMetrics + (asset to JSONObject())
                 }
             }
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        TopBar("Assets")
-        Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
-            Column(Modifier.padding(18.dp)) {
-                Text("Estimated total value", color = Muted, fontSize = 13.sp)
-                Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("APEX Internal Wallet · Spot + Funding", color = Muted, fontSize = 10.sp)
+    val rankedBalances = balances.sortedWith(
+        compareByDescending<Pair<String, String>> { it.first.equals("USDT", ignoreCase = true) }
+            .thenByDescending { coin ->
+                assetMetrics[coin.first]?.optDouble("costBasis", 0.0) ?: 0.0
+            }
+    )
+
+    LazyColumn(Modifier.fillMaxSize()) {
+        item { TopBar("Assets") }
+        item {
+            Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("Estimated total value", color = Muted, fontSize = 13.sp)
+                    Text(String.format(java.util.Locale.US, "%.2f USDT", totalUsdt), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text("APEX Internal Wallet · Spot + Funding", color = Muted, fontSize = 10.sp)
+                }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton("Deposit", Modifier.weight(1f)) { onDetail("Deposit") }
-            ActionButton("Withdraw", Modifier.weight(1f)) { onDetail("Withdraw") }
-            ActionButton("Transfer", Modifier.weight(1f)) { onDetail("Transfer") }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionButton("Deposit", Modifier.weight(1f)) { onDetail("Deposit") }
+                ActionButton("Withdraw", Modifier.weight(1f)) { onDetail("Withdraw") }
+                ActionButton("Transfer", Modifier.weight(1f)) { onDetail("Transfer") }
+            }
         }
-        Text(message, color = if (message.startsWith("Binance")) Green else Muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
-        SectionTitle("My Internal Wallet Assets")
+        item {
+            Text(message, color = if (message.startsWith("Binance")) Green else Muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+            SectionTitle("My Internal Wallet Assets")
+        }
         if (busy && balances.isEmpty()) {
-            repeat(6) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(Modifier.size(34.dp).clip(CircleShape).background(Color(0xFF292D35)))
-                    Spacer(Modifier.width(12.dp))
-                    Box(Modifier.weight(1f).height(13.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF292D35)))
-                    Spacer(Modifier.width(18.dp))
-                    Box(Modifier.width(88.dp).height(13.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF292D35)))
+            item {
+                repeat(6) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(34.dp).clip(CircleShape).background(Color(0xFF292D35)))
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.weight(1f).height(13.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF292D35)))
+                        Spacer(Modifier.width(18.dp))
+                        Box(Modifier.width(88.dp).height(13.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF292D35)))
+                    }
+                    HorizontalDivider(color = Panel)
                 }
-                HorizontalDivider(color = Panel)
             }
         } else if (balances.isEmpty()) {
-            Text("No credited wallet assets yet.", color = Muted, modifier = Modifier.padding(18.dp))
+            item { Text("No credited wallet assets yet.", color = Muted, modifier = Modifier.padding(18.dp)) }
         } else {
-            // Keep USDT first, then rank coins by the actual amount invested (remaining FIFO cost basis).
-            val rankedBalances = balances.sortedWith(
-                compareByDescending<Pair<String, String>> { it.first.equals("USDT", ignoreCase = true) }
-                    .thenByDescending { coin ->
-                        assetMetrics[coin.first]?.optDouble("costBasis", 0.0) ?: 0.0
-                    }
-            )
-            rankedBalances.forEach { coin ->
+            items(rankedBalances, key = { it.first }) { coin ->
                 val asset = coin.first
                 val quantity = coin.second.toDoubleOrNull() ?: 0.0
                 val market = livePrices.firstOrNull { it.symbol.equals(asset, true) }
                 val marketPrice = if (asset == "USDT" || asset == "USDC" || asset == "FDUSD" || asset == "BUSD") 1.0
                     else market?.price?.replace(",", "")?.toDoubleOrNull() ?: 0.0
                 val equity = quantity * marketPrice
-                val pair = "${asset}/USDT"
                 Column(
                     Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)
                         .pointerInput(asset) {
@@ -3243,7 +3260,7 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                             Text(coin.second, color = White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                     }
-                    if (asset !in listOf("USDT", "USDC", "FDUSD", "BUSD")) {
+                    if (!isStableAsset) {
                         Spacer(Modifier.height(12.dp))
                         Text("Spot breakeven price (USDT)", color = Muted, fontSize = 12.sp)
                         Text(
@@ -3256,7 +3273,9 @@ private fun AssetsScreen(refreshKey: Int, onDetail: (String) -> Unit) {
                 HorizontalDivider(color = Panel)
             }
         }
-        Text("Internal transfers move demo ledger balances between your APEX Spot and Funding wallets only. Binance Spot Testnet remains separate.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
+        item {
+            Text("Internal transfers move demo ledger balances between your APEX Spot and Funding wallets only. Binance Spot Testnet remains separate.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(18.dp))
+        }
     }
 }
 
