@@ -1476,7 +1476,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         if (chartCandles.isNotEmpty() && size.width > 0f) {
                             val slotWidth = size.width / chartCandles.size
                             selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, chartCandles.lastIndex)
-                            crosshairX = tap.x.coerceIn(0f, size.width.toFloat())
+                            // Snap the vertical crosshair exactly to the selected candle's center.
+                            crosshairX = (selectedCandleIndex!! + 0.5f) * slotWidth
                             crosshairY = tap.y.coerceIn(0f, size.height.toFloat())
                             hasCrosshair = true
                             selectedPriceY = tap.y.coerceIn(0f, size.height.toFloat())
@@ -1501,6 +1502,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         if (chartCandles.isNotEmpty()) {
                             val slot = size.width / chartCandles.size
                             selectedCandleIndex = (start.x / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                            // Keep the vertical dotted line on the candle, never in the gap.
                             crosshairX = (selectedCandleIndex!! + 0.5f) * slot
                         }
                     },
@@ -1525,6 +1527,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     if (chartCandles.isNotEmpty()) {
                         val slot = size.width / chartCandles.size
                         selectedCandleIndex = (crosshairX / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                        // Snap every drag frame to a candle center for precise candle-only tracking.
                         crosshairX = (selectedCandleIndex!! + 0.5f) * slot
                     }
                 }
