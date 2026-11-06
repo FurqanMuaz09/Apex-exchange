@@ -1598,14 +1598,16 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val badgeChange = ((badgePrice - p.toFloat()) / p.toFloat()) * 100f
                     Column(
                         Modifier.align(Alignment.TopEnd)
-                            .offset { IntOffset(0, (maxHeight * badgeFraction - 11.dp).roundToPx().coerceIn(0, (maxHeight - 28.dp).roundToPx().coerceAtLeast(0))) }
+                            .offset { IntOffset(0, (maxHeight * badgeFraction - if (isPriceDragging) 16.dp else 10.dp).roundToPx().coerceIn(0, (maxHeight - if (isPriceDragging) 38.dp else 20.dp).roundToPx().coerceAtLeast(0))) }
                             .clip(RoundedCornerShape(5.dp))
                             .background(Color.White)
-                            .padding(horizontal = 5.dp, vertical = 4.dp),
+                            .padding(horizontal = if (isPriceDragging) 7.dp else 5.dp, vertical = if (isPriceDragging) 5.dp else 3.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                        Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.Black, fontSize = if (isPriceDragging) 10.sp else 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        if (isPriceDragging) {
+                            Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
                     }
                 }
             }
