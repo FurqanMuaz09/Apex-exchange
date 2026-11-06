@@ -1481,19 +1481,19 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         isPriceDragging = false
                     }
                 )
-            }.pointerInput(candles.size, maxCandleScroll, p) {
+            }.pointerInput(candles.size, maxCandleScroll) {
                 var horizontalRemainder = 0f
                 detectDragGesturesAfterLongPress(
                     onDragStart = { start ->
                         horizontalRemainder = 0f
                         isPriceDragging = true
                         hasCrosshair = true
-                        crosshairX = start.x.coerceIn(0f, size.width.toFloat())
                         crosshairY = start.y.coerceIn(0f, size.height.toFloat())
                         selectedPriceY = crosshairY
                         if (chartCandles.isNotEmpty()) {
                             val slot = size.width / chartCandles.size
                             selectedCandleIndex = (start.x / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                            crosshairX = (selectedCandleIndex!! + 0.5f) * slot
                         }
                     },
                     onDragEnd = { isPriceDragging = false },
@@ -1517,6 +1517,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     if (chartCandles.isNotEmpty()) {
                         val slot = size.width / chartCandles.size
                         selectedCandleIndex = (crosshairX / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                        crosshairX = (selectedCandleIndex!! + 0.5f) * slot
                     }
                 }
             }) {
