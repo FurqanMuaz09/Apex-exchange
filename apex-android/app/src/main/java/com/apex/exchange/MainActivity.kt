@@ -1327,7 +1327,34 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit) {
+@Composable
+private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Bg)) {
+            Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
+                Spacer(Modifier.width(15.dp))
+                Text(pair, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onPairPicker() })
+                Icon(Icons.Filled.ArrowDropDown, "Select pair", tint = White, modifier = Modifier.size(28.dp).clickable { onPairPicker() })
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Filled.AutoAwesome, "Tools", tint = Yellow, modifier = Modifier.size(25.dp))
+                Spacer(Modifier.width(15.dp))
+                Icon(if (favorite) Icons.Filled.Star else Icons.Filled.StarBorder, "Favorite", tint = Yellow, modifier = Modifier.size(27.dp).clickable { onFavorite() })
+                Spacer(Modifier.width(15.dp))
+                Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White, modifier = Modifier.size(26.dp))
+            }
+            Row(Modifier.fillMaxWidth().height(43.dp).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+                listOf("Price", "Info", "Data", "Square").forEachIndexed { index, label ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(label, color = if (index == 0) White else Muted, fontSize = 17.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium)
+                        if (index == 0) Box(Modifier.padding(top = 4.dp).width(42.dp).height(3.dp).background(Yellow, RoundedCornerShape(3.dp)))
+                    }
+                }
+            }
+            HorizontalDivider(color = Color(0xFF292D35))
+    }
+}
+
+private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, showHeader: Boolean = true) {
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
     val changeValue = change.toDoubleOrNull() ?: 0.0
     val closes = candles.map { it.close }
@@ -1335,27 +1362,30 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     val high = candles.maxOfOrNull { it.high }
     val low = candles.minOfOrNull { it.low }
     Column(Modifier.fillMaxWidth().background(Bg)) {
-        Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
-            Spacer(Modifier.width(15.dp))
-            Text(pair, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onPairPicker() })
-            Icon(Icons.Filled.ArrowDropDown, "Select pair", tint = White, modifier = Modifier.size(28.dp).clickable { onPairPicker() })
-            Spacer(Modifier.weight(1f))
-            Icon(Icons.Filled.AutoAwesome, "Tools", tint = Yellow, modifier = Modifier.size(25.dp))
-            Spacer(Modifier.width(15.dp))
-            Icon(if (favorite) Icons.Filled.Star else Icons.Filled.StarBorder, "Favorite", tint = Yellow, modifier = Modifier.size(27.dp).clickable { onFavorite() })
-            Spacer(Modifier.width(15.dp))
-            Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White, modifier = Modifier.size(26.dp))
-        }
-        Row(Modifier.fillMaxWidth().height(43.dp).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
-            listOf("Price", "Info", "Data", "Square").forEachIndexed { index, label ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(label, color = if (index == 0) White else Muted, fontSize = 17.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium)
-                    if (index == 0) Box(Modifier.padding(top = 4.dp).width(42.dp).height(3.dp).background(Yellow, RoundedCornerShape(3.dp)))
+        if (showHeader) {
+            Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
+                Spacer(Modifier.width(15.dp))
+                Text(pair, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onPairPicker() })
+                Icon(Icons.Filled.ArrowDropDown, "Select pair", tint = White, modifier = Modifier.size(28.dp).clickable { onPairPicker() })
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Filled.AutoAwesome, "Tools", tint = Yellow, modifier = Modifier.size(25.dp))
+                Spacer(Modifier.width(15.dp))
+                Icon(if (favorite) Icons.Filled.Star else Icons.Filled.StarBorder, "Favorite", tint = Yellow, modifier = Modifier.size(27.dp).clickable { onFavorite() })
+                Spacer(Modifier.width(15.dp))
+                Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White, modifier = Modifier.size(26.dp))
+            }
+            Row(Modifier.fillMaxWidth().height(43.dp).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+                listOf("Price", "Info", "Data", "Square").forEachIndexed { index, label ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(label, color = if (index == 0) White else Muted, fontSize = 17.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium)
+                        if (index == 0) Box(Modifier.padding(top = 4.dp).width(42.dp).height(3.dp).background(Yellow, RoundedCornerShape(3.dp)))
+                    }
                 }
             }
+            HorizontalDivider(color = Color(0xFF292D35))
+    
         }
-        HorizontalDivider(color = Color(0xFF292D35))
         Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1.1f)) {
                 Text(if (p > 0) String.format(java.util.Locale.US, "%,.2f", p) else "—", color = if (changeValue >= 0) Green else Red, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -1866,8 +1896,16 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
         if (chartOnly) {
+            stickyHeader {
+                TradingMarketHeader(
+                    pair = pair,
+                    favorite = base in favorites,
+                    onFavorite = { if (base in favorites) favorites.remove(base) else favorites.add(base) },
+                    onPairPicker = { pairSearch = ""; showPairSheet = true }
+                )
+            }
             item {
-                TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) }, { pairSearch = ""; showPairSheet = true })
+                TradingMarketOverview(pair, marketPrice, marketChangePercent, candles, chartInterval, { chartInterval = it }, base in favorites, { if (base in favorites) favorites.remove(base) else favorites.add(base) }, { pairSearch = ""; showPairSheet = true }, showHeader = false)
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
