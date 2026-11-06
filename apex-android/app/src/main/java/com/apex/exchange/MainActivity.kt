@@ -1442,12 +1442,15 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
             Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp, top = 4.dp, bottom = 4.dp).pointerInput(candles) {
-                detectTapGestures { tap ->
-                    if (candles.isNotEmpty() && size.width > 0f) {
-                        val slotWidth = size.width / candles.size
-                        selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
-                    }
-                }
+                detectTapGestures(
+                    onTap = { tap ->
+                        if (candles.isNotEmpty() && size.width > 0f) {
+                            val slotWidth = size.width / candles.size
+                            selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, candles.lastIndex)
+                        }
+                    },
+                    onDoubleTap = { selectedCandleIndex = null }
+                )
             }) {
                 if (candles.isNotEmpty()) {
                     val minP = candles.minOf { it.low }; val maxP = candles.maxOf { it.high }; val range = (maxP - minP).coerceAtLeast(0.000001f); val slot = size.width / candles.size
