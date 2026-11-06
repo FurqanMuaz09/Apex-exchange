@@ -1378,7 +1378,7 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
 @Composable
 private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, showHeader: Boolean = true) {
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
-    val priceDecimals = price.substringAfter(".", "").takeIf { price.contains(".") }?.length?.coerceIn(2, 8) ?: 2
+    val priceDecimals = price.replace(",", "").substringAfter(".", "").takeIf { price.contains(".") }?.length?.coerceIn(0, 12) ?: 0
     val axisPriceFormat = "%,.${priceDecimals}f"
     val changeValue = change.toDoubleOrNull() ?: 0.0
     val closes = candles.map { it.close }
@@ -1507,7 +1507,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     // Keep the price scale aligned with the chart grid and separated by a vertical axis.
-                    drawLine(Color(0xFF343A44), Offset(0f, 0f), Offset(0f, size.height), 1.4f)
+                    drawLine(Color(0xFF252A32), Offset(0f, 0f), Offset(0f, size.height), 1f)
                     for (i in 0..4) {
                         val y = size.height * i / 4f
                         drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f)
@@ -1521,9 +1521,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                 }
                 Column(
-                    Modifier.fillMaxSize().padding(start = 5.dp, end = 3.dp),
-                    verticalArrangement = Arrangement.SpaceEvenly,
-                    horizontalAlignment = Alignment.End
+                    Modifier.fillMaxSize().padding(start = 5.dp, end = 3.dp)
                 ) {
                     (0..4).forEach { i ->
                         Text(
@@ -1532,7 +1530,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             fontSize = 9.sp,
                             maxLines = 1,
                             softWrap = false,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.End
+                            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                            modifier = Modifier.align(Alignment.TopEnd).offset(y = maxHeight * i / 4f - 6.dp)
                         )
                     }
                 }
@@ -1544,7 +1543,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val draggedLevelPrice = high - (range * draggedFraction)
                     val draggedLevelChange = if (p > 0.0) ((draggedLevelPrice - p.toFloat()) / p.toFloat()) * 100f else 0f
                     Column(
-                        Modifier.align(Alignment.TopStart)
+                        Modifier.align(Alignment.TopEnd)
                             .offset {
                                 val baseY = (maxHeight * draggedFraction - 11.dp).roundToPx()
                                 IntOffset(0, baseY)
@@ -1560,11 +1559,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 }
                             }
                             .clip(RoundedCornerShape(5.dp))
-                            .background(if (changeValue >= 0f) Green else Red)
-                            .padding(horizontal = 4.dp, vertical = 3.dp),
+                            .background(Color.White)
+                            .padding(horizontal = 5.dp, vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(String.format(java.util.Locale.US, "%,.2f", draggedLevelPrice), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(String.format(java.util.Locale.US, axisPriceFormat, draggedLevelPrice), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         Text(String.format(java.util.Locale.US, "%+.2f%%", draggedLevelChange), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
