@@ -1800,7 +1800,9 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
             }
         }
     }
-    LaunchedEffect(selectedOrdersTab) {
+    LaunchedEffect(selectedOrdersTab, chartOnly) {
+        // Chart-only navigation must not start the private open-orders stream.
+        if (chartOnly) return@LaunchedEffect
         if (selectedOrdersTab == "Open Orders") {
             if (FirebaseAuth.getInstance().currentUser == null) {
                 openOrders = emptyList()
@@ -1900,7 +1902,8 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
             }
         }
     }
-    LaunchedEffect(pair, selectedOrdersTab) {
+    LaunchedEffect(pair, selectedOrdersTab, chartOnly) {
+        if (chartOnly) return@LaunchedEffect
         if (selectedOrdersTab == "Holdings" && FirebaseAuth.getInstance().currentUser != null) {
             holdingCostBasis = null
             holdingTrackedQuantity = 0.0
@@ -2004,7 +2007,9 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
         client.dispatcher.executorService.shutdown()
         client.connectionPool.evictAll()
     }
-    LaunchedEffect(base) {
+    LaunchedEffect(base, chartOnly) {
+        // Chart view only needs public ticker/kline data; avoid another private account socket.
+        if (chartOnly) return@LaunchedEffect
         if (FirebaseAuth.getInstance().currentUser == null) {
             availableUsdt = "0"
             availableUsdc = "0"
@@ -2094,7 +2099,9 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
         client.connectionPool.evictAll()
     }
 
-    LaunchedEffect(pair) {
+    LaunchedEffect(pair, chartOnly) {
+        // Chart-only mode renders candles and ticker data; skip the extra 100ms order-book socket.
+        if (chartOnly) return@LaunchedEffect
         // Load an initial REST snapshot, then keep the order book/depth ratio live
         // from Binance's 100ms partial-depth WebSocket stream.
         try {
