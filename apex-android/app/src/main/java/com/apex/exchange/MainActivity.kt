@@ -1633,13 +1633,14 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         Modifier.align(Alignment.TopEnd)
                             .offset { IntOffset(0, (maxHeight * badgeFraction - if (hasCrosshair && selectedPriceY >= 0f) 16.dp else 10.dp).roundToPx().coerceIn(0, (maxHeight - if (hasCrosshair && selectedPriceY >= 0f) 38.dp else 20.dp).roundToPx().coerceAtLeast(0))) }
                             .clip(RoundedCornerShape(5.dp))
-                            .background(Color.White)
-                            .padding(horizontal = if (hasCrosshair && selectedPriceY >= 0f) 7.dp else 5.dp, vertical = if (hasCrosshair && selectedPriceY >= 0f) 5.dp else 3.dp),
+                            .background(Color.Black)
+                            .border(1.dp, Color.White, RoundedCornerShape(5.dp))
+                            .padding(horizontal = 5.dp, vertical = if (hasCrosshair && selectedPriceY >= 0f) 2.dp else 2.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.Black, fontSize = if (hasCrosshair && selectedPriceY >= 0f) 10.sp else 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Text(String.format(java.util.Locale.US, axisPriceFormat, badgePrice), color = Color.White, fontSize = if (hasCrosshair && selectedPriceY >= 0f) 9.sp else 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         if (hasCrosshair && selectedPriceY >= 0f) {
-                            Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
                 }
@@ -1650,25 +1651,25 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 val fluctuation = if (selectedCandle.open != 0f) (selectedCandle.high - selectedCandle.low) / selectedCandle.open * 100f else 0f
                 val detailColor = if (candleChange >= 0f) Green else Red
                 Column(
-                    Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 8.dp)
-                        .width(250.dp)
-                        .background(Color(0xEE171B22), RoundedCornerShape(10.dp))
-                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 13.dp, vertical = 11.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                    Modifier.align(Alignment.TopStart).padding(start = 6.dp, top = 6.dp)
+                        .width(190.dp)
+                        .background(Color(0xEE171B22), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("$pair · $interval", color = White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 10.sp)
+                            Text("$pair · $interval", color = White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 8.sp)
                         }
-                        Text("×", color = Muted, fontSize = 17.sp, modifier = Modifier.clickable { selectedCandleIndex = null }.padding(start = 8.dp))
+                        Text("×", color = Muted, fontSize = 14.sp, modifier = Modifier.clickable { selectedCandleIndex = null }.padding(start = 5.dp))
                     }
                     HorizontalDivider(color = Color(0xFF424956))
                     @Composable fun detailRow(label: String, value: String, valueColor: Color = White) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(label, color = Muted, fontSize = 11.sp)
-                            Text(value, color = valueColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text(label, color = Muted, fontSize = 9.sp)
+                            Text(value, color = valueColor, fontSize = 9.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                     detailRow("Open", candlePrice(selectedCandle.open))
