@@ -1503,22 +1503,23 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - nextCount).coerceAtLeast(0))
                         }
                         val slotWidth = (size.width / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
-                        if (hasCrosshair && selectedCandleIndex != null) {
-                            val nextX = (crosshairX + pan.x).coerceIn(0f, size.width.toFloat())
-                            val nextIndex = (nextX / slotWidth).toInt().coerceIn(0, (visibleCandleCount - 1).coerceAtLeast(0))
-                            selectedCandleIndex = nextIndex.coerceAtMost((candles.size - visibleStart - 1).coerceAtLeast(0))
-                            crosshairX = (nextIndex + 0.5f) * slotWidth
-                            if (kotlin.math.abs(pan.y) > 0.1f) {
-                                selectedPriceY = (selectedPriceY + pan.y).coerceIn(0f, size.height.toFloat())
-                                crosshairY = selectedPriceY
-                            }
-                        } else {
-                            panRemainder += pan.x
-                            val steps = (panRemainder / slotWidth).toInt()
-                            if (steps != 0) {
-                                candleScrollOffset = (candleScrollOffset + steps).coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0))
-                                panRemainder -= steps * slotWidth
-                            }
+                        // One-finger horizontal movement pans the candle window immediately;
+                        // the crosshair snaps to the candle under the finger on every frame.
+                        panRemainder += pan.x
+                        val steps = (panRemainder / slotWidth).toInt()
+                        if (steps != 0) {
+                            candleScrollOffset = (candleScrollOffset + steps).coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0))
+                            panRemainder -= steps * slotWidth
+                        }
+                        val nextX = (crosshairX + pan.x).coerceIn(0f, size.width.toFloat())
+                        val nextIndex = (nextX / slotWidth).toInt().coerceIn(0, (visibleCandleCount - 1).coerceAtLeast(0))
+                        selectedCandleIndex = nextIndex.coerceAtMost((candles.size - visibleStart - 1).coerceAtLeast(0))
+                        crosshairX = (nextIndex + 0.5f) * slotWidth
+                        hasCrosshair = true
+                        if (kotlin.math.abs(pan.y) > 0.1f) {
+                            selectedPriceY = (selectedPriceY.takeIf { it >= 0f } ?: crosshairY) + pan.y
+                            selectedPriceY = selectedPriceY.coerceIn(0f, size.height.toFloat())
+                            crosshairY = selectedPriceY
                         }
                     }
                 }
