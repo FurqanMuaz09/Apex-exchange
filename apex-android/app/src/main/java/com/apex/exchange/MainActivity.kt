@@ -1328,9 +1328,9 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
 
 @Composable
 @Composable
-private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit) {
+private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, compactPrice: String, compactChange: String, showCompactPrice: Boolean) {
     Column(Modifier.fillMaxWidth().background(Bg)) {
-            Row(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.ArrowBack, "Back", tint = White, modifier = Modifier.size(25.dp))
                 Spacer(Modifier.width(15.dp))
                 Text(pair, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onPairPicker() })
@@ -1342,7 +1342,15 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
                 Spacer(Modifier.width(15.dp))
                 Icon(Icons.Filled.NotificationsNone, "Notifications", tint = White, modifier = Modifier.size(26.dp))
             }
-            Row(Modifier.fillMaxWidth().height(43.dp).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (showCompactPrice) {
+                val compactPercent = compactChange.toDoubleOrNull() ?: 0.0
+                Row(Modifier.fillMaxWidth().height(34.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(compactPrice, color = if (compactPercent >= 0) Green else Red, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Spacer(Modifier.width(12.dp))
+                    Text(String.format(java.util.Locale.US, "%+.2f%%", compactPercent), color = if (compactPercent >= 0) Green else Red, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Row(Modifier.fillMaxWidth().height(39.dp).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
                 listOf("Price", "Info", "Data", "Square").forEachIndexed { index, label ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(label, color = if (index == 0) White else Muted, fontSize = 17.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium)
@@ -1468,6 +1476,8 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
     var totalInput by remember { mutableStateOf("") }
     var percent by remember { mutableFloatStateOf(0f) }
     var chartInterval by remember { mutableStateOf("15m") }
+    val chartScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val showCompactHeaderPrice = chartScrollState.firstVisibleItemIndex > 0 || chartScrollState.firstVisibleItemScrollOffset > 20
     var chartExpanded by remember { mutableStateOf(true) }
     var selectedOrdersTab by remember { mutableStateOf("Open Orders") }
     val base = pair.substringBefore("/")
@@ -1892,7 +1902,8 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
     }
 
     LazyColumn(
-        Modifier.fillMaxSize(),
+        state = chartScrollState,
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 8.dp)
     ) {
         if (chartOnly) {
@@ -1901,7 +1912,10 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
                     pair = pair,
                     favorite = base in favorites,
                     onFavorite = { if (base in favorites) favorites.remove(base) else favorites.add(base) },
-                    onPairPicker = { pairSearch = ""; showPairSheet = true }
+                    onPairPicker = { pairSearch = ""; showPairSheet = true },
+                    compactPrice = marketPrice,
+                    compactChange = marketChangePercent,
+                    showCompactPrice = showCompactHeaderPrice
                 )
             }
             item {
