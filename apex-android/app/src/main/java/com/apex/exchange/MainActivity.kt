@@ -1437,7 +1437,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var selectedPriceY by remember(pair, interval) { mutableFloatStateOf(-1f) }
     var isPriceDragging by remember(pair, interval) { mutableStateOf(false) }
     var candleScrollOffset by remember(pair, interval) { mutableIntStateOf(0) }
-    var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(48, candles.size).coerceAtLeast(1)) }
+    var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(80, candles.size).coerceAtLeast(1)) }
+    var verticalPanFraction by remember(pair, interval) { mutableFloatStateOf(0f) }
     LaunchedEffect(candles.size) { visibleCandleCount = visibleCandleCount.coerceIn(1, candles.size.coerceAtLeast(1)); candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0)) }
     val maxCandleScroll = (candles.size - visibleCandleCount).coerceAtLeast(0)
     val visibleStart = (candles.size - visibleCandleCount - candleScrollOffset).coerceIn(0, maxCandleScroll)
@@ -1563,7 +1564,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         }
                         // Finger movement pans the candle window directly; it does not move
                         // the live-price guide or accidentally open the candle-history panel.
-                        val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
+                        val slotWidth = (size.width.toFloat() / (visibleCandleCount + 6).coerceAtLeast(1)).coerceAtLeast(1f)
                         panRemainder += pan.x
                         val steps = (panRemainder / slotWidth).toInt()
                         if (steps != 0) {
@@ -1580,10 +1581,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val rawMin = minOf(chartCandles.minOf { it.low }, p.toFloat())
                     val rawMax = maxOf(chartCandles.maxOf { it.high }, p.toFloat())
                     val padding = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
-                    val minP = rawMin - padding
-                    val maxP = rawMax + padding
+                    val baseRange = (rawMax - rawMin + padding * 2f).coerceAtLeast(0.000001f)
+                    val minP = rawMin - padding + baseRange * verticalPanFraction
+                    val maxP = rawMax + padding + baseRange * verticalPanFraction
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
-                    val slot = size.width / chartCandles.size
+                    val slot = size.width / (chartCandles.size + 6f)
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
                     if (p > 0.0) {
                         val liveY = size.height - ((p.toFloat() - minP) / range) * size.height
@@ -1663,8 +1665,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 val rawMin = minOf(chartCandles.minOfOrNull { it.low } ?: (low ?: 0f), p.toFloat())
                 val rawMax = maxOf(chartCandles.maxOfOrNull { it.high } ?: (high ?: 1f), p.toFloat())
                 val plotPadding = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
-                val plotMin = rawMin - plotPadding
-                val plotMax = rawMax + plotPadding
+                val basePlotRange = (rawMax - rawMin + plotPadding * 2f).coerceAtLeast(0.000001f)
+                val plotMin = rawMin - plotPadding + basePlotRange * verticalPanFraction
+                val plotMax = rawMax + plotPadding + basePlotRange * verticalPanFraction
                 val plotRange = (plotMax - plotMin).coerceAtLeast(0.000001f)
                 Column(Modifier.fillMaxSize().padding(start = 5.dp, end = 3.dp)) {
                     (0..4).forEach { i ->
