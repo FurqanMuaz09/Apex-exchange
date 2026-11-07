@@ -688,7 +688,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 colors = CardDefaults.cardColors(containerColor = Panel),
                 shape = RoundedCornerShape(18.dp)
             ) {
-                Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp)) {
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                             .padding(horizontal = 14.dp),
@@ -739,8 +739,9 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     }
                     TextButton(
                         onClick = { showAllPairs = true },
-                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
-                    ) { Text("View More", color = Muted, fontSize = 14.sp) }
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 0.dp, bottom = 0.dp)
+                    ) { Text("View More", color = Muted, fontSize = 14.sp, lineHeight = 17.sp) }
                 }
             }
         }
