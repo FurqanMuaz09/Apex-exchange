@@ -1603,15 +1603,21 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 hasCrosshair = true
                             } else if (kotlin.math.abs(delta.x) > viewConfiguration.touchSlop || moved) {
                                 moved = true
-                                // Move the complete candle plot with the finger.
-                                // Swiping left shifts candles left and exposes empty space
-                                // on the right; candle width/count do not change.
+                                // Move the chart with the finger without changing candle zoom.
                                 val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
-                                // Keep the existing leftward pan limit/behavior, and
-                                // also allow the reverse drag to move the plot right.
-                                // The same candle spacing is preserved in both directions.
-                                chartPanOffsetPx = (chartPanOffsetPx + delta.x)
-                                    .coerceIn(-size.width.toFloat() + slotWidth, size.width.toFloat() - slotWidth)
+                                val nextPanOffset = chartPanOffsetPx + delta.x
+                                if (nextPanOffset >= slotWidth && candleScrollOffset < maxCandleScroll) {
+                                    // Dragging right reveals the preceding candles from the left.
+                                    // Shift the data window by whole candle slots and preserve
+                                    // any fractional drag so candle spacing/plot position stay stable.
+                                    val slotsToReveal = (nextPanOffset / slotWidth).toInt()
+                                    val actualShift = slotsToReveal.coerceAtMost(maxCandleScroll - candleScrollOffset)
+                                    candleScrollOffset += actualShift
+                                    chartPanOffsetPx = nextPanOffset - actualShift * slotWidth
+                                } else {
+                                    chartPanOffsetPx = nextPanOffset
+                                        .coerceIn(-size.width.toFloat() + slotWidth, size.width.toFloat() - slotWidth)
+                                }
                                 selectedCandleIndex = null
                                 hasCrosshair = false
                                 selectedPriceY = -1f
