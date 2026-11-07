@@ -1794,38 +1794,31 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                 } catch (_: Exception) { value }
                 val historyAlignment = if ((selectedCandleIndex ?: 0) >= chartCandles.size / 2) Alignment.TopStart else Alignment.TopEnd
+                val timeLabel = if (selectedCandle.openTime > 0L)
+                    java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(selectedCandle.openTime))
+                    else "—"
+                fun detailRow(label: String, value: String, valueColor: Color = White) {
+                    Row(Modifier.fillMaxWidth().height(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, color = Muted, fontSize = 7.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(26.dp))
+                        Text(value, color = valueColor, fontSize = 7.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(1f))
+                    }
+                }
                 Column(
-                    Modifier.align(historyAlignment).padding(horizontal = 5.dp, vertical = 5.dp)
-                        .width(112.dp)
-                        .background(Color(0xEE111418), RoundedCornerShape(6.dp))
-                        .border(1.dp, Color(0xFF596273), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    Modifier.align(historyAlignment)
+                        .width(65.dp)
+                        .height(72.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("$pair · $interval", color = White, fontSize = 6.5.sp, fontWeight = FontWeight.Bold)
-                            Text(candleTime(selectedCandle.openTime), color = Muted, fontSize = 6.5.sp)
-                        }
-                        Text("×", color = Muted, fontSize = 11.sp, modifier = Modifier.clickable { selectedCandleIndex = null }.padding(start = 5.dp))
-                    }
-                    HorizontalDivider(color = Color(0xFF424956), thickness = 0.5.dp)
-                    @Composable fun detailRow(label: String, value: String, valueColor: Color = White) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(label, color = Muted, fontSize = 6.2.sp, maxLines = 1, softWrap = false)
-                            Text(value, color = valueColor, fontSize = 6.2.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
-                        }
-                    }
+                    detailRow("Time", timeLabel)
                     detailRow("Open", exactPrice(selectedCandle.openExact))
                     detailRow("Close", exactPrice(selectedCandle.closeExact))
                     detailRow("High", exactPrice(selectedCandle.highExact))
                     detailRow("Low", exactPrice(selectedCandle.lowExact))
-                    HorizontalDivider(color = Color(0xFF424956), thickness = 0.5.dp)
-                    detailRow("% Change", String.format(java.util.Locale.US, "%+.2f%%", candleChangePercent.toDouble()), detailColor)
+                    detailRow("%chg", String.format(java.util.Locale.US, "%+.2f%%", candleChangePercent.toDouble()), detailColor)
                     detailRow("Change", String.format(java.util.Locale.US, "%+,.2f", candleChange.toDouble()), detailColor)
-                    detailRow("Fluctuation", String.format(java.util.Locale.US, "%.2f%%", fluctuation.toDouble()))
+                    detailRow("Fluct.", String.format(java.util.Locale.US, "%.2f%%", fluctuation.toDouble()))
                     detailRow("Volume", exactCompactVolume(selectedCandle.volumeExact))
-                    detailRow("Trading vol", exactCompactVolume(selectedCandle.quoteVolumeExact))
+                    detailRow("Trading", exactCompactVolume(selectedCandle.quoteVolumeExact))
                 }
             }
         }
