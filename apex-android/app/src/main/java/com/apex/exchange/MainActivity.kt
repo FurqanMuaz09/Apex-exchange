@@ -2086,7 +2086,18 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
                                     kline.optString("v").toFloatOrNull() ?: 0f,
                                     kline.optString("q").toFloatOrNull() ?: 0f
                                 )
-                                candles = if (candles.isEmpty()) listOf(candle) else candles.dropLast(1) + candle
+                                candles = when {
+                                    candles.isEmpty() -> listOf(candle)
+                                    candle.openTime == candles.last().openTime ->
+                                        candles.dropLast(1) + candle
+                                    candle.openTime > candles.last().openTime ->
+                                        (candles + candle).takeLast(120)
+                                    else -> {
+                                        val matchingIndex = candles.indexOfLast { it.openTime == candle.openTime }
+                                        if (matchingIndex >= 0) candles.toMutableList().also { it[matchingIndex] = candle }
+                                        else candles
+                                    }
+                                }
                                 marketError = null
                             }
                         }
