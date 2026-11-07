@@ -52,7 +52,7 @@ jobs:
               --output "$LOGO_DIR/${symbol}.svg"
             test -s "$LOGO_DIR/${symbol}.svg"
           done
-          printf '%s\n' "Coin logos from spothq/cryptocurrency-icons (MIT license)." > "$LOGO_DIR/README.txt"
+          printf '%s\\n' "Coin logos from spothq/cryptocurrency-icons (MIT license)." > "$LOGO_DIR/README.txt"
 
       - name: Build native Android APK
         env:
@@ -63,9 +63,24 @@ jobs:
         run: |
           gradle -p apex-android --no-daemon -PAPEX_API_BASE_URL="$APEX_API_BASE_URL" -PAPEX_KEYSTORE_FILE="$RUNNER_TEMP/apex-signing/apex-release.jks" -PAPEX_KEYSTORE_PASSWORD="$APEX_KEYSTORE_PASSWORD" -PAPEX_KEY_ALIAS="$APEX_KEY_ALIAS" -PAPEX_KEY_PASSWORD="$APEX_KEY_PASSWORD" assembleDebug
 
+      # Do not publish an APK unless Android's own tools confirm its alignment and signature.
+      - name: Verify APK integrity, alignment, and signature
+        run: |
+          set -euo pipefail
+          APK="apex-android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -x "$BUILD_TOOLS/zipalign"
+          test -x "$BUILD_TOOLS/apksigner"
+          "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          sha256sum "$APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: APEX-debug-apk
           path: apex-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          compression-level: 0
