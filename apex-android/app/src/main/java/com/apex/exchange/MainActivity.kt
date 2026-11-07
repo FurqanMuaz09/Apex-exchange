@@ -1613,8 +1613,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }) {
                 if (chartCandles.isNotEmpty()) {
-                    val rawMin = minOf(chartCandles.minOf { it.low }, p.toFloat())
-                    val rawMax = maxOf(chartCandles.maxOf { it.high }, p.toFloat())
+                    // Keep the visible candle window as the price-scale source. The live
+                    // price guide may sit beyond this range while browsing older candles.
+                    val rawMin = chartCandles.minOf { it.low }
+                    val rawMax = chartCandles.maxOf { it.high }
                     val padding = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
                     val baseRange = (rawMax - rawMin + padding * 2f).coerceAtLeast(0.000001f)
                     val minP = rawMin - padding + baseRange * verticalPanFraction
@@ -1623,7 +1625,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val slot = size.width / (chartCandles.size + 6f)
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
                     if (p > 0.0) {
-                        val liveY = if (hasCrosshair && selectedPriceY >= 0f) selectedPriceY.coerceIn(0f, size.height) else size.height - ((p.toFloat() - minP) / range) * size.height
+                        val liveY = if (hasCrosshair && selectedPriceY >= 0f) selectedPriceY.coerceIn(0f, size.height) else (size.height - ((p.toFloat() - minP) / range) * size.height).coerceIn(0f, size.height.toFloat())
                         drawLine(Color.White.copy(alpha = 0.8f), Offset(0f, liveY), Offset(size.width, liveY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
                     }
                     chartCandles.forEachIndexed { i, candle ->
@@ -1696,8 +1698,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                     if (high != null && low != null && p > 0.0) {
                         val range = (high - low).coerceAtLeast(0.000001f)
-                        val rawMin = minOf(candles.minOfOrNull { it.low } ?: low, p.toFloat())
-                        val rawMax = maxOf(candles.maxOfOrNull { it.high } ?: high, p.toFloat())
+                        val rawMin = candles.minOfOrNull { it.low } ?: p.toFloat()
+                        val rawMax = candles.maxOfOrNull { it.high } ?: p.toFloat()
                         val pad = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
                         val plotMin = rawMin - pad
                         val plotMax = rawMax + pad
@@ -1710,8 +1712,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
                 val axisHeight = maxHeight
                 val density = androidx.compose.ui.platform.LocalDensity.current
-                val rawMin = minOf(chartCandles.minOfOrNull { it.low } ?: (low ?: 0f), p.toFloat())
-                val rawMax = maxOf(chartCandles.maxOfOrNull { it.high } ?: (high ?: 1f), p.toFloat())
+                // Axis follows the visible historical candles, not the live ticker.
+                // This lets the live-price guide stay pinned to the nearest chart edge
+                // while the user browses history outside the current price range.
+                val rawMin = chartCandles.minOfOrNull { it.low } ?: (low ?: p.toFloat())
+                val rawMax = chartCandles.maxOfOrNull { it.high } ?: (high ?: p.toFloat())
                 val plotPadding = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
                 val basePlotRange = (rawMax - rawMin + plotPadding * 2f).coerceAtLeast(0.000001f)
                 val plotMin = rawMin - plotPadding + basePlotRange * verticalPanFraction
@@ -1730,7 +1735,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 if (p > 0.0) {
                     val currentFraction = ((plotMax - p.toFloat()) / plotRange).coerceIn(0f, 1f)
                     val badgeFraction = if (hasCrosshair && selectedPriceY >= 0f) (selectedPriceY / with(density) { maxHeight.toPx() }.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
-                    val badgePrice = plotMax - (plotRange * badgeFraction)
+                    val badgePrice = if (hasCrosshair && selectedPriceY >= 0f) plotMax - (plotRange * badgeFraction) else p.toFloat()
                     val badgeChange = ((badgePrice - p.toFloat()) / p.toFloat()) * 100f
                     Column(
                         Modifier.align(Alignment.TopEnd)
