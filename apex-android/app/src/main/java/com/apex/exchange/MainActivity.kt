@@ -594,7 +594,8 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 Spacer(Modifier.width(6.dp))
                 OutlinedTextField(
                     value = search, onValueChange = { search = it },
-                    modifier = Modifier.weight(1f).height(42.dp),
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = White, fontSize = 13.sp),
                     placeholder = { Text("Search BTC/USDT", fontSize = 11.sp, color = Muted) },
                     singleLine = true,
                     shape = RoundedCornerShape(22.dp),
@@ -602,6 +603,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF292D35),
                         focusedTextColor = White, unfocusedTextColor = White,
+                        cursorColor = Yellow,
                         unfocusedContainerColor = Panel, focusedContainerColor = Panel
                     )
                 )
