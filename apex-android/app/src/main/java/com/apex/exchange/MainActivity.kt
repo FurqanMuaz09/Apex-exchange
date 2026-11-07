@@ -1576,10 +1576,14 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             if (!crosshairMode && elapsed >= viewConfiguration.longPressTimeoutMillis && !moved) {
                                 crosshairMode = true
                                 if (chartCandles.isNotEmpty()) {
-                                    val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
-                                    selectedCandleIndex = (change.position.x / slot).toInt().coerceIn(0, chartCandles.lastIndex)
-                                    // Snap the vertical crosshair to the exact center of each candle.
-                                    crosshairX = (slot * selectedCandleIndex!! + slot / 2f).coerceIn(0f, size.width.toFloat())
+                                    val slot = size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)
+                                    // Convert the finger's screen position back into the
+                                    // candle plot's coordinates, accounting for horizontal pan.
+                                    selectedCandleIndex = ((change.position.x - chartPanOffsetPx) / slot)
+                                        .toInt().coerceIn(0, chartCandles.lastIndex)
+                                    // Keep the crosshair locked to the exact candle center.
+                                    crosshairX = (slot * selectedCandleIndex!! + slot / 2f + chartPanOffsetPx)
+                                        .coerceIn(0f, size.width.toFloat())
                                     crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
                                     selectedPriceY = crosshairY
                                     hasCrosshair = true
@@ -1587,10 +1591,13 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             }
                             if (crosshairMode) {
                                 moved = true
-                                val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
-                                selectedCandleIndex = (change.position.x / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                                val slot = size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)
+                                // Map the dragged finger to the nearest candle after undoing chart pan.
+                                selectedCandleIndex = ((change.position.x - chartPanOffsetPx) / slot)
+                                    .toInt().coerceIn(0, chartCandles.lastIndex)
                                 // Snap candle-to-candle while keeping vertical price movement free.
-                                crosshairX = (slot * selectedCandleIndex!! + slot / 2f).coerceIn(0f, size.width.toFloat())
+                                crosshairX = (slot * selectedCandleIndex!! + slot / 2f + chartPanOffsetPx)
+                                    .coerceIn(0f, size.width.toFloat())
                                 crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
                                 selectedPriceY = crosshairY
                                 hasCrosshair = true
