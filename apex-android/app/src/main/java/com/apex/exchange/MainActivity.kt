@@ -1284,9 +1284,10 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Asset / Pair", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-            Text("Last price", color = Muted, fontSize = 11.sp)
-            Spacer(Modifier.width(24.dp))
-            Text("24h", color = Muted, fontSize = 11.sp)
+            Text("Last price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(100.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+            Spacer(Modifier.width(8.dp))
+            Text("24h", color = Muted, fontSize = 11.sp, modifier = Modifier.width(82.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Spacer(Modifier.width(34.dp))
         }
         HorizontalDivider(color = Panel)
         if (loading && !hasUsableMarketPrices(liveMarkets)) {
@@ -1368,13 +1369,12 @@ private fun MarketRow(coin: Coin, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f)) {
-            Text("${coin.symbol}/USDT", color = White, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        CompactMarketPairName("${coin.symbol}/USDT", coin.name, modifier = Modifier.weight(1f))
+        CompactMarketPrice(coin.price, modifier = Modifier.width(100.dp))
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.width(82.dp), contentAlignment = Alignment.Center) {
+            MarketChangeBadge(coin.change)
         }
-        Text(coin.price, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.width(24.dp))
-        MarketChangeBadge(coin.change)
     }
     HorizontalDivider(color = Panel, thickness = 1.dp)
 }
@@ -2875,9 +2875,9 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(100.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                             Spacer(Modifier.width(8.dp))
-                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(86.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(82.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                             Spacer(Modifier.width(30.dp))
                         }
                     }
@@ -2904,12 +2904,9 @@ private fun TradeScreen(favorites: MutableList<String>, initialPair: String, cha
                                     Text(coin.name, color = Muted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                 }
                             }
-                            Column(Modifier.width(88.dp), horizontalAlignment = Alignment.End) {
-                                Text(coin.price, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                                Text(coinUsdPriceLabel(coin.price), color = Muted, fontSize = 10.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            }
+                            CompactMarketPrice(coin.price, modifier = Modifier.width(100.dp))
                             Spacer(Modifier.width(8.dp))
-                            Column(Modifier.width(86.dp), horizontalAlignment = Alignment.End) {
+                            Box(Modifier.width(82.dp), contentAlignment = Alignment.Center) {
                                 MarketChangeBadge(coin.change)
                             }
                             IconButton(
