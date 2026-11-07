@@ -579,7 +579,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { onDetail("Profile") }, modifier = Modifier.size(42.dp)) {
@@ -588,13 +588,16 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                 Spacer(Modifier.width(6.dp))
                 OutlinedTextField(
                     value = search, onValueChange = { search = it },
-                    modifier = Modifier.weight(1f).height(50.dp),
+                    modifier = Modifier.weight(1f).height(42.dp),
                     placeholder = { Text("Search BTC/USDT", fontSize = 11.sp, color = Muted) },
                     singleLine = true,
+                    shape = RoundedCornerShape(22.dp),
                     leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted, modifier = Modifier.size(18.dp)) },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Yellow, unfocusedBorderColor = Panel,
-                        focusedTextColor = White, unfocusedTextColor = White
+                        focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF292D35),
+                        focusedTextColor = White, unfocusedTextColor = White,
+                        unfocusedContainerColor = Panel, focusedContainerColor = Panel
                     )
                 )
                 IconButton(onClick = { onDetail("Notifications") }) {
