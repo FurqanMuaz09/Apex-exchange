@@ -1580,15 +1580,18 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         }
                     }
                 )
-            }.pointerInput(candles.size, visibleCandleCount, maxCandleScroll) {
+            }.pointerInput(candles.size) {
+                // Do not key this gesture detector by visibleCandleCount: changing that
+                // value during a pinch would cancel and restart the gesture on every frame.
                 var panRemainder = 0f
                 detectTransformGestures { _, pan, zoom, _ ->
                     if (candles.isNotEmpty()) {
                         if (kotlin.math.abs(zoom - 1f) > 0.002f) {
                             val nextCount = (visibleCandleCount / zoom).roundToInt()
-                                .coerceIn(12.coerceAtMost(candles.size), candles.size)
+                                .coerceIn(5.coerceAtMost(candles.size), candles.size)
                             visibleCandleCount = nextCount
                             candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - nextCount).coerceAtLeast(0))
+                            chartEdgeOffsetPx = 0f
                             selectedCandleIndex = null
                             hasCrosshair = false
                             selectedPriceY = -1f
