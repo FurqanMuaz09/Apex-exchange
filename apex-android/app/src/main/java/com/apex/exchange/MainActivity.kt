@@ -1599,31 +1599,27 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         // Clamp at both history ends; five candles remain the minimum visible
                         // history window when zoomed out to the oldest available data.
                         val slotWidth = (size.width.toFloat() / (visibleCandleCount + 6).coerceAtLeast(1)).coerceAtLeast(1f)
-                        if (chartEdgeOffsetPx != 0f) {
-                            // Let the plot itself slide beyond the left/right screen edge.
-                            chartEdgeOffsetPx = (chartEdgeOffsetPx + pan.x)
-                                .coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
-                        } else {
-                            panRemainder += pan.x
-                            val steps = (panRemainder / slotWidth).toInt()
-                            if (steps != 0) {
-                                val maxOffset = (candles.size - visibleCandleCount.coerceAtLeast(5)).coerceAtLeast(0)
-                                val nextOffset = (candleScrollOffset + steps).coerceIn(0, maxOffset)
-                                if (nextOffset != candleScrollOffset) {
-                                    candleScrollOffset = nextOffset
-                                    selectedCandleIndex = null
-                                    hasCrosshair = false
-                                    selectedPriceY = -1f
-                                } else {
-                                    // At the data boundary, keep dragging the chart off-screen.
-                                    chartEdgeOffsetPx = (chartEdgeOffsetPx + pan.x)
-                                        .coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
-                                }
-                                panRemainder -= steps * slotWidth
-                                if ((nextOffset == 0 && steps < 0) || (nextOffset == maxOffset && steps > 0)) {
-                                    panRemainder = 0f
-                                }
+                        panRemainder += pan.x
+                        val steps = (panRemainder / slotWidth).toInt()
+                        if (steps != 0) {
+                            val maxOffset = (candles.size - visibleCandleCount.coerceAtLeast(5)).coerceAtLeast(0)
+                            val oldOffset = candleScrollOffset
+                            val nextOffset = (oldOffset + steps).coerceIn(0, maxOffset)
+                            val appliedSteps = nextOffset - oldOffset
+                            if (appliedSteps != 0) {
+                                candleScrollOffset = nextOffset
+                                selectedCandleIndex = null
+                                hasCrosshair = false
+                                selectedPriceY = -1f
+                                // Consume only the candle movement that actually happened.
+                                panRemainder -= appliedSteps * slotWidth
                             }
+                            // Any remaining drag becomes a smooth plot translation at either
+                            // history boundary. Reversing direction naturally brings it back.
+                            chartEdgeOffsetPx = panRemainder.coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
+                        } else {
+                            chartEdgeOffsetPx = panRemainder
+                                .coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
                         }
                     }
                 }
