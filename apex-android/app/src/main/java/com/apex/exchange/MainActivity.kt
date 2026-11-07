@@ -56,6 +56,7 @@ import androidx.compose.ui.input.pointer.awaitEachGesture
 import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.awaitPointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -1545,7 +1546,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     var tapPosition = down.position
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Main)
-                        val active = event.changes.filter { it.pressed }
+                        val active: List<PointerInputChange> = event.changes.filter { change -> change.pressed }
                         if (active.size >= 2) {
                             wasMultiTouch = true
                             moved = true
@@ -1553,7 +1554,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             val second = active[1]
                             val dx = first.position.x - second.position.x
                             val dy = first.position.y - second.position.y
-                            val distance = kotlin.math.sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+                            val distance = kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toFloat().coerceAtLeast(1f)
                             if (pinchDistance > 0f && candles.isNotEmpty()) {
                                 val zoom = distance / pinchDistance
                                 if (kotlin.math.abs(zoom - 1f) > 0.002f) {
