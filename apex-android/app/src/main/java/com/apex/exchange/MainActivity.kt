@@ -1748,9 +1748,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     Column(
                         Modifier.align(Alignment.TopEnd)
                             .offset { IntOffset(0, (maxHeight * badgeFraction - if (hasCrosshair && selectedPriceY >= 0f) 16.dp else 10.dp).roundToPx().coerceIn(0, (maxHeight - if (hasCrosshair && selectedPriceY >= 0f) 38.dp else 20.dp).roundToPx().coerceAtLeast(0))) }
-                            .clip(RoundedCornerShape(5.dp))
-                            // Transparent badge background matches the chart surface.
-                            .background(Color.Transparent)
+                            // No filled background behind the price badge; keep its text and outline.
                             .border(1.dp, Color.White, RoundedCornerShape(5.dp))
                             .padding(horizontal = 5.dp, vertical = if (hasCrosshair && selectedPriceY >= 0f) 2.dp else 2.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
