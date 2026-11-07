@@ -593,7 +593,6 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     singleLine = true,
                     shape = RoundedCornerShape(22.dp),
                     leadingIcon = { Icon(Icons.Filled.Search, null, tint = Muted, modifier = Modifier.size(18.dp)) },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Yellow, unfocusedBorderColor = Color(0xFF292D35),
                         focusedTextColor = White, unfocusedTextColor = White,
