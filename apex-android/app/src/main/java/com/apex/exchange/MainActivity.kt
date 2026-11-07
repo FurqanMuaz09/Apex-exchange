@@ -1443,10 +1443,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var isPriceDragging by remember(pair, interval) { mutableStateOf(false) }
     var candleScrollOffset by remember(pair, interval) { mutableIntStateOf(0) }
     var chartEdgeOffsetPx by remember(pair, interval) { mutableFloatStateOf(0f) }
-    var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(80, candles.size).coerceAtLeast(1)) }
+    var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(40, candles.size).coerceAtLeast(1)) }
     var verticalPanFraction by remember(pair, interval) { mutableFloatStateOf(0f) }
     LaunchedEffect(candles.size) {
-        visibleCandleCount = if (visibleCandleCount <= 1 && candles.size > 1) minOf(80, candles.size)
+        visibleCandleCount = if (visibleCandleCount <= 1 && candles.size > 1) minOf(40, candles.size)
             else visibleCandleCount.coerceIn(1, candles.size.coerceAtLeast(1))
         candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0))
     }
