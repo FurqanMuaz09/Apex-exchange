@@ -1525,7 +1525,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(99): ${movingAverage(99)?.let { candlePrice(it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().padding(start = 2.dp, end = 65.dp).pointerInput(candles.size, p) {
+            Canvas(Modifier.fillMaxSize().padding(start = 2.dp).pointerInput(candles.size, p) {
                 detectTapGestures(
                     onLongPress = { tap ->
                         if (chartCandles.isNotEmpty() && size.width > 0f) {
@@ -1630,7 +1630,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val minP = rawMin - padding + baseRange * verticalPanFraction
                     val maxP = rawMax + padding + baseRange * verticalPanFraction
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
-                    val slot = size.width / (chartCandles.size + 6f)
+                    val slot = size.width / chartCandles.size.coerceAtLeast(1)
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFFE5E7EB), Offset(0f, y), Offset(size.width, y), 1f) }
                     if (p > 0.0) {
                         val liveY = if (hasCrosshair && selectedPriceY >= 0f) selectedPriceY.coerceIn(0f, size.height) else (size.height - ((p.toFloat() - minP) / range) * size.height).coerceIn(0f, size.height.toFloat())
@@ -1682,7 +1682,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }
             BoxWithConstraints(
-                Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp).background(Color.Black)
+                Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp)
                     .pointerInput(pair, interval, p) {
                         detectDragGestures(
                             onDragStart = { position ->
