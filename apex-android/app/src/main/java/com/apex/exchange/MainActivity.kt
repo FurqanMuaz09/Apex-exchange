@@ -1618,6 +1618,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }) {
                 if (chartCandles.isNotEmpty()) {
+                    // White plot surface applies only behind the candles; the surrounding
+                    // app and right-hand price scale keep their existing dark theme.
+                    drawRect(Color.White)
                     // Keep the visible candle window as the price-scale source. The live
                     // price guide may sit beyond this range while browsing older candles.
                     val rawMin = chartCandles.minOf { it.low }
@@ -1628,10 +1631,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val maxP = rawMax + padding + baseRange * verticalPanFraction
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
                     val slot = size.width / (chartCandles.size + 6f)
-                    for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
+                    for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFFE5E7EB), Offset(0f, y), Offset(size.width, y), 1f) }
                     if (p > 0.0) {
                         val liveY = if (hasCrosshair && selectedPriceY >= 0f) selectedPriceY.coerceIn(0f, size.height) else (size.height - ((p.toFloat() - minP) / range) * size.height).coerceIn(0f, size.height.toFloat())
-                        drawLine(Color.White.copy(alpha = 0.8f), Offset(0f, liveY), Offset(size.width, liveY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
+                        drawLine(Color(0xFF252A32).copy(alpha = 0.85f), Offset(0f, liveY), Offset(size.width, liveY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
                     }
                     chartCandles.forEachIndexed { i, candle ->
                         val x = slot * i + slot / 2f
@@ -1646,7 +1649,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val highIndex = chartCandles.indices.maxByOrNull { chartCandles[it].high }
                     val lowIndex = chartCandles.indices.minByOrNull { chartCandles[it].low }
                     val labelPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                        color = android.graphics.Color.WHITE
+                        color = android.graphics.Color.BLACK
                         textSize = 10f * density
                         typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
                     }
@@ -1657,7 +1660,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val label = String.format(java.util.Locale.US, "%,.${priceDecimals}f", candle.high)
                         val labelX = if (x > size.width * 0.72f) x - labelPaint.measureText(label) - 7f else x + 7f
                         val lineEnd = if (labelX < x) labelX + labelPaint.measureText(label) else labelX
-                        drawLine(Color.White, Offset(x, y), Offset(lineEnd, y), 1f)
+                        drawLine(Color(0xFF333333), Offset(x, y), Offset(lineEnd, y), 1f)
                         drawContext.canvas.nativeCanvas.drawText(label, labelX, (y - 5f).coerceAtLeast(12f), labelPaint)
                     }
                     lowIndex?.let { index ->
@@ -1672,9 +1675,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                     if (hasCrosshair) {
                         val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f))
-                        drawLine(Color(0xFFEAECEF), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
-                        drawLine(Color(0xFFEAECEF), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.2f, pathEffect = dash)
-                        drawCircle(Color.White, 4f, Offset(crosshairX, crosshairY))
+                        drawLine(Color(0xFF6B7280), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
+                        drawLine(Color(0xFF6B7280), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.2f, pathEffect = dash)
+                        drawCircle(Color(0xFF111827), 4f, Offset(crosshairX, crosshairY))
                     }
                 }
             }
