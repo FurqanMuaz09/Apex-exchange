@@ -969,7 +969,7 @@ private fun MarketChangeBadge(change: String, fontSize: androidx.compose.ui.unit
     }
 }
 
-private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float, val openTime: Long = 0L, val volume: Float = 0f, val quoteVolume: Float = 0f)
+private data class Candle(val open: Float, val high: Float, val low: Float, val close: Float, val openTime: Long = 0L, val volume: Float = 0f, val quoteVolume: Float = 0f, val openExact: String = open.toString(), val highExact: String = high.toString(), val lowExact: String = low.toString(), val closeExact: String = close.toString(), val volumeExact: String = volume.toString(), val quoteVolumeExact: String = quoteVolume.toString())
 
 private data class BookLevel(val price: String, val quantity: String)
 private data class RecentTrade(val price: String, val quantity: String, val time: String, val buyerIsMaker: Boolean)
@@ -1024,7 +1024,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
         val high = row.getString(2).toFloatOrNull() ?: return@mapNotNull null
         val low = row.getString(3).toFloatOrNull() ?: return@mapNotNull null
         val close = row.getString(4).toFloatOrNull() ?: return@mapNotNull null
-        Candle(open, high, low, close, row.optLong(0, 0L), row.optString(5).toFloatOrNull() ?: 0f, row.optString(7).toFloatOrNull() ?: 0f)
+        Candle(open, high, low, close, row.optLong(0, 0L), row.optString(5).toFloatOrNull() ?: 0f, row.optString(7).toFloatOrNull() ?: 0f, row.getString(1), row.getString(2), row.getString(3), row.getString(4), row.getString(5), row.getString(7))
     }
     PairMarketData(ticker.getString("lastPrice"), ticker.optString("priceChangePercent", "0"), candles)
 }
@@ -1766,10 +1766,33 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }
             if (selectedCandle != null) {
-                val candleChange = selectedCandle.close - selectedCandle.open
-                val candleChangePercent = if (selectedCandle.open != 0f) candleChange / selectedCandle.open * 100f else 0f
-                val fluctuation = if (selectedCandle.open != 0f) (selectedCandle.high - selectedCandle.low) / selectedCandle.open * 100f else 0f
-                val detailColor = if (candleChange >= 0f) Green else Red
+                // Calculate tooltip values from Binance decimal strings, not rounded Float chart values.
+                val exactOpen = java.math.BigDecimal(selectedCandle.openExact)
+                val exactClose = java.math.BigDecimal(selectedCandle.closeExact)
+                val exactHigh = java.math.BigDecimal(selectedCandle.highExact)
+                val exactLow = java.math.BigDecimal(selectedCandle.lowExact)
+                val candleChange = exactClose.subtract(exactOpen)
+                val candleChangePercent = if (exactOpen.compareTo(java.math.BigDecimal.ZERO) != 0)
+                    candleChange.multiply(java.math.BigDecimal("100")).divide(exactOpen, 8, java.math.RoundingMode.HALF_UP) else java.math.BigDecimal.ZERO
+                val fluctuation = if (exactOpen.compareTo(java.math.BigDecimal.ZERO) != 0)
+                    exactHigh.subtract(exactLow).multiply(java.math.BigDecimal("100")).divide(exactOpen, 8, java.math.RoundingMode.HALF_UP) else java.math.BigDecimal.ZERO
+                val detailColor = if (candleChange.signum() >= 0) Green else Red
+                fun exactPrice(value: String): String = try {
+                    val pattern = "#,##0." + "#".repeat(priceDecimals)
+                    java.text.DecimalFormat(pattern, java.text.DecimalFormatSymbols(java.util.Locale.US)).format(java.math.BigDecimal(value).setScale(priceDecimals, java.math.RoundingMode.HALF_UP))
+                } catch (_: Exception) { value }
+                fun exactCompactVolume(value: String): String = try {
+                    val number = java.math.BigDecimal(value)
+                    val billion = java.math.BigDecimal("1000000000")
+                    val million = java.math.BigDecimal("1000000")
+                    val thousand = java.math.BigDecimal("1000")
+                    when {
+                        number >= billion -> String.format(java.util.Locale.US, "%.2fB", number.divide(billion, 4, java.math.RoundingMode.HALF_UP).toDouble())
+                        number >= million -> String.format(java.util.Locale.US, "%.2fM", number.divide(million, 4, java.math.RoundingMode.HALF_UP).toDouble())
+                        number >= thousand -> String.format(java.util.Locale.US, "%.2fK", number.divide(thousand, 4, java.math.RoundingMode.HALF_UP).toDouble())
+                        else -> number.stripTrailingZeros().toPlainString()
+                    }
+                } catch (_: Exception) { value }
                 val historyAlignment = if ((selectedCandleIndex ?: 0) >= chartCandles.size / 2) Alignment.TopStart else Alignment.TopEnd
                 Column(
                     Modifier.align(historyAlignment).padding(horizontal = 5.dp, vertical = 5.dp)
@@ -1793,16 +1816,16 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             Text(value, color = valueColor, fontSize = 6.2.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
                         }
                     }
-                    detailRow("Open", candlePrice(selectedCandle.open))
-                    detailRow("Close", candlePrice(selectedCandle.close))
-                    detailRow("High", candlePrice(selectedCandle.high))
-                    detailRow("Low", candlePrice(selectedCandle.low))
+                    detailRow("Open", exactPrice(selectedCandle.openExact))
+                    detailRow("Close", exactPrice(selectedCandle.closeExact))
+                    detailRow("High", exactPrice(selectedCandle.highExact))
+                    detailRow("Low", exactPrice(selectedCandle.lowExact))
                     HorizontalDivider(color = Color(0xFF424956), thickness = 0.5.dp)
-                    detailRow("% Change", String.format(java.util.Locale.US, "%+.2f%%", candleChangePercent), detailColor)
-                    detailRow("Change", String.format(java.util.Locale.US, "%+,.2f", candleChange), detailColor)
-                    detailRow("Fluctuation", String.format(java.util.Locale.US, "%.2f%%", fluctuation))
-                    detailRow("Volume", compactVolume(selectedCandle.volume))
-                    detailRow("Trading vol", compactVolume(selectedCandle.quoteVolume))
+                    detailRow("% Change", String.format(java.util.Locale.US, "%+.2f%%", candleChangePercent.toDouble()), detailColor)
+                    detailRow("Change", String.format(java.util.Locale.US, "%+,.2f", candleChange.toDouble()), detailColor)
+                    detailRow("Fluctuation", String.format(java.util.Locale.US, "%.2f%%", fluctuation.toDouble()))
+                    detailRow("Volume", exactCompactVolume(selectedCandle.volumeExact))
+                    detailRow("Trading vol", exactCompactVolume(selectedCandle.quoteVolumeExact))
                 }
             }
         }
