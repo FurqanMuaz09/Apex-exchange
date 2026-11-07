@@ -1551,6 +1551,32 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         isPriceDragging = false
                     }
                 )
+            }.pointerInput(pair, interval, visibleCandleCount) {
+                // Long-press then drag to move the linked horizontal + vertical crosshair.
+                // A normal one-finger drag remains reserved for free chart panning.
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { position ->
+                        if (chartCandles.isNotEmpty()) {
+                            val slotWidth = size.width.toFloat() / (chartCandles.size + 6f)
+                            crosshairX = position.x.coerceIn(0f, size.width.toFloat())
+                            crosshairY = position.y.coerceIn(0f, size.height.toFloat())
+                            selectedPriceY = crosshairY
+                            selectedCandleIndex = ((crosshairX / slotWidth).toInt()).coerceIn(0, chartCandles.lastIndex)
+                            hasCrosshair = true
+                        }
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        if (chartCandles.isNotEmpty()) {
+                            crosshairX = (crosshairX + dragAmount.x).coerceIn(0f, size.width.toFloat())
+                            crosshairY = (crosshairY + dragAmount.y).coerceIn(0f, size.height.toFloat())
+                            selectedPriceY = crosshairY
+                            val slotWidth = size.width.toFloat() / (chartCandles.size + 6f)
+                            selectedCandleIndex = ((crosshairX / slotWidth).toInt()).coerceIn(0, chartCandles.lastIndex)
+                            hasCrosshair = true
+                        }
+                    }
+                )
             }.pointerInput(candles.size, visibleCandleCount, maxCandleScroll) {
                 var panRemainder = 0f
                 detectTransformGestures { _, pan, zoom, _ ->
@@ -1565,8 +1591,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             selectedPriceY = -1f
                             panRemainder = 0f
                         }
-                        // Finger movement pans the candle window directly; it does not move
-                        // the live-price guide or accidentally open the candle-history panel.
+                        // One-finger horizontal movement scrolls candle-by-candle with sub-candle
+                        // accumulation, while vertical movement pans the price scale continuously.
                         val slotWidth = (size.width.toFloat() / (visibleCandleCount + 6).coerceAtLeast(1)).coerceAtLeast(1f)
                         panRemainder += pan.x
                         val steps = (panRemainder / slotWidth).toInt()
@@ -1663,8 +1689,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
             ) {
                 Canvas(Modifier.fillMaxSize()) {
-                    // Keep the price scale aligned with the chart grid and separated by a vertical axis.
-                    drawLine(Color(0xFFEAECEF).copy(alpha = 0.65f), Offset(0f, 0f), Offset(0f, size.height), 1f)
+                    // Price scale grid shares the chart's horizontal levels; no divider line beside the badge.
                     for (i in 0..4) {
                         val y = size.height * i / 4f
                         drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f)
