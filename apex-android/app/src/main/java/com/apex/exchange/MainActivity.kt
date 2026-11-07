@@ -1438,6 +1438,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var selectedPriceY by remember(pair, interval) { mutableFloatStateOf(-1f) }
     var isPriceDragging by remember(pair, interval) { mutableStateOf(false) }
     var candleScrollOffset by remember(pair, interval) { mutableIntStateOf(0) }
+    var chartEdgeOffsetPx by remember(pair, interval) { mutableFloatStateOf(0f) }
     var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(80, candles.size).coerceAtLeast(1)) }
     var verticalPanFraction by remember(pair, interval) { mutableFloatStateOf(0f) }
     LaunchedEffect(candles.size) {
@@ -1525,7 +1526,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(99): ${movingAverage(99)?.let { candlePrice(it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().padding(start = 2.dp).pointerInput(candles.size, p) {
+            Canvas(Modifier.fillMaxSize().offset { IntOffset(chartEdgeOffsetPx.roundToInt(), 0) }.padding(start = 2.dp).pointerInput(candles.size, p) {
                 detectTapGestures(
                     onLongPress = { tap ->
                         if (chartCandles.isNotEmpty() && size.width > 0f) {
@@ -1598,20 +1599,30 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         // Clamp at both history ends; five candles remain the minimum visible
                         // history window when zoomed out to the oldest available data.
                         val slotWidth = (size.width.toFloat() / (visibleCandleCount + 6).coerceAtLeast(1)).coerceAtLeast(1f)
-                        panRemainder += pan.x
-                        val steps = (panRemainder / slotWidth).toInt()
-                        if (steps != 0) {
-                            val maxOffset = (candles.size - visibleCandleCount.coerceAtLeast(5)).coerceAtLeast(0)
-                            val nextOffset = (candleScrollOffset + steps).coerceIn(0, maxOffset)
-                            if (nextOffset != candleScrollOffset) {
-                                candleScrollOffset = nextOffset
-                                selectedCandleIndex = null
-                                hasCrosshair = false
-                                selectedPriceY = -1f
-                            }
-                            panRemainder -= steps * slotWidth
-                            if ((nextOffset == 0 && steps < 0) || (nextOffset == maxOffset && steps > 0)) {
-                                panRemainder = 0f
+                        if (chartEdgeOffsetPx != 0f) {
+                            // Let the plot itself slide beyond the left/right screen edge.
+                            chartEdgeOffsetPx = (chartEdgeOffsetPx + pan.x)
+                                .coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
+                        } else {
+                            panRemainder += pan.x
+                            val steps = (panRemainder / slotWidth).toInt()
+                            if (steps != 0) {
+                                val maxOffset = (candles.size - visibleCandleCount.coerceAtLeast(5)).coerceAtLeast(0)
+                                val nextOffset = (candleScrollOffset + steps).coerceIn(0, maxOffset)
+                                if (nextOffset != candleScrollOffset) {
+                                    candleScrollOffset = nextOffset
+                                    selectedCandleIndex = null
+                                    hasCrosshair = false
+                                    selectedPriceY = -1f
+                                } else {
+                                    // At the data boundary, keep dragging the chart off-screen.
+                                    chartEdgeOffsetPx = (chartEdgeOffsetPx + pan.x)
+                                        .coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
+                                }
+                                panRemainder -= steps * slotWidth
+                                if ((nextOffset == 0 && steps < 0) || (nextOffset == maxOffset && steps > 0)) {
+                                    panRemainder = 0f
+                                }
                             }
                         }
                     }
