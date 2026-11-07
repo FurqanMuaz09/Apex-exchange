@@ -1594,17 +1594,19 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 hasCrosshair = true
                             } else if (kotlin.math.abs(delta.x) > viewConfiguration.touchSlop || moved) {
                                 moved = true
-                                // Horizontal history drag only; discard excess at the ends
-                                // so reversing direction responds immediately instead of sticking.
+                                // A horizontal swipe slides the candle view: swiping left
+                                // reveals fewer, wider candles while keeping the newest candle
+                                // anchored at the right edge. Never allow fewer than five.
                                 val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
                                 panRemainder += delta.x
                                 val steps = (panRemainder / slotWidth).toInt()
                                 if (steps != 0) {
-                                    val maxOffset = (candles.size - visibleCandleCount).coerceAtLeast(0)
-                                    val oldOffset = candleScrollOffset
-                                    val nextOffset = (oldOffset + steps).coerceIn(0, maxOffset)
-                                    val applied = nextOffset - oldOffset
-                                    candleScrollOffset = nextOffset
+                                    val minimumCount = 5.coerceAtMost(candles.size.coerceAtLeast(1))
+                                    val maximumCount = candles.size.coerceAtLeast(minimumCount)
+                                    val nextCount = (visibleCandleCount + steps).coerceIn(minimumCount, maximumCount)
+                                    val applied = nextCount - visibleCandleCount
+                                    visibleCandleCount = nextCount
+                                    candleScrollOffset = 0
                                     panRemainder -= applied * slotWidth
                                     if (applied == 0) panRemainder = 0f
                                     selectedCandleIndex = null
