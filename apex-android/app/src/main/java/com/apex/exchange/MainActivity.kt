@@ -705,6 +705,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 modifier = Modifier.clickable { filter = option }.padding(vertical = 9.dp)
                             )
                         }
+                        Text(
+                            "☰", color = Muted,
+                            modifier = Modifier.clickable { showAllPairs = true }.padding(vertical = 8.dp)
+                        )
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)) {
