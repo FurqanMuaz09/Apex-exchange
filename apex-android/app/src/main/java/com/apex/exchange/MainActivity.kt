@@ -1667,7 +1667,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val yO = size.height - ((candle.open - minP) / range) * size.height
                         val yC = size.height - ((candle.close - minP) / range) * size.height
                         val c = if (candle.close >= candle.open) Green else Red
-                        drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.58f).coerceAtLeast(2f))
+                        drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.88f).coerceAtLeast(2f))
                     }
                     // Small labels for the highest and lowest visible candle prices.
                     val highIndex = chartCandles.indices.maxByOrNull { chartCandles[it].high }
