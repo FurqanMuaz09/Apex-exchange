@@ -1709,21 +1709,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }
             BoxWithConstraints(
+                // The price badge is display-only: vertical movement is controlled
+                // exclusively by the chart's long-press crosshair gesture.
                 Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp)
-                    .pointerInput(pair, interval, p) {
-                        detectDragGestures(
-                            onDragStart = { position ->
-                                selectedCandleIndex = null
-                                hasCrosshair = true
-                                selectedPriceY = position.y.coerceIn(0f, size.height.toFloat())
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                hasCrosshair = true
-                                selectedPriceY = (selectedPriceY + dragAmount.y).coerceIn(0f, size.height.toFloat())
-                            }
-                        )
-                    }
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     // Price scale grid shares the chart's horizontal levels; no divider line beside the badge.
