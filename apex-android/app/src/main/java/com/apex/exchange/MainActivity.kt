@@ -1,5 +1,7 @@
 package com.apex.exchange
 
+// Chart gesture and live-price guide behavior is isolated to the chart composable.
+
 import android.os.Bundle
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.android.gms.common.api.ApiException
