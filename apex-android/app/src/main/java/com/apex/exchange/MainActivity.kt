@@ -1573,7 +1573,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             val change = active.first()
                             val delta = change.position - previousPosition
                             val elapsed = change.uptimeMillis - downTime
-                            if (!crosshairMode && elapsed >= viewConfiguration.longPressTimeoutMillis && !moved) {
+                            if (!crosshairMode && elapsed >= viewConfiguration.longPressTimeoutMillis) {
                                 crosshairMode = true
                                 if (chartCandles.isNotEmpty()) {
                                     val slot = size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)
