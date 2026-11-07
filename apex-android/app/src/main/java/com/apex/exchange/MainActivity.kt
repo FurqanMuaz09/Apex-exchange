@@ -1593,23 +1593,26 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             selectedPriceY = -1f
                             panRemainder = 0f
                         }
-                        // One-finger horizontal movement scrolls candle-by-candle with sub-candle
-                        // accumulation, while vertical movement pans the price scale continuously.
+                        // One-finger drag is horizontal only. Vertical panning is intentionally
+                        // disabled so the plot and live-price scale cannot drift off-screen.
+                        // Clamp at both history ends; five candles remain the minimum visible
+                        // history window when zoomed out to the oldest available data.
                         val slotWidth = (size.width.toFloat() / (visibleCandleCount + 6).coerceAtLeast(1)).coerceAtLeast(1f)
                         panRemainder += pan.x
                         val steps = (panRemainder / slotWidth).toInt()
                         if (steps != 0) {
-                            candleScrollOffset = (candleScrollOffset + steps).coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0))
+                            val maxOffset = (candles.size - visibleCandleCount.coerceAtLeast(5)).coerceAtLeast(0)
+                            val nextOffset = (candleScrollOffset + steps).coerceIn(0, maxOffset)
+                            if (nextOffset != candleScrollOffset) {
+                                candleScrollOffset = nextOffset
+                                selectedCandleIndex = null
+                                hasCrosshair = false
+                                selectedPriceY = -1f
+                            }
                             panRemainder -= steps * slotWidth
-                            selectedCandleIndex = null
-                            hasCrosshair = false
-                            selectedPriceY = -1f
-                        }
-                        if (kotlin.math.abs(pan.y) > 0.5f) {
-                            verticalPanFraction = (verticalPanFraction + pan.y / size.height.toFloat().coerceAtLeast(1f) * 0.8f).coerceIn(-2f, 2f)
-                            selectedCandleIndex = null
-                            hasCrosshair = false
-                            selectedPriceY = -1f
+                            if ((nextOffset == 0 && steps < 0) || (nextOffset == maxOffset && steps > 0)) {
+                                panRemainder = 0f
+                            }
                         }
                     }
                 }
@@ -1743,7 +1746,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         Modifier.align(Alignment.TopEnd)
                             .offset { IntOffset(0, (maxHeight * badgeFraction - if (hasCrosshair && selectedPriceY >= 0f) 16.dp else 10.dp).roundToPx().coerceIn(0, (maxHeight - if (hasCrosshair && selectedPriceY >= 0f) 38.dp else 20.dp).roundToPx().coerceAtLeast(0))) }
                             .clip(RoundedCornerShape(5.dp))
-                            .background(Color.Black)
+                            // Transparent badge background matches the chart surface.
+                            .background(Color.Transparent)
                             .border(1.dp, Color.White, RoundedCornerShape(5.dp))
                             .padding(horizontal = 5.dp, vertical = if (hasCrosshair && selectedPriceY >= 0f) 2.dp else 2.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
