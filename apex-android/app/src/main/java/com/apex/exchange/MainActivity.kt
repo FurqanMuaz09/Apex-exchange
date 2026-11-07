@@ -1797,6 +1797,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 val timeLabel = if (selectedCandle.openTime > 0L)
                     java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(selectedCandle.openTime))
                     else "—"
+                @Composable
                 fun detailRow(label: String, value: String, valueColor: Color = White) {
                     Row(Modifier.fillMaxWidth().height(7.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(label, color = Muted, fontSize = 7.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(26.dp))
