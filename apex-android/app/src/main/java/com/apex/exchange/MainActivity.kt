@@ -1443,6 +1443,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var isPriceDragging by remember(pair, interval) { mutableStateOf(false) }
     var candleScrollOffset by remember(pair, interval) { mutableIntStateOf(0) }
     var chartEdgeOffsetPx by remember(pair, interval) { mutableFloatStateOf(0f) }
+    var chartPanOffsetPx by remember(pair, interval) { mutableFloatStateOf(0f) }
     var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(40, candles.size).coerceAtLeast(1)) }
     var verticalPanFraction by remember(pair, interval) { mutableFloatStateOf(0f) }
     LaunchedEffect(candles.size) {
@@ -1533,7 +1534,6 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Canvas(Modifier.fillMaxSize().offset { IntOffset(chartEdgeOffsetPx.roundToInt(), 0) }.padding(start = 2.dp).pointerInput(pair, interval) {
                 // A single gesture state machine prevents pan, crosshair and pinch
                 // detectors from consuming each other's pointer events.
-                var panRemainder = 0f
                 var pinchDistance = 0f
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -1562,6 +1562,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                     visibleCandleCount = nextCount
                                     candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - nextCount).coerceAtLeast(0))
                                     chartEdgeOffsetPx = 0f
+                                    chartPanOffsetPx = 0f
                                     selectedCandleIndex = null
                                     hasCrosshair = false
                                     selectedPriceY = -1f
@@ -1596,25 +1597,15 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 hasCrosshair = true
                             } else if (kotlin.math.abs(delta.x) > viewConfiguration.touchSlop || moved) {
                                 moved = true
-                                // A horizontal swipe slides the candle view: swiping left
-                                // reveals fewer, wider candles while keeping the newest candle
-                                // anchored at the right edge. Never allow fewer than five.
+                                // Move the complete candle plot with the finger.
+                                // Swiping left shifts candles left and exposes empty space
+                                // on the right; candle width/count do not change.
                                 val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
-                                panRemainder += delta.x
-                                val steps = (panRemainder / slotWidth).toInt()
-                                if (steps != 0) {
-                                    val minimumCount = 5.coerceAtMost(candles.size.coerceAtLeast(1))
-                                    val maximumCount = candles.size.coerceAtLeast(minimumCount)
-                                    val nextCount = (visibleCandleCount + steps).coerceIn(minimumCount, maximumCount)
-                                    val applied = nextCount - visibleCandleCount
-                                    visibleCandleCount = nextCount
-                                    candleScrollOffset = 0
-                                    panRemainder -= applied * slotWidth
-                                    if (applied == 0) panRemainder = 0f
-                                    selectedCandleIndex = null
-                                    hasCrosshair = false
-                                    selectedPriceY = -1f
-                                }
+                                chartPanOffsetPx = (chartPanOffsetPx + delta.x)
+                                    .coerceIn(-size.width.toFloat() + slotWidth, 0f)
+                                selectedCandleIndex = null
+                                hasCrosshair = false
+                                selectedPriceY = -1f
                                 chartEdgeOffsetPx = 0f
                             }
                             previousPosition = change.position
@@ -1646,7 +1637,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val minP = rawMin - padding + baseRange * verticalPanFraction
                     val maxP = rawMax + padding + baseRange * verticalPanFraction
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
-                    val slot = size.width / chartCandles.size.coerceAtLeast(1)
+                    val slot = size.width / visibleCandleCount.coerceAtLeast(1)
                     // The live-price guide starts at the actual live candle and extends
                     // rightward to the price badge. It therefore travels with the candle
                     // when the user pans historical candles instead of staying pinned
@@ -1655,7 +1646,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val liveOpenTime = candles.last().openTime
                         val liveIndex = chartCandles.indexOfLast { it.openTime == liveOpenTime }
                         if (liveIndex >= 0) {
-                            val liveX = slot * liveIndex + slot / 2f
+                            val liveX = slot * liveIndex + slot / 2f + chartPanOffsetPx
                             val liveY = (size.height - ((p.toFloat() - minP) / range) * size.height)
                                 .coerceIn(0f, size.height.toFloat())
                             drawLine(
@@ -1668,7 +1659,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         }
                     }
                     chartCandles.forEachIndexed { i, candle ->
-                        val x = slot * i + slot / 2f
+                        val x = slot * i + slot / 2f + chartPanOffsetPx
                         val yH = size.height - ((candle.high - minP) / range) * size.height
                         val yL = size.height - ((candle.low - minP) / range) * size.height
                         val yO = size.height - ((candle.open - minP) / range) * size.height
@@ -1686,7 +1677,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                     highIndex?.let { index ->
                         val candle = chartCandles[index]
-                        val x = slot * index + slot / 2f
+                        val x = slot * index + slot / 2f + chartPanOffsetPx
                         val y = size.height - ((candle.high - minP) / range) * size.height
                         val label = String.format(java.util.Locale.US, "%,.${priceDecimals}f", candle.high)
                         val labelX = if (x > size.width * 0.72f) x - labelPaint.measureText(label) - 7f else x + 7f
@@ -1696,7 +1687,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     }
                     lowIndex?.let { index ->
                         val candle = chartCandles[index]
-                        val x = slot * index + slot / 2f
+                        val x = slot * index + slot / 2f + chartPanOffsetPx
                         val y = size.height - ((candle.low - minP) / range) * size.height
                         val label = String.format(java.util.Locale.US, "%,.${priceDecimals}f", candle.low)
                         val labelX = if (x > size.width * 0.72f) x - labelPaint.measureText(label) - 7f else x + 7f
