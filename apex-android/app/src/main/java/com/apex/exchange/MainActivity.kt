@@ -606,12 +606,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
             }
         }
         item {
-            Card(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(15.dp)
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
             ) {
-                Column(Modifier.fillMaxWidth().padding(17.dp)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().height(26.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -664,9 +662,7 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             )
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    HorizontalDivider(color = Color(0xFF292D35))
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(3.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Today's PNL", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.width(8.dp))
