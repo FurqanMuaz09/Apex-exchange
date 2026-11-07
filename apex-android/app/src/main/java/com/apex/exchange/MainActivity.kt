@@ -653,12 +653,15 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                                 if (signedInUser == null) onDetail("Account Login")
                                 else onDetail("Add Funds")
                             },
+                            modifier = Modifier.width(82.dp).height(29.dp),
+                            shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Bg),
-                            contentPadding = PaddingValues(horizontal = 13.dp, vertical = 8.dp)
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
                         ) {
                             Text(
                                 if (signedInUser == null) "Sign Up / Log In" else "Add Funds",
-                                fontWeight = FontWeight.Bold, fontSize = 11.sp
+                                fontWeight = FontWeight.Bold, fontSize = 10.sp,
+                                maxLines = 1, softWrap = false
                             )
                         }
                     }
