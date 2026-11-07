@@ -1579,7 +1579,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             selectedPriceY = -1f
                         }
                         if (kotlin.math.abs(pan.y) > 0.5f) {
-                            verticalPanFraction = (verticalPanFraction + pan.y / size.height.coerceAtLeast(1f) * 0.8f).coerceIn(-2f, 2f)
+                            verticalPanFraction = (verticalPanFraction + pan.y / size.height.toFloat().coerceAtLeast(1f) * 0.8f).coerceIn(-2f, 2f)
                             selectedCandleIndex = null
                             hasCrosshair = false
                             selectedPriceY = -1f
