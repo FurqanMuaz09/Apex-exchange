@@ -1439,7 +1439,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var candleScrollOffset by remember(pair, interval) { mutableIntStateOf(0) }
     var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(80, candles.size).coerceAtLeast(1)) }
     var verticalPanFraction by remember(pair, interval) { mutableFloatStateOf(0f) }
-    LaunchedEffect(candles.size) { visibleCandleCount = visibleCandleCount.coerceIn(1, candles.size.coerceAtLeast(1)); candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0)) }
+    LaunchedEffect(candles.size) {
+        visibleCandleCount = if (visibleCandleCount <= 1 && candles.size > 1) minOf(80, candles.size)
+            else visibleCandleCount.coerceIn(1, candles.size.coerceAtLeast(1))
+        candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0))
+    }
     val maxCandleScroll = (candles.size - visibleCandleCount).coerceAtLeast(0)
     val visibleStart = (candles.size - visibleCandleCount - candleScrollOffset).coerceIn(0, maxCandleScroll)
     // The chart screen opens before its first REST candle snapshot arrives.
@@ -1570,6 +1574,12 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         if (steps != 0) {
                             candleScrollOffset = (candleScrollOffset + steps).coerceIn(0, (candles.size - visibleCandleCount).coerceAtLeast(0))
                             panRemainder -= steps * slotWidth
+                            selectedCandleIndex = null
+                            hasCrosshair = false
+                            selectedPriceY = -1f
+                        }
+                        if (kotlin.math.abs(pan.y) > 0.5f) {
+                            verticalPanFraction = (verticalPanFraction + pan.y / size.height.coerceAtLeast(1f) * 0.8f).coerceIn(-2f, 2f)
                             selectedCandleIndex = null
                             hasCrosshair = false
                             selectedPriceY = -1f
