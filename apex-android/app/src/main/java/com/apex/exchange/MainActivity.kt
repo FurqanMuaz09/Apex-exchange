@@ -1566,7 +1566,6 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                     selectedCandleIndex = null
                                     hasCrosshair = false
                                     selectedPriceY = -1f
-                                    panRemainder = 0f
                                 }
                             }
                             pinchDistance = distance
