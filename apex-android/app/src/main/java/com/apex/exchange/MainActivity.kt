@@ -1631,7 +1631,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val maxP = rawMax + padding + baseRange * verticalPanFraction
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
                     val slot = size.width / chartCandles.size.coerceAtLeast(1)
-                    for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFFE5E7EB), Offset(0f, y), Offset(size.width, y), 1f) }
+                    // Removed the short horizontal tick lines on the right price scale.
                     if (p > 0.0) {
                         val liveY = if (hasCrosshair && selectedPriceY >= 0f) selectedPriceY.coerceIn(0f, size.height) else (size.height - ((p.toFloat() - minP) / range) * size.height).coerceIn(0f, size.height.toFloat())
                         drawLine(Color(0xFF252A32).copy(alpha = 0.85f), Offset(0f, liveY), Offset(size.width, liveY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
@@ -1700,10 +1700,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     // Price scale grid shares the chart's horizontal levels; no divider line beside the badge.
-                    for (i in 0..4) {
-                        val y = size.height * i / 4f
-                        drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f)
-                    }
+                    // Removed the short horizontal tick lines on the right price scale.
                     if (high != null && low != null && p > 0.0) {
                         val range = (high - low).coerceAtLeast(0.000001f)
                         val rawMin = candles.minOfOrNull { it.low } ?: p.toFloat()
