@@ -1643,10 +1643,25 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val maxP = rawMax + padding + baseRange * verticalPanFraction
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
                     val slot = size.width / chartCandles.size.coerceAtLeast(1)
-                    // Removed the short horizontal tick lines on the right price scale.
-                    if (p > 0.0) {
-                        val liveY = if (hasCrosshair && selectedPriceY >= 0f) selectedPriceY.coerceIn(0f, size.height) else (size.height - ((p.toFloat() - minP) / range) * size.height).coerceIn(0f, size.height.toFloat())
-                        drawLine(Color(0xFF252A32).copy(alpha = 0.85f), Offset(0f, liveY), Offset(size.width, liveY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
+                    // The live-price guide starts at the actual live candle and extends
+                    // rightward to the price badge. It therefore travels with the candle
+                    // when the user pans historical candles instead of staying pinned
+                    // across the entire plot.
+                    if (p > 0.0 && !hasCrosshair && candles.isNotEmpty()) {
+                        val liveOpenTime = candles.last().openTime
+                        val liveIndex = chartCandles.indexOfLast { it.openTime == liveOpenTime }
+                        if (liveIndex >= 0) {
+                            val liveX = slot * liveIndex + slot / 2f
+                            val liveY = (size.height - ((p.toFloat() - minP) / range) * size.height)
+                                .coerceIn(0f, size.height.toFloat())
+                            drawLine(
+                                Color(0xFFEAECEF).copy(alpha = 0.9f),
+                                Offset(liveX, liveY),
+                                Offset(size.width, liveY),
+                                1.2f,
+                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f))
+                            )
+                        }
                     }
                     chartCandles.forEachIndexed { i, candle ->
                         val x = slot * i + slot / 2f
