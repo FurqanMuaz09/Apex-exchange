@@ -1638,6 +1638,20 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             }
             BoxWithConstraints(
                 Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp).background(Color.Black)
+                    .pointerInput(pair, interval, p) {
+                        detectDragGestures(
+                            onDragStart = { position ->
+                                selectedCandleIndex = null
+                                hasCrosshair = true
+                                selectedPriceY = position.y.coerceIn(0f, size.height.toFloat())
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                hasCrosshair = true
+                                selectedPriceY = (selectedPriceY + dragAmount.y).coerceIn(0f, size.height.toFloat())
+                            }
+                        )
+                    }
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     // Keep the price scale aligned with the chart grid and separated by a vertical axis.
