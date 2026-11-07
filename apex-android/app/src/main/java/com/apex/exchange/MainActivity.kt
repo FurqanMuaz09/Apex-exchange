@@ -1723,23 +1723,6 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 // exclusively by the chart's long-press crosshair gesture.
                 Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp)
             ) {
-                Canvas(Modifier.fillMaxSize()) {
-                    // Price scale grid shares the chart's horizontal levels; no divider line beside the badge.
-                    // Removed the short horizontal tick lines on the right price scale.
-                    if (high != null && low != null && p > 0.0) {
-                        val range = (high - low).coerceAtLeast(0.000001f)
-                        val rawMin = candles.minOfOrNull { it.low } ?: p.toFloat()
-                        val rawMax = candles.maxOfOrNull { it.high } ?: p.toFloat()
-                        val pad = ((rawMax - rawMin) * 0.04f).coerceAtLeast(kotlin.math.abs(p.toFloat()) * 0.0001f)
-                        val plotMin = rawMin - pad
-                        val plotMax = rawMax + pad
-                        val plotRange = (plotMax - plotMin).coerceAtLeast(0.000001f)
-                        val currentFraction = ((plotMax - p.toFloat()) / plotRange).coerceIn(0f, 1f)
-                        val badgeFraction = if (hasCrosshair && selectedPriceY >= 0f) (selectedPriceY / size.height.coerceAtLeast(1f)).coerceIn(0f, 1f) else currentFraction
-                        val badgeY = badgeFraction * size.height
-                        drawLine(Color(0xFFEAECEF), Offset(0f, badgeY), Offset(size.width, badgeY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
-                    }
-                }
                 val axisHeight = maxHeight
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 // Axis follows the visible historical candles, not the live ticker.
