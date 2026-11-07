@@ -1631,9 +1631,8 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }) {
                 if (chartCandles.isNotEmpty()) {
-                    // White plot surface applies only behind the candles; the surrounding
-                    // app and right-hand price scale keep their existing dark theme.
-                    drawRect(Color.White)
+                    // Full chart plot uses a black surface to match the APEX dark theme.
+                    drawRect(Color.Black)
                     // Keep the visible candle window as the price-scale source. The live
                     // price guide may sit beyond this range while browsing older candles.
                     val rawMin = chartCandles.minOf { it.low }
@@ -1662,7 +1661,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val highIndex = chartCandles.indices.maxByOrNull { chartCandles[it].high }
                     val lowIndex = chartCandles.indices.minByOrNull { chartCandles[it].low }
                     val labelPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                        color = android.graphics.Color.BLACK
+                        color = android.graphics.Color.WHITE
                         textSize = 10f * density
                         typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
                     }
@@ -1683,7 +1682,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val label = String.format(java.util.Locale.US, "%,.${priceDecimals}f", candle.low)
                         val labelX = if (x > size.width * 0.72f) x - labelPaint.measureText(label) - 7f else x + 7f
                         val lineEnd = if (labelX < x) labelX + labelPaint.measureText(label) else labelX
-                        drawLine(Color.White, Offset(x, y), Offset(lineEnd, y), 1f)
+                        drawLine(Color(0xFF777777), Offset(x, y), Offset(lineEnd, y), 1f)
                         drawContext.canvas.nativeCanvas.drawText(label, labelX, (y + 13f).coerceAtMost(size.height - 2f), labelPaint)
                     }
                     if (hasCrosshair) {
