@@ -1576,21 +1576,23 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             if (!crosshairMode && elapsed >= viewConfiguration.longPressTimeoutMillis && !moved) {
                                 crosshairMode = true
                                 if (chartCandles.isNotEmpty()) {
-                                    crosshairX = change.position.x.coerceIn(0f, size.width.toFloat())
+                                    val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
+                                    selectedCandleIndex = (change.position.x / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                                    // Snap the vertical crosshair to the exact center of each candle.
+                                    crosshairX = (slot * selectedCandleIndex!! + slot / 2f).coerceIn(0f, size.width.toFloat())
                                     crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
                                     selectedPriceY = crosshairY
-                                    val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
-                                    selectedCandleIndex = (crosshairX / slot).toInt().coerceIn(0, chartCandles.lastIndex)
                                     hasCrosshair = true
                                 }
                             }
                             if (crosshairMode) {
                                 moved = true
-                                crosshairX = change.position.x.coerceIn(0f, size.width.toFloat())
+                                val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
+                                selectedCandleIndex = (change.position.x / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                                // Snap candle-to-candle while keeping vertical price movement free.
+                                crosshairX = (slot * selectedCandleIndex!! + slot / 2f).coerceIn(0f, size.width.toFloat())
                                 crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
                                 selectedPriceY = crosshairY
-                                val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
-                                selectedCandleIndex = (crosshairX / slot).toInt().coerceIn(0, chartCandles.lastIndex)
                                 hasCrosshair = true
                             } else if (kotlin.math.abs(delta.x) > viewConfiguration.touchSlop || moved) {
                                 moved = true
