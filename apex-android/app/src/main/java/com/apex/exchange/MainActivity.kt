@@ -713,9 +713,9 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)) {
                         Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                        Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                        Spacer(Modifier.width(10.dp))
-                        Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(90.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(100.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Spacer(Modifier.width(8.dp))
+                        Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(82.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                     if (loading) {
                         repeat(6) { MarketRowSkeleton() }
@@ -728,10 +728,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             ) {
                                 MarketCoinIcon(coin.symbol, 34.dp)
                                 Spacer(Modifier.width(8.dp))
-                                CompactMarketPairName("${coin.symbol}/USDT", coin.name, pairSize = 14.sp)
-                                CompactMarketPrice(coin.price, Modifier.width(88.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
+                                CompactMarketPairName("${coin.symbol}/USDT", coin.name, pairSize = 14.sp, modifier = Modifier.weight(1f))
+                                CompactMarketPrice(coin.price, Modifier.width(100.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.width(82.dp), contentAlignment = Alignment.Center) {
                                     MarketChangeBadge(coin.change)
                                 }
                             }
@@ -811,9 +811,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Name", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            Spacer(Modifier.width(10.dp))
-                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(90.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Text("Last Price", color = Muted, fontSize = 11.sp, modifier = Modifier.width(100.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                            Spacer(Modifier.width(8.dp))
+                            Text("24h chg%", color = Muted, fontSize = 11.sp, modifier = Modifier.width(82.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            Spacer(Modifier.width(34.dp))
                         }
                     }
                     items(allPairResults) { coin ->
@@ -826,10 +827,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
                         ) {
                             MarketCoinIcon(coin.symbol, 34.dp)
                             Spacer(Modifier.width(8.dp))
-                            CompactMarketPairName("${coin.symbol}/USDT", coin.name)
-                            CompactMarketPrice(coin.price, Modifier.width(88.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Column(Modifier.width(90.dp), horizontalAlignment = Alignment.End) {
+                            CompactMarketPairName("${coin.symbol}/USDT", coin.name, modifier = Modifier.weight(1f))
+                            CompactMarketPrice(coin.price, Modifier.width(100.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Box(Modifier.width(82.dp), contentAlignment = Alignment.Center) {
                                 MarketChangeBadge(coin.change)
                             }
                             androidx.compose.material3.IconButton(
@@ -857,9 +858,10 @@ private fun HomeScreen(favorites: MutableList<String>, refreshKey: Int, onMarket
 private fun CompactMarketPairName(
     pair: String,
     coinName: String,
-    pairSize: androidx.compose.ui.unit.TextUnit = 14.sp
+    pairSize: androidx.compose.ui.unit.TextUnit = 14.sp,
+    modifier: Modifier = Modifier
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Text(
             pair,
             color = White,
@@ -1308,10 +1310,10 @@ private fun MarketsScreen(favorites: MutableList<String>, refreshKey: Int, onCoi
                             .padding(start = 16.dp, end = 10.dp, top = 11.dp, bottom = 11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CompactMarketPairName("${coin.symbol}/USDT", coin.name, pairSize = 14.sp)
-                        CompactMarketPrice(coin.price, secondLineSize = 9.sp)
-                        Spacer(Modifier.width(12.dp))
-                        Box(Modifier.width(72.dp), contentAlignment = Alignment.CenterEnd) {
+                        CompactMarketPairName("${coin.symbol}/USDT", coin.name, pairSize = 14.sp, modifier = Modifier.weight(1f))
+                        CompactMarketPrice(coin.price, modifier = Modifier.width(100.dp), secondLineSize = 9.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.width(82.dp), contentAlignment = Alignment.Center) {
                             MarketChangeBadge(coin.change)
                         }
                         IconButton(
