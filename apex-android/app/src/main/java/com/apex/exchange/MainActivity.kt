@@ -1598,7 +1598,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val slot = size.width / (chartCandles.size + 6f)
                     for (i in 0..4) { val y = size.height * i / 4f; drawLine(Color(0xFF252A32), Offset(0f, y), Offset(size.width, y), 1f) }
                     if (p > 0.0) {
-                        val liveY = size.height - ((p.toFloat() - minP) / range) * size.height
+                        val liveY = if (hasCrosshair && selectedPriceY >= 0f) selectedPriceY.coerceIn(0f, size.height) else size.height - ((p.toFloat() - minP) / range) * size.height
                         drawLine(Color.White.copy(alpha = 0.8f), Offset(0f, liveY), Offset(size.width, liveY), 1.2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
                     }
                     chartCandles.forEachIndexed { i, candle ->
