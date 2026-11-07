@@ -52,6 +52,10 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.awaitEachGesture
+import androidx.compose.ui.input.pointer.awaitFirstDown
+import androidx.compose.ui.input.pointer.awaitPointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -1526,105 +1530,104 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(99): ${movingAverage(99)?.let { candlePrice(it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().offset { IntOffset(chartEdgeOffsetPx.roundToInt(), 0) }.padding(start = 2.dp).pointerInput(candles.size, p) {
-                detectTapGestures(
-                    onLongPress = { tap ->
-                        if (chartCandles.isNotEmpty() && size.width > 0f) {
-                            val slotWidth = size.width / chartCandles.size
-                            selectedCandleIndex = (tap.x / slotWidth).toInt().coerceIn(0, chartCandles.lastIndex)
-                            // Long-press snaps the vertical guide to the candle center.
-                            crosshairX = (selectedCandleIndex!! + 0.5f) * slotWidth
-                            crosshairY = tap.y.coerceIn(0f, size.height.toFloat())
-                            selectedPriceY = crosshairY
-                            hasCrosshair = true
+            Canvas(Modifier.fillMaxSize().offset { IntOffset(chartEdgeOffsetPx.roundToInt(), 0) }.padding(start = 2.dp).pointerInput(candles.size) {
+                // A single gesture state machine prevents pan, crosshair and pinch
+                // detectors from consuming each other's pointer events.
+                var panRemainder = 0f
+                var pinchDistance = 0f
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val downTime = down.uptimeMillis
+                    var moved = false
+                    var crosshairMode = false
+                    var wasMultiTouch = false
+                    var previousPosition = down.position
+                    var tapPosition = down.position
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        val active = event.changes.filter { it.pressed }
+                        if (active.size >= 2) {
+                            wasMultiTouch = true
+                            moved = true
+                            val first = active[0]
+                            val second = active[1]
+                            val dx = first.position.x - second.position.x
+                            val dy = first.position.y - second.position.y
+                            val distance = kotlin.math.sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+                            if (pinchDistance > 0f && candles.isNotEmpty()) {
+                                val zoom = distance / pinchDistance
+                                if (kotlin.math.abs(zoom - 1f) > 0.002f) {
+                                    val nextCount = (visibleCandleCount / zoom).roundToInt()
+                                        .coerceIn(5.coerceAtMost(candles.size), candles.size)
+                                    visibleCandleCount = nextCount
+                                    candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - nextCount).coerceAtLeast(0))
+                                    chartEdgeOffsetPx = 0f
+                                    selectedCandleIndex = null
+                                    hasCrosshair = false
+                                    selectedPriceY = -1f
+                                    panRemainder = 0f
+                                }
+                            }
+                            pinchDistance = distance
+                        } else if (active.size == 1 && !wasMultiTouch) {
+                            val change = active.first()
+                            val delta = change.position - previousPosition
+                            val elapsed = change.uptimeMillis - downTime
+                            if (!crosshairMode && elapsed >= viewConfiguration.longPressTimeoutMillis && !moved) {
+                                crosshairMode = true
+                                if (chartCandles.isNotEmpty()) {
+                                    crosshairX = change.position.x.coerceIn(0f, size.width.toFloat())
+                                    crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
+                                    selectedPriceY = crosshairY
+                                    val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
+                                    selectedCandleIndex = (crosshairX / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                                    hasCrosshair = true
+                                }
+                            }
+                            if (crosshairMode) {
+                                moved = true
+                                crosshairX = change.position.x.coerceIn(0f, size.width.toFloat())
+                                crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
+                                selectedPriceY = crosshairY
+                                val slot = size.width.toFloat() / chartCandles.size.coerceAtLeast(1)
+                                selectedCandleIndex = (crosshairX / slot).toInt().coerceIn(0, chartCandles.lastIndex)
+                                hasCrosshair = true
+                            } else if (kotlin.math.abs(delta.x) > viewConfiguration.touchSlop || moved) {
+                                moved = true
+                                // Horizontal history drag only; discard excess at the ends
+                                // so reversing direction responds immediately instead of sticking.
+                                val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
+                                panRemainder += delta.x
+                                val steps = (panRemainder / slotWidth).toInt()
+                                if (steps != 0) {
+                                    val maxOffset = (candles.size - visibleCandleCount).coerceAtLeast(0)
+                                    val oldOffset = candleScrollOffset
+                                    val nextOffset = (oldOffset + steps).coerceIn(0, maxOffset)
+                                    val applied = nextOffset - oldOffset
+                                    candleScrollOffset = nextOffset
+                                    panRemainder -= applied * slotWidth
+                                    if (applied == 0) panRemainder = 0f
+                                    selectedCandleIndex = null
+                                    hasCrosshair = false
+                                    selectedPriceY = -1f
+                                }
+                                chartEdgeOffsetPx = 0f
+                            }
+                            previousPosition = change.position
+                            tapPosition = change.position
+                        } else if (active.isEmpty()) {
+                            pinchDistance = 0f
                         }
-                    },
-                    onTap = {
-                        // A normal tap never opens candle history; tap again to dismiss it.
+                        event.changes.forEach { it.consume() }
+                    } while (active.isNotEmpty())
+                    if (!moved && !wasMultiTouch && down.uptimeMillis > 0L) {
                         if (selectedCandleIndex != null) {
                             selectedCandleIndex = null
                             hasCrosshair = false
                             selectedPriceY = -1f
                         }
-                    },
-                    onDoubleTap = {
-                        selectedCandleIndex = null
-                        hasCrosshair = false
-                        selectedPriceY = -1f
-                        isPriceDragging = false
                     }
-                )
-            }.pointerInput(pair, interval, visibleCandleCount) {
-                // Long-press then drag to move the linked horizontal + vertical crosshair.
-                // A normal one-finger drag remains reserved for free chart panning.
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { position ->
-                        if (chartCandles.isNotEmpty()) {
-                            val slotWidth = size.width.toFloat() / (chartCandles.size + 6f)
-                            crosshairX = position.x.coerceIn(0f, size.width.toFloat())
-                            crosshairY = position.y.coerceIn(0f, size.height.toFloat())
-                            selectedPriceY = crosshairY
-                            selectedCandleIndex = ((crosshairX / slotWidth).toInt()).coerceIn(0, chartCandles.lastIndex)
-                            hasCrosshair = true
-                        }
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        if (chartCandles.isNotEmpty()) {
-                            crosshairX = (crosshairX + dragAmount.x).coerceIn(0f, size.width.toFloat())
-                            crosshairY = (crosshairY + dragAmount.y).coerceIn(0f, size.height.toFloat())
-                            selectedPriceY = crosshairY
-                            val slotWidth = size.width.toFloat() / (chartCandles.size + 6f)
-                            selectedCandleIndex = ((crosshairX / slotWidth).toInt()).coerceIn(0, chartCandles.lastIndex)
-                            hasCrosshair = true
-                        }
-                    }
-                )
-            }.pointerInput(candles.size) {
-                // Do not key this gesture detector by visibleCandleCount: changing that
-                // value during a pinch would cancel and restart the gesture on every frame.
-                var panRemainder = 0f
-                detectTransformGestures { _, pan, zoom, _ ->
-                    if (candles.isNotEmpty()) {
-                        if (kotlin.math.abs(zoom - 1f) > 0.002f) {
-                            val nextCount = (visibleCandleCount / zoom).roundToInt()
-                                .coerceIn(5.coerceAtMost(candles.size), candles.size)
-                            visibleCandleCount = nextCount
-                            candleScrollOffset = candleScrollOffset.coerceIn(0, (candles.size - nextCount).coerceAtLeast(0))
-                            chartEdgeOffsetPx = 0f
-                            selectedCandleIndex = null
-                            hasCrosshair = false
-                            selectedPriceY = -1f
-                            panRemainder = 0f
-                        }
-                        // One-finger drag is horizontal only. Vertical panning is intentionally
-                        // disabled so the plot and live-price scale cannot drift off-screen.
-                        // Clamp at both history ends; five candles remain the minimum visible
-                        // history window when zoomed out to the oldest available data.
-                        val slotWidth = (size.width.toFloat() / (visibleCandleCount + 6).coerceAtLeast(1)).coerceAtLeast(1f)
-                        panRemainder += pan.x
-                        val steps = (panRemainder / slotWidth).toInt()
-                        if (steps != 0) {
-                            val maxOffset = (candles.size - visibleCandleCount.coerceAtLeast(5)).coerceAtLeast(0)
-                            val oldOffset = candleScrollOffset
-                            val nextOffset = (oldOffset + steps).coerceIn(0, maxOffset)
-                            val appliedSteps = nextOffset - oldOffset
-                            if (appliedSteps != 0) {
-                                candleScrollOffset = nextOffset
-                                selectedCandleIndex = null
-                                hasCrosshair = false
-                                selectedPriceY = -1f
-                                // Consume only the candle movement that actually happened.
-                                panRemainder -= appliedSteps * slotWidth
-                            }
-                            // Any remaining drag becomes a smooth plot translation at either
-                            // history boundary. Reversing direction naturally brings it back.
-                            chartEdgeOffsetPx = panRemainder.coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
-                        } else {
-                            chartEdgeOffsetPx = panRemainder
-                                .coerceIn(-size.width.toFloat() * 0.9f, size.width.toFloat() * 0.9f)
-                        }
-                    }
+                    pinchDistance = 0f
                 }
             }) {
                 if (chartCandles.isNotEmpty()) {
