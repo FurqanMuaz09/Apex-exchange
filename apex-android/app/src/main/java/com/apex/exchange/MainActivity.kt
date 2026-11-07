@@ -1600,8 +1600,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 // Swiping left shifts candles left and exposes empty space
                                 // on the right; candle width/count do not change.
                                 val slotWidth = (size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)).coerceAtLeast(1f)
+                                // Keep the existing leftward pan limit/behavior, and
+                                // also allow the reverse drag to move the plot right.
+                                // The same candle spacing is preserved in both directions.
                                 chartPanOffsetPx = (chartPanOffsetPx + delta.x)
-                                    .coerceIn(-size.width.toFloat() + slotWidth, 0f)
+                                    .coerceIn(-size.width.toFloat() + slotWidth, size.width.toFloat() - slotWidth)
                                 selectedCandleIndex = null
                                 hasCrosshair = false
                                 selectedPriceY = -1f
