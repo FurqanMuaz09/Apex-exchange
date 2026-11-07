@@ -3,7 +3,7 @@ name: Build APEX Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'fix/chart-freehand-gestures-20261107']
     paths:
       - 'apex-android/**'
       - '.github/workflows/android.yml'
