@@ -1533,7 +1533,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             Text("MA(99): ${movingAverage(99)?.let { candlePrice(it) } ?: "—"}", color = Color(0xFF5796F5), fontSize = 11.sp)
         }
         Box(Modifier.fillMaxWidth().height(270.dp)) {
-            Canvas(Modifier.fillMaxSize().offset { IntOffset(chartEdgeOffsetPx.roundToInt(), 0) }.padding(start = 2.dp).pointerInput(pair, interval) {
+            Canvas(Modifier.fillMaxSize().padding(bottom = 40.dp).offset { IntOffset(chartEdgeOffsetPx.roundToInt(), 0) }.padding(start = 2.dp).pointerInput(pair, interval) {
                 // A single gesture state machine prevents pan, crosshair and pinch
                 // detectors from consuming each other's pointer events.
                 var pinchDistance = 0f
@@ -1723,7 +1723,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             BoxWithConstraints(
                 // The price badge is display-only: vertical movement is controlled
                 // exclusively by the chart's long-press crosshair gesture.
-                Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(66.dp)
+                Modifier.align(Alignment.TopEnd).height(230.dp).width(66.dp)
             ) {
                 val axisHeight = maxHeight
                 val density = androidx.compose.ui.platform.LocalDensity.current
@@ -1764,6 +1764,27 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         if (hasCrosshair && selectedPriceY >= 0f) {
                             Text(String.format(java.util.Locale.US, "%+.2f%%", badgeChange), color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
+                    }
+                }
+            }
+            Canvas(
+                Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(end = 66.dp).height(40.dp)
+            ) {
+                drawRect(Color(0xFF080A0D))
+                val maxVolume = chartCandles.maxOfOrNull { it.volume }?.coerceAtLeast(0.000001f) ?: 1f
+                val slot = size.width / visibleCandleCount.coerceAtLeast(1)
+                chartCandles.forEachIndexed { index, candle ->
+                    val volume = candle.volume.coerceAtLeast(0f)
+                    if (volume > 0f) {
+                        val barHeight = (volume / maxVolume * (size.height - 3.dp.toPx())).coerceIn(1f, size.height)
+                        val x = slot * index + slot / 2f + chartPanOffsetPx
+                        val barWidth = (slot * 0.68f).coerceAtLeast(1.dp.toPx())
+                        val color = if (candle.close >= candle.open) Green else Red
+                        drawRect(
+                            color.copy(alpha = 0.85f),
+                            topLeft = Offset(x - barWidth / 2f, size.height - barHeight),
+                            size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
+                        )
                     }
                 }
             }
