@@ -1447,6 +1447,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
     var chartEdgeOffsetPx by remember(pair, interval) { mutableFloatStateOf(0f) }
     var chartPanOffsetPx by remember(pair, interval) { mutableFloatStateOf(0f) }
     var visibleCandleCount by remember(pair, interval) { mutableIntStateOf(minOf(40, candles.size).coerceAtLeast(1)) }
+    val activeIndicators = remember(pair, interval) { androidx.compose.runtime.mutableStateListOf("MA") }
     var verticalPanFraction by remember(pair, interval) { mutableFloatStateOf(0f) }
     LaunchedEffect(candles.size) {
         visibleCandleCount = if (visibleCandleCount <= 1 && candles.size > 1) minOf(40, candles.size)
@@ -1664,6 +1665,128 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         val c = if (candle.close >= candle.open) Green else Red
                         drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.88f).coerceAtLeast(2f))
                     }
+                    // Technical overlays are calculated from the real Binance OHLCV candles.
+                    fun drawIndicator(values: List<Float?>, color: Color, stroke: Float = 1.6f) {
+                        var previous: Offset? = null
+                        values.forEachIndexed { index, value ->
+                            if (value != null && value.isFinite()) {
+                                val x = slot * index + slot / 2f + chartPanOffsetPx
+                                val y = size.height - ((value - minP) / range) * size.height
+                                val point = Offset(x, y)
+                                previous?.let { drawLine(color, it, point, stroke) }
+                                previous = point
+                            } else previous = null
+                        }
+                    }
+                    val closesForIndicators = chartCandles.map { it.close }
+                    if ("MA" in activeIndicators) {
+                        fun ma(period: Int) = chartCandles.indices.map { i ->
+                            if (i + 1 >= period) chartCandles.subList(i + 1 - period, i + 1).map { it.close }.average().toFloat() else null
+                        }
+                        drawIndicator(ma(7), Yellow)
+                        drawIndicator(ma(25), Color(0xFFE92BA8))
+                        drawIndicator(ma(99), Color(0xFF5796F5))
+                    }
+                    if ("EMA" in activeIndicators) {
+                        fun ema(period: Int): List<Float?> {
+                            val alpha = 2f / (period + 1f)
+                            var value: Float? = null
+                            return closesForIndicators.map { close ->
+                                value = if (value == null) close else alpha * close + (1f - alpha) * value!!
+                                value
+                            }
+                        }
+                        drawIndicator(ema(12), Color(0xFF26A69A))
+                        drawIndicator(ema(26), Color(0xFFFFA726))
+                    }
+                    if ("BOLL" in activeIndicators) {
+                        val mid = chartCandles.indices.map { i ->
+                            if (i + 1 >= 20) chartCandles.subList(i - 19, i + 1).map { it.close }.average().toFloat() else null
+                        }
+                        val upper = chartCandles.indices.map { i ->
+                            if (i + 1 >= 20) {
+                                val values = chartCandles.subList(i - 19, i + 1).map { it.close }
+                                val avg = values.average()
+                                (avg + 2.0 * kotlin.math.sqrt(values.map { (it - avg) * (it - avg) }.average())).toFloat()
+                            } else null
+                        }
+                        val lower = chartCandles.indices.map { i ->
+                            if (i + 1 >= 20) {
+                                val values = chartCandles.subList(i - 19, i + 1).map { it.close }
+                                val avg = values.average()
+                                (avg - 2.0 * kotlin.math.sqrt(values.map { (it - avg) * (it - avg) }.average())).toFloat()
+                            } else null
+                        }
+                        drawIndicator(mid, Color(0xFFB0BEC5))
+                        drawIndicator(upper, Color(0xFFAB47BC))
+                        drawIndicator(lower, Color(0xFFAB47BC))
+                    }
+                    if ("VWAP" in activeIndicators) {
+                        var cumulativeVolume = 0.0
+                        var cumulativePriceVolume = 0.0
+                        val vwap = chartCandles.map { candle ->
+                            val volume = candle.volume.toDouble().coerceAtLeast(0.0)
+                            val typical = (candle.high + candle.low + candle.close).toDouble() / 3.0
+                            cumulativeVolume += volume
+                            cumulativePriceVolume += typical * volume
+                            if (cumulativeVolume > 0.0) (cumulativePriceVolume / cumulativeVolume).toFloat() else null
+                        }
+                        drawIndicator(vwap, Color(0xFFFFD54F), 2f)
+                    }
+                    if ("SAR" in activeIndicators && chartCandles.size > 2) {
+                        val sar = MutableList<Float?>(chartCandles.size) { null }
+                        var rising = chartCandles[1].close >= chartCandles[0].close
+                        var extreme = if (rising) chartCandles[0].high else chartCandles[0].low
+                        var sarValue = if (rising) chartCandles[0].low else chartCandles[0].high
+                        var acceleration = 0.02f
+                        for (i in 1 until chartCandles.size) {
+                            val candle = chartCandles[i]
+                            sarValue += acceleration * (extreme - sarValue)
+                            if (rising) {
+                                sarValue = minOf(sarValue, chartCandles[i - 1].low, if (i > 1) chartCandles[i - 2].low else chartCandles[i - 1].low)
+                                if (candle.low < sarValue) { rising = false; sarValue = extreme; extreme = candle.low; acceleration = 0.02f }
+                                else if (candle.high > extreme) { extreme = candle.high; acceleration = (acceleration + 0.02f).coerceAtMost(0.2f) }
+                            } else {
+                                sarValue = maxOf(sarValue, chartCandles[i - 1].high, if (i > 1) chartCandles[i - 2].high else chartCandles[i - 1].high)
+                                if (candle.high > sarValue) { rising = true; sarValue = extreme; extreme = candle.high; acceleration = 0.02f }
+                                else if (candle.low < extreme) { extreme = candle.low; acceleration = (acceleration + 0.02f).coerceAtMost(0.2f) }
+                            }
+                            sar[i] = sarValue
+                        }
+                        sar.forEachIndexed { i, value ->
+                            if (value != null) {
+                                val x = slot * i + slot / 2f + chartPanOffsetPx
+                                val y = size.height - ((value - minP) / range) * size.height
+                                drawCircle(Color(0xFFFF7043), 2.2f, Offset(x, y))
+                            }
+                        }
+                    }
+                    if ("SUPER" in activeIndicators && chartCandles.size > 1) {
+                        val superLine = MutableList<Float?>(chartCandles.size) { null }
+                        var finalUpper = 0f
+                        var finalLower = 0f
+                        var trendUp = true
+                        for (i in 1 until chartCandles.size) {
+                            val candle = chartCandles[i]
+                            val prev = chartCandles[i - 1]
+                            val tr = maxOf(candle.high - candle.low, kotlin.math.abs(candle.high - prev.close), kotlin.math.abs(candle.low - prev.close))
+                            val start = (i - 9).coerceAtLeast(0)
+                            val atr = (start..i).map { j ->
+                                val current = chartCandles[j]
+                                val priorClose = if (j > 0) chartCandles[j - 1].close else current.close
+                                maxOf(current.high - current.low, kotlin.math.abs(current.high - priorClose), kotlin.math.abs(current.low - priorClose))
+                            }.average().toFloat()
+                            val mid = (candle.high + candle.low) / 2f
+                            val basicUpper = mid + 3f * atr
+                            val basicLower = mid - 3f * atr
+                            finalUpper = if (i == 1 || basicUpper < finalUpper || prev.close > finalUpper) basicUpper else finalUpper
+                            finalLower = if (i == 1 || basicLower > finalLower || prev.close < finalLower) basicLower else finalLower
+                            trendUp = if (trendUp) candle.close >= finalLower else candle.close > finalUpper
+                            superLine[i] = if (trendUp) finalLower else finalUpper
+                        }
+                        drawIndicator(superLine, Color(0xFF00BCD4), 2f)
+                    }
+
                     // The live-price guide starts at the actual live candle and extends
                     // rightward to the price badge. It therefore travels with the candle
                     // when the user pans historical candles instead of staying pinned
@@ -1856,8 +1979,20 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Vol: —", color = Muted, fontSize = 12.sp); Text(interval, color = Muted, fontSize = 12.sp) }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(19.dp)) {
-            listOf("MA", "EMA", "BOLL", "SAR", "AVL", "SUPER", "VWAP", "VOL").forEach { Text(it, color = if (it == "MA") White else Muted, fontSize = 14.sp) }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            listOf("MA", "EMA", "BOLL", "SAR", "AVL", "SUPER", "VWAP", "VOL").forEach { indicator ->
+                val selected = indicator in activeIndicators
+                Box(
+                    Modifier.clip(RoundedCornerShape(6.dp))
+                        .background(if (selected) Color(0xFF383019) else Color.Transparent)
+                        .clickable {
+                            if (selected) activeIndicators.remove(indicator) else activeIndicators.add(indicator)
+                        }
+                        .padding(horizontal = 9.dp, vertical = 6.dp)
+                ) {
+                    Text(indicator, color = if (selected) Yellow else Muted, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                }
+            }
         }
         HorizontalDivider(color = Color(0xFF292D35))
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp), horizontalArrangement = Arrangement.SpaceBetween) {
