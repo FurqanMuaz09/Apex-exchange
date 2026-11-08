@@ -1426,6 +1426,7 @@ private fun TradingMarketHeader(pair: String, favorite: Boolean, onFavorite: () 
 
 @Composable
 private fun TradingMarketOverview(pair: String, price: String, change: String, candles: List<Candle>, interval: String, onInterval: (String) -> Unit, favorite: Boolean, onFavorite: () -> Unit, onPairPicker: () -> Unit, showHeader: Boolean = true) {
+    var showMoreTimeframes by remember(pair) { mutableStateOf(false) }
     val p = price.replace(",", "").toDoubleOrNull() ?: 0.0
     // Match the meaningful decimal precision supplied by the live ticker.
     val normalizedLivePrice = price.replace(",", "").trim()
@@ -1522,6 +1523,17 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
         Row(Modifier.fillMaxWidth().height(45.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(17.dp)) {
             Text("Time", color = Muted, fontSize = 14.sp)
             listOf("15m", "1h", "4h", "1D").forEach { value -> Text(value, color = if (interval == value) White else Muted, fontSize = 15.sp, fontWeight = if (interval == value) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.clickable { onInterval(value) }) }
+            Box {
+                Text(if (interval !in listOf("15m", "1h", "4h", "1D")) interval else "More", color = if (showMoreTimeframes || interval !in listOf("15m", "1h", "4h", "1D")) White else Muted, fontSize = 15.sp, fontWeight = if (interval !in listOf("15m", "1h", "4h", "1D")) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.clickable { showMoreTimeframes = true })
+                DropdownMenu(expanded = showMoreTimeframes, onDismissRequest = { showMoreTimeframes = false }) {
+                    listOf("1s", "1m", "3m", "5m", "30m", "2h", "6h", "8h", "12h", "3D", "1W", "1M").forEach { value ->
+                        DropdownMenuItem(
+                            text = { Text(value, color = if (interval == value) Yellow else White) },
+                            onClick = { onInterval(value); showMoreTimeframes = false }
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.weight(1f))
             Icon(Icons.Filled.ShowChart, null, tint = White, modifier = Modifier.size(22.dp))
             Icon(Icons.Filled.Settings, null, tint = White, modifier = Modifier.size(22.dp))
