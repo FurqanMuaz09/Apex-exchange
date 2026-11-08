@@ -1768,7 +1768,7 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 }
             }
             Canvas(
-                Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(end = 66.dp).height(40.dp)
+                Modifier.align(Alignment.BottomStart).fillMaxWidth().height(40.dp)
             ) {
                 drawRect(Color(0xFF080A0D))
                 val maxVolume = chartCandles.maxOfOrNull { it.volume }?.coerceAtLeast(0.000001f) ?: 1f
@@ -1786,6 +1786,15 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
                         )
                     }
+                }
+                if (hasCrosshair) {
+                    drawLine(
+                        Color(0xFFB8C0CC).copy(alpha = 0.95f),
+                        Offset(crosshairX, 0f),
+                        Offset(crosshairX, size.height),
+                        1.7f,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
+                    )
                 }
             }
             if (selectedCandle != null) {
