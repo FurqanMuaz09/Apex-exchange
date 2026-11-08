@@ -1802,14 +1802,14 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                 @Composable
                 fun detailRow(label: String, value: String, valueColor: Color = White) {
                     Row(Modifier.fillMaxWidth().height(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, color = Muted, fontSize = 7.sp, lineHeight = 8.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(26.dp))
-                        Text(value, color = valueColor, fontSize = 7.sp, lineHeight = 8.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(1f))
+                        Text(label, color = Muted, fontSize = 8.sp, lineHeight = 8.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(29.dp))
+                        Text(value, color = valueColor, fontSize = 8.sp, lineHeight = 8.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(1f))
                     }
                 }
                 Column(
                     Modifier.align(historyAlignment)
-                        .width(65.dp)
-                        .height(80.dp),
+                        .width(73.dp)
+                        .height(88.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     detailRow("Time", timeLabel)
