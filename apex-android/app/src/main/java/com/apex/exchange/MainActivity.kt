@@ -1655,6 +1655,15 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                     val maxP = rawMax + padding + baseRange * verticalPanFraction
                     val range = (maxP - minP).coerceAtLeast(0.000001f)
                     val slot = size.width / visibleCandleCount.coerceAtLeast(1)
+                    chartCandles.forEachIndexed { i, candle ->
+                        val x = slot * i + slot / 2f + chartPanOffsetPx
+                        val yH = size.height - ((candle.high - minP) / range) * size.height
+                        val yL = size.height - ((candle.low - minP) / range) * size.height
+                        val yO = size.height - ((candle.open - minP) / range) * size.height
+                        val yC = size.height - ((candle.close - minP) / range) * size.height
+                        val c = if (candle.close >= candle.open) Green else Red
+                        drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.88f).coerceAtLeast(2f))
+                    }
                     // The live-price guide starts at the actual live candle and extends
                     // rightward to the price badge. It therefore travels with the candle
                     // when the user pans historical candles instead of staying pinned
@@ -1674,15 +1683,6 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
                             )
                         }
-                    }
-                    chartCandles.forEachIndexed { i, candle ->
-                        val x = slot * i + slot / 2f + chartPanOffsetPx
-                        val yH = size.height - ((candle.high - minP) / range) * size.height
-                        val yL = size.height - ((candle.low - minP) / range) * size.height
-                        val yO = size.height - ((candle.open - minP) / range) * size.height
-                        val yC = size.height - ((candle.close - minP) / range) * size.height
-                        val c = if (candle.close >= candle.open) Green else Red
-                        drawLine(c, Offset(x, yH), Offset(x, yL), 1.3f); drawLine(c, Offset(x, yO), Offset(x, yC), (slot * 0.88f).coerceAtLeast(2f))
                     }
                     // Small labels for the highest and lowest visible candle prices.
                     val highIndex = chartCandles.indices.maxByOrNull { chartCandles[it].high }
