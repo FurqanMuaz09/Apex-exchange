@@ -1019,7 +1019,7 @@ private suspend fun fetchPairMarketData(symbol: String, interval: String): PairM
         }
     }
     val ticker = org.json.JSONObject(getJson("/api/v3/ticker/24hr?symbol=$pair"))
-    val klines = JSONArray(getJson("/api/v3/klines?symbol=$pair&interval=$interval&limit=120"))
+    val klines = JSONArray(getJson("/api/v3/klines?symbol=$pair&interval=$interval&limit=1000"))
     val candles = (0 until klines.length()).mapNotNull { index ->
         val row = klines.getJSONArray(index)
         val open = row.getString(1).toFloatOrNull() ?: return@mapNotNull null
