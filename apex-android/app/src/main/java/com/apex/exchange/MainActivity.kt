@@ -1597,9 +1597,15 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 // Map the dragged finger to the nearest candle after undoing chart pan.
                                 selectedCandleIndex = ((change.position.x - chartPanOffsetPx) / slot)
                                     .toInt().coerceIn(0, chartCandles.lastIndex)
-                                // Snap candle-to-candle while keeping vertical price movement free.
-                                crosshairX = (slot * selectedCandleIndex!! + slot / 2f + chartPanOffsetPx)
-                                    .coerceIn(0f, size.width.toFloat())
+                                // Snap over candles; let the guide continue into empty chart space.
+                                val firstCandleX = slot / 2f + chartPanOffsetPx
+                                val lastCandleX = slot * chartCandles.lastIndex + slot / 2f + chartPanOffsetPx
+                                crosshairX = if (change.position.x < firstCandleX || change.position.x > lastCandleX) {
+                                    change.position.x.coerceIn(0f, size.width.toFloat())
+                                } else {
+                                    (slot * selectedCandleIndex!! + slot / 2f + chartPanOffsetPx)
+                                        .coerceIn(0f, size.width.toFloat())
+                                }
                                 crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
                                 selectedPriceY = crosshairY
                                 hasCrosshair = true
@@ -1667,11 +1673,11 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                             val liveY = (size.height - ((p.toFloat() - minP) / range) * size.height)
                                 .coerceIn(0f, size.height.toFloat())
                             drawLine(
-                                Color(0xFFEAECEF).copy(alpha = 0.9f),
+                                Color(0xFFEAECEF).copy(alpha = 1f),
                                 Offset(liveX, liveY),
                                 Offset(size.width, liveY),
-                                1.2f,
-                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f))
+                                1.7f,
+                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
                             )
                         }
                     }
@@ -1713,9 +1719,9 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         drawContext.canvas.nativeCanvas.drawText(label, labelX, (y + 13f).coerceAtMost(size.height - 2f), labelPaint)
                     }
                     if (hasCrosshair) {
-                        val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3f, 5f))
-                        drawLine(Color(0xFF6B7280), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.2f, pathEffect = dash)
-                        drawLine(Color(0xFF6B7280), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.2f, pathEffect = dash)
+                        val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
+                        drawLine(Color(0xFFB8C0CC).copy(alpha = 0.95f), Offset(crosshairX, 0f), Offset(crosshairX, size.height), 1.7f, pathEffect = dash)
+                        drawLine(Color(0xFFB8C0CC).copy(alpha = 0.95f), Offset(0f, crosshairY), Offset(size.width, crosshairY), 1.7f, pathEffect = dash)
                         drawCircle(Color(0xFF111827), 4f, Offset(crosshairX, crosshairY))
                     }
                 }
