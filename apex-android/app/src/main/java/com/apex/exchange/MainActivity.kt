@@ -1596,16 +1596,10 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                                 val slot = size.width.toFloat() / visibleCandleCount.coerceAtLeast(1)
                                 // Map the dragged finger to the nearest candle after undoing chart pan.
                                 selectedCandleIndex = ((change.position.x - chartPanOffsetPx) / slot)
-                                    .toInt().coerceIn(0, chartCandles.lastIndex)
-                                // Snap over candles; let the guide continue into empty chart space.
-                                val firstCandleX = slot / 2f + chartPanOffsetPx
-                                val lastCandleX = slot * chartCandles.lastIndex + slot / 2f + chartPanOffsetPx
-                                crosshairX = if (change.position.x < firstCandleX || change.position.x > lastCandleX) {
-                                    change.position.x.coerceIn(0f, size.width.toFloat())
-                                } else {
-                                    (slot * selectedCandleIndex!! + slot / 2f + chartPanOffsetPx)
-                                        .coerceIn(0f, size.width.toFloat())
-                                }
+                                    .roundToInt().coerceIn(0, chartCandles.lastIndex)
+                                // Keep the crosshair snapped to candle centers, bounded by first/last candle.
+                                crosshairX = (slot * selectedCandleIndex!! + slot / 2f + chartPanOffsetPx)
+                                    .coerceIn(0f, size.width.toFloat())
                                 crosshairY = change.position.y.coerceIn(0f, size.height.toFloat())
                                 selectedPriceY = crosshairY
                                 hasCrosshair = true
