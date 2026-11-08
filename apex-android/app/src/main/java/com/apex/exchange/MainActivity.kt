@@ -1910,6 +1910,24 @@ private fun TradingMarketOverview(pair: String, price: String, change: String, c
                         )
                     }
                 }
+                // AVL = 20-candle average volume line, calculated from Binance base-volume data.
+                if ("AVL" in activeIndicators && chartCandles.isNotEmpty()) {
+                    var previousAveragePoint: Offset? = null
+                    chartCandles.forEachIndexed { index, _ ->
+                        if (index >= 19) {
+                            val averageVolume = chartCandles.subList(index - 19, index + 1)
+                                .map { it.volume.coerceAtLeast(0f) }.average().toFloat()
+                            val x = slot * index + slot / 2f + chartPanOffsetPx
+                            val y = size.height - (averageVolume / maxVolume * (size.height - 3.dp.toPx())).coerceIn(0f, size.height)
+                            val point = Offset(x, y)
+                            previousAveragePoint?.let { drawLine(Color(0xFFFFD54F), it, point, 1.8f) }
+                            previousAveragePoint = point
+                        } else {
+                            previousAveragePoint = null
+                        }
+                    }
+                }
+
                 if (hasCrosshair) {
                     drawLine(
                         Color(0xFFB8C0CC).copy(alpha = 0.95f),
